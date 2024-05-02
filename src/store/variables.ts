@@ -1,6 +1,6 @@
 export const defaultTheme = 'dark'
-export const defaultLogoColor = '#D41216'
-export const defaultPrimaryColor = '#2196f3'
+export const defaultLogoColor = '#95D1B0'
+export const defaultPrimaryColor = '#F0D3B0'
 export const defaultBigThumbnailBackground = '#1e1e1e'
 
 export const minKlipperVersion = 'v0.11.0-257'
