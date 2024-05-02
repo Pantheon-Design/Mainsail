@@ -13,6 +13,7 @@
                 "DeprecatedOptionHeadline": "Deprecated Klipper Option",
                 "DeprecatedValue": "Value '{value}' in option '{option}' in section '{section}' is deprecated and will be removed in a future release.",
                 "DeprecatedValueHeadline": "Deprecated Klipper Value",
+                "KlipperRuntimeWarning": "Klipper runtime warning",
                 "KlipperWarning": "Klipper warning"
             },
             "MoonrakerWarnings": {
@@ -148,6 +149,12 @@
         "HideTimelapse": "Hide Timelapse",
         "SendCode": "Send code...",
         "SetupConsole": "Setup Console"
+    },
+    "CoolDownDialog": {
+        "AreYouSure": "Are you sure?",
+        "CoolDown": "CoolDown",
+        "No": "No",
+        "Yes": "Yes"
     },
     "DevicesDialog": {
         "CanBusInfo": "Only unassigned nodes can be detected. It’s recommended to have only one unassigned device connected to the can bus to avoid communication issues. For more details, please click on the link:",
@@ -593,7 +600,9 @@
         "KlippyStatePanel": {
             "CheckKlippyAndUdsAddress": "Please check if the Klipper service is running and klippy_uds_address is correctly configured in the moonraker.conf.",
             "FirmwareRestart": "Firmware Restart",
+            "KlipperLog": "Klipper Log",
             "MoonrakerCannotConnect": "Moonraker can't connect to Klipper!",
+            "MoonrakerLog": "Moonraker Log",
             "PowerOn": "Power on",
             "PrinterSwitchedOff": "Printer is powered off",
             "PrinterSwitchedOffDescription": "The printer is currently powered off and Klipper cannot connect. To power on the printer, click the button below:",
@@ -1142,6 +1151,8 @@
             "BoolBigThumbnailDescription": "Display a large thumbnail in the status panel during a print.",
             "BoolHideUploadAndPrintButton": "Hide Upload and Print Button",
             "BoolHideUploadAndPrintButtonDescription": "Show or hide the \"Upload and Print\" button in the top bar.",
+            "ConfirmOnCoolDown": "Require confirm on CoolDown",
+            "ConfirmOnCoolDownDescription": "Show a confirmation dialog on CoolDown",
             "ConfirmOnEmergencyStop": "Require confirm on Emergency Stop",
             "ConfirmOnEmergencyStopDescription": "Show a confirmation dialog on Emergency Stop",
             "ConfirmOnPowerDeviceChange": "Require confirm on Device Power changes",
@@ -1176,6 +1187,8 @@
             "PowerDeviceName": "Printer power device",
             "PowerDeviceNameDescription": "Select which Moonraker power device should be used to power on the printer.",
             "Primary": "Primary",
+            "ProgressAsFavicon": "Show progress as favicon",
+            "ProgressAsFaviconDescription": "Change the Mainsail logo favicon to a progress circle.",
             "ScrewsTiltAdjustDialog": "Screws Tilt Adjust Dialog",
             "ScrewsTiltAdjustDialogDescription": "Display helper dialog for SCREWS_TILT_CALCULATE.",
             "TempchartHeight": "Height Temperature Chart",
