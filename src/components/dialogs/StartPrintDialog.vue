@@ -47,6 +47,8 @@ import SettingsRow from '@/components/settings/SettingsRow.vue'
 import { mdiPrinter3d } from '@mdi/js'
 import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
 import { defaultBigThumbnailBackground } from '@/store/variables'
+import yaml from 'js-yaml'
+import printer_config from '@/assets/sample-config.yml'
 
 @Component({
     components: {
@@ -64,6 +66,8 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     @Prop({ required: true })
     declare file: FileStateGcodefile
+
+    yamldata: any = null
 
     get timelapseEnabled() {
         return this.$store.state.server.timelapse?.settings?.enabled ?? false
@@ -109,9 +113,9 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         if (this.active_spool)
             return this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
                 filename: this.file?.filename ?? 'unknown',
-            })
+            }) + '\n' + JSON.stringify(this.yamlData, null, 2) + this.file.filename
 
-        return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })
+        return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })  + '\n' + JSON.stringify(this.yamlData, null, 2);
     }
 
     get maxThumbnailWidth() {
@@ -127,5 +131,27 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     closeDialog() {
         this.$emit('closeDialog')
     }
+
+    loadYaml(filePath) {
+        try {
+            //fileContents = fs.readFileSync(filePath, 'utf8')
+            //this.yamlData = yaml.load(printer_config)
+
+
+            this.yamlData = "4"
+
+        } catch (e) {
+
+            this.yamlData = "asdf: " + e
+            //this.yamlData = "2"
+        }
+    }
+
+    created() {
+        // Load the YAML data here or whenever appropriate
+        this.loadYaml('C:\Users\azio\Downloads\sample-config.yml')
+    }
+
+
 }
 </script>
