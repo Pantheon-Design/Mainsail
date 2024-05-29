@@ -48,7 +48,7 @@ import { mdiPrinter3d } from '@mdi/js'
 import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
 import { defaultBigThumbnailBackground } from '@/store/variables'
 import yaml from 'js-yaml'
-import printer_config from '@/assets/sample-config.yml'
+import axios from 'axios';
 
 @Component({
     components: {
@@ -132,13 +132,14 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         this.$emit('closeDialog')
     }
 
-    loadYaml(filePath) {
+    async loadYaml(filePath) {
         try {
             //fileContents = fs.readFileSync(filePath, 'utf8')
             //this.yamlData = yaml.load(printer_config)
+            const response = await axios.get('/src/assets/sample-config.yml');
 
 
-            this.yamlData = "4"
+            this.yamlData = yaml.load(response.data)
 
         } catch (e) {
 
