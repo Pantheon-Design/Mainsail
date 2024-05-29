@@ -69,6 +69,8 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     yamldata: any = null
 
+    gcodedata: any = null
+
     get timelapseEnabled() {
         return this.$store.state.server.timelapse?.settings?.enabled ?? false
     }
@@ -110,12 +112,13 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }
 
     get question() {
+        this.loadgcodeYaml()
         if (this.active_spool)
             return this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
                 filename: this.file?.filename ?? 'unknown',
             }) + '\n' + JSON.stringify(this.yamlData, null, 2) + this.file.filename
 
-        return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })  + '\n' + JSON.stringify(this.yamlData, null, 2);
+        return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })  + '\n' + JSON.stringify(this.yamlData, null, 2) + '\n' + this.file.filename + '\n' + JSON.stringify(this.gcodedata, null, 2);
     }
 
     get maxThumbnailWidth() {
@@ -132,12 +135,10 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         this.$emit('closeDialog')
     }
 
-    async loadYaml(filePath) {
+    async loadprinterYaml() {
         try {
-            //fileContents = fs.readFileSync(filePath, 'utf8')
-            //this.yamlData = yaml.load(printer_config)
+            //load printer config
             const response = await axios.get('/src/assets/sample-config.yml');
-
 
             this.yamlData = yaml.load(response.data)
 
@@ -148,9 +149,38 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         }
     }
 
+    async loadgcodeYaml() {
+        try {
+            //load gcode config
+            // await axios.post('server/files/metadata', {
+            //     method: 'server.files.metadata',
+            //     params: { filename: this.file.filename }
+            // })
+            // .then(response => {
+            //     this.gcodedata = response.data
+            //     this.$toast.success(response.data);
+
+            // })
+            // .catch(error =>{
+            //     this.$toast.error(error);
+            // })
+            this.$socket.emit('server.files.metadata', { filename: this.file.filename })
+            this.$socket.on('server.files.metadata.response', (result) =>{
+                this.gcodedata = result
+            })
+
+            this.gcodedata = "9"
+
+        } catch (e) {
+
+            this.gcodedata = "asdf: " + e
+            //this.gcodedata = "8"
+        }
+    }    
+
     created() {
         // Load the YAML data here or whenever appropriate
-        this.loadYaml('C:\Users\azio\Downloads\sample-config.yml')
+        this.loadprinterYaml()
     }
 
 
