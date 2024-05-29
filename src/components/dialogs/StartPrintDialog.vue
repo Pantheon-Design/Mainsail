@@ -48,7 +48,8 @@ import { mdiPrinter3d } from '@mdi/js'
 import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
 import { defaultBigThumbnailBackground } from '@/store/variables'
 import yaml from 'js-yaml'
-import axios from 'axios';
+import axios from 'axios'
+ 
 
 @Component({
     components: {
@@ -113,12 +114,21 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     get question() {
         this.loadgcodeYaml()
-        if (this.active_spool)
-            return this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
-                filename: this.file?.filename ?? 'unknown',
-            }) + '\n' + JSON.stringify(this.yamlData, null, 2) + this.file.filename
+        const comparisonResult = this.compareYamlData();
+        const gcodeYamlContent = JSON.stringify(this.gcodedata, null, 2);
+        const printerYamlContent = JSON.stringify(this.yamldata, null, 2);
 
-        return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })  + '\n' + JSON.stringify(this.yamlData, null, 2) + '\n' + this.file.filename + '\n' + JSON.stringify(this.gcodedata, null, 2);
+        if (this.active_spool) {
+            return `${this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+            filename: this.file?.filename ?? 'unknown',
+            })}\n\nComparison Result:\n${comparisonResult}\n\nGcode YAML:\n${gcodeYamlContent}\n\nPrinter YAML:\n${printerYamlContent}`;
+        }
+
+        //return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })  + '\n' + printerYamlContent + '\n ==================\n' + '\n ==================\n' + gcodeYamlContent +'\n ==================\n';
+    
+        return `${this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', {
+            filename: this.file?.filename ?? 'unknown',
+        })}\n\nComparison Result:\n${comparisonResult}\n\nGcode YAML:\n${gcodeYamlContent}\n\nPrinter YAML:\n${printerYamlContent}`;
     }
 
     get maxThumbnailWidth() {
@@ -139,44 +149,55 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         try {
             //load printer config
             const response = await axios.get('/src/assets/sample-config.yml');
-
-            this.yamlData = yaml.load(response.data)
-
+            this.yamldata = yaml.load(response.data)
         } catch (e) {
-
-            this.yamlData = "asdf: " + e
-            //this.yamlData = "2"
+            this.yamldata = "asdf: " + e
         }
     }
 
     async loadgcodeYaml() {
         try {
-            //load gcode config
-            // await axios.post('server/files/metadata', {
-            //     method: 'server.files.metadata',
-            //     params: { filename: this.file.filename }
-            // })
-            // .then(response => {
-            //     this.gcodedata = response.data
-            //     this.$toast.success(response.data);
+            //this.$toast.success("trying to load gcode yaml")
+            this.$socket.emit('server.files.metadata', { filename: this.file.filename }, { action: 'files/getMetadata' })
 
-            // })
-            // .catch(error =>{
-            //     this.$toast.error(error);
-            // })
-            this.$socket.emit('server.files.metadata', { filename: this.file.filename })
-            this.$socket.on('server.files.metadata.response', (result) =>{
-                this.gcodedata = result
-            })
-
-            this.gcodedata = "9"
+            this.gcodedata = yaml.load(this.file.config_yml.replace('---', '').replace('...', '').replace(/;/g, '\n'))
 
         } catch (e) {
-
+            this.$toast.error("failed to load gcode yaml")
             this.gcodedata = "asdf: " + e
             //this.gcodedata = "8"
         }
     }    
+
+    compareYamlData() {
+      if (!this.gcodedata || !this.yamldata) {
+        return 'YAML data not loaded yet';
+      }
+
+      // Function to compare two objects
+      const compare = (obj1: Record<string, any>, obj2: Record<string, any>, path = '') => {
+        let differences = '';
+
+        for (const key in obj1) {
+          if (obj1.hasOwnProperty(key)) {
+            const fullPath = path ? `${path}.${key}` : key;
+            if (obj2.hasOwnProperty(key)) {
+              if (typeof obj1[key] === 'object' && typeof obj2[key] === 'object') {
+                differences += compare(obj1[key], obj2[key], fullPath);
+              } else if (obj1[key] !== obj2[key]) {
+                differences += `Difference at ${fullPath}: ${obj1[key]} !== ${obj2[key]}\n`;
+              }
+            } else {
+              differences += `Missing in second YAML at ${fullPath}\n`;
+            }
+          }
+        }
+
+        return differences;
+      };
+
+      return compare(this.gcodedata, this.yamldata) || 'YAML data match';
+    }
 
     created() {
         // Load the YAML data here or whenever appropriate
@@ -186,3 +207,11 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
 }
 </script>
+
+
+<style>
+textarea {
+  width: 100%;
+  height: 100px;
+}
+</style>
