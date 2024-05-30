@@ -13,6 +13,17 @@
                 <p class="body-2">
                     {{ question }}
                 </p>
+                <p :class="text-yellow" class="body-2">{{ comparisonResult }}</p>
+                <div class="yaml-container">
+                <div class="yaml-content">
+                    <h3>{{ $t('PrinterConfig') }}</h3>
+                    <pre>{{ this.yamldata }}</pre>
+                </div>
+                <div class="yaml-content">
+                    <h3>{{ $t('GcodeConfig') }}</h3>
+                    <pre>{{ this.gcodedata }}</pre>
+                </div>
+                </div>
             </v-card-text>
             <start-print-dialog-spoolman v-if="moonrakerComponents.includes('spoolman')" :file="file" />
             <template v-if="moonrakerComponents.includes('timelapse')">
@@ -72,6 +83,10 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     gcodedata: any = null
 
+    comparisonResult = ''
+    printerYamlContent = ''
+    gcodeYamlContent = ''
+
     get timelapseEnabled() {
         return this.$store.state.server.timelapse?.settings?.enabled ?? false
     }
@@ -114,21 +129,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     get question() {
         this.loadgcodeYaml()
-        const comparisonResult = this.compareYamlData();
-        const gcodeYamlContent = JSON.stringify(this.gcodedata, null, 2);
-        const printerYamlContent = JSON.stringify(this.yamldata, null, 2);
-
-        if (this.active_spool) {
-            return `${this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
-            filename: this.file?.filename ?? 'unknown',
-            })}\n\nComparison Result:\n${comparisonResult}\n\nGcode YAML:\n${gcodeYamlContent}\n\nPrinter YAML:\n${printerYamlContent}`;
-        }
-
-        //return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })  + '\n' + printerYamlContent + '\n ==================\n' + '\n ==================\n' + gcodeYamlContent +'\n ==================\n';
-    
-        return `${this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', {
-            filename: this.file?.filename ?? 'unknown',
-        })}\n\nComparison Result:\n${comparisonResult}\n\nGcode YAML:\n${gcodeYamlContent}\n\nPrinter YAML:\n${printerYamlContent}`;
+        return '';
     }
 
     get maxThumbnailWidth() {
@@ -143,6 +144,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     closeDialog() {
         this.$emit('closeDialog')
+        this.clearGcodeYamlContent()
     }
 
     async loadprinterYaml() {
@@ -150,8 +152,9 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
             //load printer config
             const response = await axios.get('/src/assets/sample-config.yml');
             this.yamldata = yaml.load(response.data)
+            this.printerYamlContent = JSON.stringify(this.yamldata, null, 2)
         } catch (e) {
-            this.yamldata = "asdf: " + e
+            this.yamldata = "Error: " + e
         }
     }
 
@@ -161,7 +164,9 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
             this.$socket.emit('server.files.metadata', { filename: this.file.filename }, { action: 'files/getMetadata' })
 
             this.gcodedata = yaml.load(this.file.config_yml.replace('---', '').replace('...', '').replace(/;/g, '\n'))
-
+            this.gcodeYamlContent = JSON.stringify(this.gcodedata, null, 2)
+            //this.$toast.success("loaded gcode yaml===" + this.gcodedata)
+            this.compareYamlData()
         } catch (e) {
             this.$toast.error("failed to load gcode yaml")
             this.gcodedata = "asdf: " + e
@@ -170,33 +175,50 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }    
 
     compareYamlData() {
-      if (!this.gcodedata || !this.yamldata) {
-        return 'YAML data not loaded yet';
-      }
-
-      // Function to compare two objects
-      const compare = (obj1: Record<string, any>, obj2: Record<string, any>, path = '') => {
-        let differences = '';
-
-        for (const key in obj1) {
-          if (obj1.hasOwnProperty(key)) {
-            const fullPath = path ? `${path}.${key}` : key;
-            if (obj2.hasOwnProperty(key)) {
-              if (typeof obj1[key] === 'object' && typeof obj2[key] === 'object') {
-                differences += compare(obj1[key], obj2[key], fullPath);
-              } else if (obj1[key] !== obj2[key]) {
-                differences += `Difference at ${fullPath}: ${obj1[key]} !== ${obj2[key]}\n`;
-              }
-            } else {
-              differences += `Missing in second YAML at ${fullPath}\n`;
-            }
-          }
+        if (!this.gcodedata || !this.yamldata) {
+            this.comparisonResult = 'YAML data not loaded yet';
+            return;
         }
+        this.$toast.success("comparing data")
+        const compare = (obj1: Record<string, any>, obj2: Record<string, any>, path: string = ''): string => {
+            let differences = '';
 
-        return differences;
-      };
+            for (const key in obj1) {
+            if (obj1.hasOwnProperty(key)) {
+                const fullPath = path ? `${path}.${key}` : key;
+                if (obj2.hasOwnProperty(key)) {
+                if (typeof obj1[key] === 'object' && typeof obj2[key] === 'object') {
+                    differences += compare(obj1[key], obj2[key], fullPath);
+                } else if (obj1[key] !== obj2[key]) {
+                    differences += `Difference at ${fullPath}: ${obj1[key]} !== ${obj2[key]}\n`;
+                }
+                } else {
+                differences += `Missing in second YAML at ${fullPath}\n`;
+                }
 
-      return compare(this.gcodedata, this.yamldata) || 'YAML data match';
+                //this.$toast.success("comparing:==" + obj2[key])
+                //this.$toast.error("comparing:==" + obj1[key])
+            }
+            }
+
+            return differences;
+        };
+
+        //this.$toast.success("comparing:==" + this.gcodeYamlContent)
+        //this.$toast.error("comparing:==" + this.printerYamlContent)
+
+        const differences = compare(this.yamldata, this.gcodedata);
+        this.comparisonResult = differences ? 'Found differences' : 'Config match';
+    }
+
+    comparisonClass() {
+      return 'text-green'
+    }
+
+    clearGcodeYamlContent() {
+        this.gcodeYamlContent = '';
+        this.gcodedata = null;
+        this.comparisonResult = '';
     }
 
     created() {
@@ -210,6 +232,23 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
 
 <style>
+.yaml-container {
+  display: flex;
+  justify-content: space-between;
+}
+.yaml-content {
+  width: 48%;
+}
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.text-yellow {
+  color: yellow;
+}
+.text-green {
+  color: green;
+}
 textarea {
   width: 100%;
   height: 100px;
