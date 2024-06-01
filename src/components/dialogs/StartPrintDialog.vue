@@ -13,7 +13,7 @@
                 <p class="body-2">
                     {{ question }}
                 </p>
-                <p :class="text-yellow" class="body-2">{{ comparisonResult }}</p>
+                <p :class=comparisonClass class="body-2">{{ comparisonResult }}</p>
                 <div class="yaml-container">
                 <div class="yaml-content">
                     <h3>{{ $t('PrinterConfig') }}</h3>
@@ -150,6 +150,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     async loadprinterYaml() {
         try {
             //load printer config
+            //const response = await axios.get('/home/HS3/printer_data/config/src/printer-config-schema.json');
             const response = await axios.get('/src/assets/sample-config.yml');
             this.yamldata = yaml.load(response.data)
             this.printerYamlContent = JSON.stringify(this.yamldata, null, 2)
