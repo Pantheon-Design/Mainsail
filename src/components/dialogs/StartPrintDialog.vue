@@ -10,21 +10,11 @@
             </div>
             <v-card-title class="text-h5">{{ $t('Dialogs.StartPrint.Headline') }}</v-card-title>
             <v-card-text class="pb-0">
-                <p class="body-2">
-                    {{ question }}
+                <p class="body-2" :style="question.style">
+                    {{ question.text }}
                 </p>
-                <p :class=comparisonClass class="body-2">{{ comparisonResult }}</p>
-                <div class="yaml-container">
-                <div class="yaml-content">
-                    <h3>{{ $t('PrinterConfig') }}</h3>
-                    <pre>{{ this.yamldata }}</pre>
-                </div>
-                <div class="yaml-content">
-                    <h3>{{ $t('GcodeConfig') }}</h3>
-                    <pre>{{ this.gcodedata }}</pre>
-                </div>
-                </div>
             </v-card-text>
+
             <start-print-dialog-spoolman v-if="moonrakerComponents.includes('spoolman')" :file="file" />
             <template v-if="moonrakerComponents.includes('timelapse')">
                 <v-divider v-if="!moonrakerComponents.includes('spoolman')" class="mt-3 mb-2" />
@@ -58,9 +48,6 @@ import SettingsRow from '@/components/settings/SettingsRow.vue'
 import { mdiPrinter3d } from '@mdi/js'
 import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
 import { defaultBigThumbnailBackground } from '@/store/variables'
-import yaml from 'js-yaml'
-import axios from 'axios'
- 
 
 @Component({
     components: {
@@ -70,6 +57,8 @@ import axios from 'axios'
 export default class StartPrintDialog extends Mixins(BaseMixin) {
     mdiPrinter3d = mdiPrinter3d
 
+    verifier_text = []
+
     @Prop({ required: true, default: false })
     declare readonly bool: boolean
 
@@ -78,14 +67,6 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     @Prop({ required: true })
     declare file: FileStateGcodefile
-
-    yamldata: any = null
-
-    gcodedata: any = null
-
-    comparisonResult = ''
-    printerYamlContent = ''
-    gcodeYamlContent = ''
 
     get timelapseEnabled() {
         return this.$store.state.server.timelapse?.settings?.enabled ?? false
@@ -128,9 +109,51 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }
 
     get question() {
-        this.loadgcodeYaml()
-        return '';
+        let text
+        let style = {
+            color: 'white', // Change this to the color you want
+            backgroundColor: 'transparent' // Make background transparent
+        }
+        this.$toast.success("===" + this.file.config_verifier)
+            if (this.file.config_verifier == ''){
+                if (this.active_spool)
+                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                        filename: this.file?.filename ?? 'unknown',
+                    })
+                else
+                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
+                        filename: this.file?.filename ?? 'unknown' }
+                    ) + this.file.config_verifier
+            } else if (this.file.config_verifier == undefined){
+                style = {
+                    color: 'red', // Change this to the color you want
+                    backgroundColor: 'yellow' // Make background transparent
+                }
+                if (this.active_spool)
+                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                        filename: this.file?.filename ?? 'unknown',
+                    }) + "Warning: this gcode appears to be generated from a third-party slicer:" +  this.file.slicer
+                    + "\n Proceed with the print may void the warranty."
+                else
+                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
+                        filename: this.file?.filename ?? 'unknown',
+                    }) + "Warning: this gcode appears to be generated from a third-party slicer:" +  this.file.slicer
+                    + "\n Proceed with the print may void the warranty."
+            }
+            else {
+                text = this.file.config_verifier
+                style = {
+                    color: 'red', // Change this to the color you want
+                    backgroundColor: 'yellow' // Make background transparent
+                }
+            }
+
+
+
+            return { text, style };
     }
+
+
 
     get maxThumbnailWidth() {
         return this.file?.big_thumbnail_width ?? 400
@@ -144,114 +167,6 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
     closeDialog() {
         this.$emit('closeDialog')
-        this.clearGcodeYamlContent()
     }
-
-    async loadprinterYaml() {
-        try {
-            //load printer config
-            //const response = await axios.get('/home/HS3/printer_data/config/src/printer-config-schema.json');
-            const response = await axios.get('/src/assets/sample-config.yml');
-            this.yamldata = yaml.load(response.data)
-            this.printerYamlContent = JSON.stringify(this.yamldata, null, 2)
-        } catch (e) {
-            this.yamldata = "Error: " + e
-        }
-    }
-
-    async loadgcodeYaml() {
-        try {
-            //this.$toast.success("trying to load gcode yaml")
-            this.$socket.emit('server.files.metadata', { filename: this.file.filename }, { action: 'files/getMetadata' })
-
-            this.gcodedata = yaml.load(this.file.config_yml.replace('---', '').replace('...', '').replace(/;/g, '\n'))
-            this.gcodeYamlContent = JSON.stringify(this.gcodedata, null, 2)
-            //this.$toast.success("loaded gcode yaml===" + this.gcodedata)
-            this.compareYamlData()
-        } catch (e) {
-            this.$toast.error("failed to load gcode yaml")
-            this.gcodedata = "asdf: " + e
-            //this.gcodedata = "8"
-        }
-    }    
-
-    compareYamlData() {
-        if (!this.gcodedata || !this.yamldata) {
-            this.comparisonResult = 'YAML data not loaded yet';
-            return;
-        }
-        this.$toast.success("comparing data")
-        const compare = (obj1: Record<string, any>, obj2: Record<string, any>, path: string = ''): string => {
-            let differences = '';
-
-            for (const key in obj1) {
-            if (obj1.hasOwnProperty(key)) {
-                const fullPath = path ? `${path}.${key}` : key;
-                if (obj2.hasOwnProperty(key)) {
-                if (typeof obj1[key] === 'object' && typeof obj2[key] === 'object') {
-                    differences += compare(obj1[key], obj2[key], fullPath);
-                } else if (obj1[key] !== obj2[key]) {
-                    differences += `Difference at ${fullPath}: ${obj1[key]} !== ${obj2[key]}\n`;
-                }
-                } else {
-                differences += `Missing in second YAML at ${fullPath}\n`;
-                }
-
-                //this.$toast.success("comparing:==" + obj2[key])
-                //this.$toast.error("comparing:==" + obj1[key])
-            }
-            }
-
-            return differences;
-        };
-
-        //this.$toast.success("comparing:==" + this.gcodeYamlContent)
-        //this.$toast.error("comparing:==" + this.printerYamlContent)
-
-        const differences = compare(this.yamldata, this.gcodedata);
-        this.comparisonResult = differences ? 'Found differences' : 'Config match';
-    }
-
-    comparisonClass() {
-      return 'text-green'
-    }
-
-    clearGcodeYamlContent() {
-        this.gcodeYamlContent = '';
-        this.gcodedata = null;
-        this.comparisonResult = '';
-    }
-
-    created() {
-        // Load the YAML data here or whenever appropriate
-        this.loadprinterYaml()
-    }
-
-
 }
 </script>
-
-
-<style>
-.yaml-container {
-  display: flex;
-  justify-content: space-between;
-}
-.yaml-content {
-  width: 48%;
-}
-pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-.text-yellow {
-  color: yellow;
-}
-.text-green {
-  color: green;
-}
-textarea {
-  width: 100%;
-  height: 100px;
-}
-</style>
