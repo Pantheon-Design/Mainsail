@@ -10,8 +10,8 @@
             </div>
             <v-card-title class="text-h5">{{ $t('Dialogs.StartPrint.Headline') }}</v-card-title>
             <v-card-text class="pb-0">
-                <p class="body-2" :style="question.style">
-                    {{ question.text }}
+                <p v-for="(text, index) in question.textArray" :key="index" :style="question.stylesArray[index]">
+                    {{ text }}
                 </p>
             </v-card-text>
 
@@ -57,7 +57,7 @@ import { defaultBigThumbnailBackground } from '@/store/variables'
 export default class StartPrintDialog extends Mixins(BaseMixin) {
     mdiPrinter3d = mdiPrinter3d
 
-    verifier_text = []
+
 
     @Prop({ required: true, default: false })
     declare readonly bool: boolean
@@ -109,48 +109,102 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }
 
     get question() {
-        let text
-        let style = {
-            color: 'white', // Change this to the color you want
-            backgroundColor: 'transparent' // Make background transparent
+        const defaultStyle = {
+            color: 'white',
+            backgroundColor: 'transparent'
         }
-        this.$toast.success("===" + this.file.config_verifier)
-            if (this.file.config_verifier == ''){
-                if (this.active_spool)
-                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
-                        filename: this.file?.filename ?? 'unknown',
-                    })
-                else
-                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
-                        filename: this.file?.filename ?? 'unknown' }
-                    ) + this.file.config_verifier
-            } else if (this.file.config_verifier == undefined){
-                style = {
-                    color: 'red', // Change this to the color you want
-                    backgroundColor: 'yellow' // Make background transparent
+
+        const warningStyle = {
+            color: 'white',
+            backgroundColor: 'orange'
+        }
+
+        const cautionStyle = {
+            color: 'white',
+            backgroundColor: 'rgb( 218, 218, 11)'
+        }
+
+        const dangerStyle = {
+            color: 'white',
+            backgroundColor: 'red'
+        }
+
+        let textArray = []
+        let stylesArray = []
+
+
+
+        //this.$toast.success(" " + this.file.config_verifier)
+        //this.$toast.error(" " + this.file.config_yml)
+        if (this.file.slicer == 'PantheonSlicer') {
+            // Scenario 1: config_yml doesnt exist for pantheonslicer
+            if (this.file.config_yml == undefined) {
+                if (this.active_spool) {
+                    textArray.push("Caution: Out of date PantheonSlicer Detected\nUpdating to the newest version of pantheonslicer and profiles is highly recommended")
+                    stylesArray.push(cautionStyle)
+                } else {
+                    textArray.push("Caution: Out of date PantheonSlicer Detected\nUpdating to the newest version of pantheonslicer and profiles is highly recommended")
+                    stylesArray.push(cautionStyle)
                 }
-                if (this.active_spool)
-                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
-                        filename: this.file?.filename ?? 'unknown',
-                    }) + "Warning: this gcode appears to be generated from a third-party slicer:" +  this.file.slicer
-                    + "\n Proceed with the print may void the warranty."
-                else
-                    text = this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
-                        filename: this.file?.filename ?? 'unknown',
-                    }) + "Warning: this gcode appears to be generated from a third-party slicer:" +  this.file.slicer
-                    + "\n Proceed with the print may void the warranty."
+            } else {
+                // Scenario 2:config check passed
+                if (this.file.config_verifier == ''){
+                    if (this.active_spool) {
+                        textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                            filename: this.file?.filename ?? 'unknown',
+                        }))
+                        stylesArray.push(defaultStyle)
+                    }
+                    else {
+                        textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
+                            filename: this.file?.filename ?? 'unknown' }
+                        ))
+                        stylesArray.push(defaultStyle)
+                        
+                    }
+                } else if (this.file.config_verifier == undefined){
+                    // Scenario 3: Gcode_yml format is invalid
+                    if (this.active_spool) {
+                        textArray.push("Caution: config_verifier not found\nRe-uploading " +  this.file.slicer
+                        + "is recommended")
+                        stylesArray.push(cautionStyle)
+                    }
+                    else {
+                        textArray.push("Caution: config_verifier not found\nRe-uploading " +  this.file.slicer
+                        + "is recommended")
+                        stylesArray.push(cautionStyle)
+                    }
+                }
+                // Scenario : Difference found
+                else {
+                    textArray = this.file.config_verifier
+                    textArray.forEach((str : string) => {
+                        if (str.startsWith("Warning")) {
+                            stylesArray.push(warningStyle);
+                        } else if (str.startsWith("Caution")) {
+                            stylesArray.push(cautionStyle);
+                        } else if (str.startsWith("Danger")) {
+                            stylesArray.push(dangerStyle);
+                        }
+                    });
+                }
+            }
+        } else {
+            //Scenario 6: Not Pantheon Slicer
+            if (this.active_spool) {
+                textArray.push("Warning: this gcode appears to be generated from a third-party slicer:" +  this.file.slicer
+                + "\n Proceed with the print may void the warranty.")
+                stylesArray.push(warningStyle)
             }
             else {
-                text = this.file.config_verifier
-                style = {
-                    color: 'red', // Change this to the color you want
-                    backgroundColor: 'yellow' // Make background transparent
-                }
+                textArray.push("Warning: this gcode appears to be generated from a third-party slicer:" +  this.file.slicer
+                + "\n Proceed with the print may void the warranty.")
+                stylesArray.push(warningStyle)
             }
+        }
 
 
-
-            return { text, style };
+            return { textArray, stylesArray };
     }
 
 
