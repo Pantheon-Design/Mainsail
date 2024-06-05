@@ -175,7 +175,11 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         let textArray = []
         let stylesArray = []
 
-        if (this.file.config_verifier == undefined){
+        this.$toast.success(" " + this.file.config_verifier)
+        this.$toast.error(" " + this.file.config_yml)
+        this.$toast.error("====" + this.file.enable_config_verifier)
+
+        if (!this.file.enable_config_verifier){
             // Scenario 1: config_verifier is not found in the printer
             if (this.active_spool) {
                 textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
@@ -193,8 +197,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
             return { textArray, stylesArray };
         }
         
-        //this.$toast.success(" " + this.file.config_verifier)
-        //this.$toast.error(" " + this.file.config_yml)
+
         if (this.file.slicer == 'PantheonSlicer') {
             // Scenario 2: config_yml doesnt exist for pantheonslicer
             if (this.file.config_yml == undefined) {
@@ -234,6 +237,28 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                         
                     }
                 }
+                else if (this.file.config_verifier == undefined){
+                    // Scenario 4: Gcode_yml format is invalid
+                    if (this.active_spool) {
+                        textArray.push("Caution")
+                        stylesArray.push(cautionHeadlineStyle)
+                        textArray.push(cautionGenericText)
+                        stylesArray.push(cautionGenericStyle)
+                        textArray.push("Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check " +  this.file.slicer
+                        + "template_custom_gcode content")
+                        stylesArray.push(cautionStyle)
+                    }
+                    else {
+                        textArray.push("Caution")
+                        stylesArray.push(cautionHeadlineStyle)
+                        textArray.push(cautionGenericText)
+                        stylesArray.push(cautionGenericStyle)
+                        textArray.push("Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check " +  this.file.slicer
+                        + "template_custom_gcode content")
+                        stylesArray.push(cautionStyle)
+                    }
+                }
+
                 // Scenario 4: Difference found
                 else {
                     let warningStrings: string[] = [];
