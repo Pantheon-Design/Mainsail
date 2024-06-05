@@ -175,12 +175,28 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         let textArray = []
         let stylesArray = []
 
-
+        if (this.file.config_verifier == undefined){
+            // Scenario 1: config_verifier is not found in the printer
+            if (this.active_spool) {
+                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                    filename: this.file?.filename ?? 'unknown',
+                }))
+                stylesArray.push(defaultStyle)
+            }
+            else {
+                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
+                    filename: this.file?.filename ?? 'unknown' }
+                ))
+                stylesArray.push(defaultStyle)
+                        
+            }
+            return { textArray, stylesArray };
+        }
         
-        //this.$toast.success(" " + this.file.small_thumbnail)
-        //this.$toast.error(" " + this.file.config_yml)
+        this.$toast.success(" " + this.file.config_verifier)
+        this.$toast.error(" " + this.file.config_yml)
         if (this.file.slicer == 'PantheonSlicer') {
-            // Scenario 1: config_yml doesnt exist for pantheonslicer
+            // Scenario 2: config_yml doesnt exist for pantheonslicer
             if (this.file.config_yml == undefined) {
                 if (this.active_spool) {
                     textArray.push("Caution")
@@ -202,7 +218,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                     stylesArray.push(cautionStyle)
                 }
             } else {
-                // Scenario 2:config check passed
+                // Scenario 3:config check passed
                 if (this.file.config_verifier == ''){
                     if (this.active_spool) {
                         textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
@@ -217,28 +233,8 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                         stylesArray.push(defaultStyle)
                         
                     }
-                } else if (this.file.config_verifier == undefined){
-                    // Scenario 3: Gcode_yml format is invalid
-                    if (this.active_spool) {
-                        textArray.push("Caution")
-                        stylesArray.push(cautionHeadlineStyle)
-                        textArray.push(cautionGenericText)
-                        stylesArray.push(cautionGenericStyle)
-                        textArray.push("Caution: config_verifier not found\nRe-uploading " +  this.file.slicer
-                        + "is recommended")
-                        stylesArray.push(cautionStyle)
-                    }
-                    else {
-                        textArray.push("Caution")
-                        stylesArray.push(cautionHeadlineStyle)
-                        textArray.push(cautionGenericText)
-                        stylesArray.push(cautionGenericStyle)
-                        textArray.push("Caution: config_verifier not found\nRe-uploading " +  this.file.slicer
-                        + "is recommended")
-                        stylesArray.push(cautionStyle)
-                    }
                 }
-                // Scenario : Difference found
+                // Scenario 4: Difference found
                 else {
                     let warningStrings: string[] = [];
                     let cautionStrings: string[] = [];
@@ -301,7 +297,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                 }
             }
         } else {
-            //Scenario 6: Not Pantheon Slicer
+            //Scenario 5: Not Pantheon Slicer
             if (this.active_spool) {
                 textArray.push("Warning")
                 stylesArray.push(warningHeadlineStyle)
@@ -323,7 +319,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         }
 
 
-            return { textArray, stylesArray };
+        return { textArray, stylesArray };
     }
 
 
