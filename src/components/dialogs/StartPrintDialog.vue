@@ -193,8 +193,8 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
             return { textArray, stylesArray };
         }
         
-        this.$toast.success(" " + this.file.config_verifier)
-        this.$toast.error(" " + this.file.config_yml)
+        //this.$toast.success(" " + this.file.config_verifier)
+        //this.$toast.error(" " + this.file.config_yml)
         if (this.file.slicer == 'PantheonSlicer') {
             // Scenario 2: config_yml doesnt exist for pantheonslicer
             if (this.file.config_yml == undefined) {
