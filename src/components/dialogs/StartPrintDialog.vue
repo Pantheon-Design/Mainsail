@@ -175,9 +175,9 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         let textArray = []
         let stylesArray = []
 
-        this.$toast.success(" " + this.file.config_verifier)
-        this.$toast.error(" " + this.file.config_yml)
-        this.$toast.error("====" + this.file.enable_config_verifier)
+        //this.$toast.success(" " + this.file.config_verifier)
+        //this.$toast.error(" " + this.file.config_yml)
+        //this.$toast.error("====" + this.file.enable_config_verifier)
 
         if (!this.file.enable_config_verifier){
             // Scenario 1: config_verifier is not found in the printer
@@ -196,7 +196,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
             }
             return { textArray, stylesArray };
         }
-        
+
 
         if (this.file.slicer == 'PantheonSlicer') {
             // Scenario 2: config_yml doesnt exist for pantheonslicer
