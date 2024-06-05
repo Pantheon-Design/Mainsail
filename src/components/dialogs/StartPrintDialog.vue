@@ -1,5 +1,5 @@
 <template>
-    <v-dialog v-model="bool" :max-width="400" @click:outside="closeDialog" @keydown.esc="closeDialog">
+    <v-dialog v-model="bool" :max-width="450" @click:outside="closeDialog" @keydown.esc="closeDialog">
         <v-card>
             <div v-if="file.big_thumbnail" class="d-flex align-center justify-center" style="min-height: 200px">
                 <v-img
@@ -152,20 +152,23 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
         const cautionGenericStyle = {
             color: 'rgb( 218, 218, 11)',
-            fontStyle: 'italic'
+
+            fontSize: '20px'
         }
 
         const warningGenericStyle = {
             color: 'orange',
-            fontStyle: 'italic'
+
+            fontSize: '20px'
         }
 
         const dangerGenericStyle = {
             color: 'red',
-            fontStyle: 'italic'
+
+            fontSize: '20px'
         }
 
-        const cautionGenericText = 'Print Quality my be degraded'
+        const cautionGenericText = 'Print Quality may be degraded'
 
         const warningGenericText = 'Running this file may damage your machine'
 
