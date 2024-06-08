@@ -28,6 +28,16 @@
                         {{ $t('Editor.ConfigReference') }}
                     </v-btn>
                     <v-btn
+                        v-if="restartServiceName === 'features'"
+                        text
+                        tile
+                        :href="featuresReference"
+                        target="_blank"
+                        class="d-none d-md-flex">
+                        <v-icon small class="mr-1">{{ mdiHelp }}</v-icon>
+                        {{ 'features reference' }}
+                    </v-btn>
+                    <v-btn
                         v-if="restartServiceNameExists"
                         color="primary"
                         text
@@ -37,7 +47,17 @@
                         <v-icon small class="mr-1">{{ mdiRestart }}</v-icon>
                         {{ $t('Editor.SaveRestart') }}
                     </v-btn>
-                    <v-btn v-if="isWriteable" icon tile @click="save(null)">
+                    <v-btn
+                        v-if="restartServiceName === 'features'"
+                        color="primary"
+                        text
+                        tile
+                        class="d-none d-sm-flex"
+                        @click="featuresSave('klipper')">
+                        <v-icon small class="mr-1">{{ mdiRestart }}</v-icon>
+                        {{ $t('Editor.SaveRestart') }}
+                    </v-btn>
+                    <v-btn v-if="isWriteable && restartServiceName !== 'features'" icon tile @click="save(null)">
                         <v-icon>{{ mdiContentSave }}</v-icon>
                     </v-btn>
                     <v-btn icon tile @click="close">
@@ -114,6 +134,40 @@
                 </v-card-actions>
             </panel>
         </v-dialog>
+
+        <v-dialog v-model="dialogConfirmFeaturesChange" persistent :width="600">
+            <panel
+                card-class="editor-confirm-change-dialog custom-title"
+                :icon="mdiHelpCircle"
+                :title="('WARNING')"
+                :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="dialogConfirmFeaturesChange = false">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text class="pt-3">
+                    <v-row>
+                        <v-col>
+                            <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
+                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYou old printer.cfg can be recovered from config/backups') }}</p>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="discardChanges">
+                        {{ $t('Editor.DontSave') }}
+                    </v-btn>
+                    <template v-if="restartServiceName === 'features'">
+                        <v-btn text color="primary" @click="saveAndRegenerate">
+                            {{ ('SAVE AND REGENERATE') }}
+                        </v-btn>
+                    </template>
+                </v-card-actions>
+            </panel>
+        </v-dialog>
+
         <devices-dialog :show-dialog="dialogDevices" @close="dialogDevices = false" />
     </div>
 </template>
@@ -145,7 +199,7 @@ import DevicesDialog from '@/components/dialogs/DevicesDialog.vue'
 export default class TheEditor extends Mixins(BaseMixin) {
     dialogConfirmChange = false
     dialogDevices = false
-
+    dialogConfirmFeaturesChange = false
     formatFilesize = formatFilesize
 
     /**
@@ -256,6 +310,9 @@ export default class TheEditor extends Mixins(BaseMixin) {
         // all .cfg files will be klipper config files
         if (this.fileExtension === 'cfg') return 'klipper'
 
+        // special case for features.yml
+        if (this.filename === 'features.yml') return 'features'
+
         return null
     }
 
@@ -301,6 +358,11 @@ export default class TheEditor extends Mixins(BaseMixin) {
         return url
     }
 
+    get featuresReference(): string {
+        let url = 'https://www.pantheondesign.com/about-us'
+        return url
+    }
+
     cancelDownload() {
         this.$store.dispatch('editor/cancelLoad')
     }
@@ -316,6 +378,7 @@ export default class TheEditor extends Mixins(BaseMixin) {
 
     discardChanges() {
         this.dialogConfirmChange = false
+        this.dialogConfirmFeaturesChange = false
         this.$store.dispatch('editor/close')
     }
 
@@ -326,11 +389,28 @@ export default class TheEditor extends Mixins(BaseMixin) {
 
     save(restartServiceName: string | null = null) {
         this.dialogConfirmChange = false
-
+        this.dialogConfirmFeaturesChange = false
         this.$store.dispatch('editor/saveFile', {
             content: this.sourcecode,
             restartServiceName: restartServiceName,
         })
+    }
+
+    featuresSave(restartServiceName: string | null = null) {
+        this.dialogConfirmChange = false
+        this.dialogConfirmFeaturesChange = true
+
+    }
+
+    saveAndRegenerate() {
+        this.dialogConfirmChange = false
+        this.dialogConfirmFeaturesChange = false
+        this.$store.dispatch('editor/regeneratePrinterConfig', {
+            scriptPath: '/home/hs3/hs3-data/utilities/config-processor/generate_printer_config.sh',
+            //argument: '-i /home/hs3/printer_data/config/features.yml',
+            argument: '',
+         })
+        //this.$socket.emit('server.files.configgenerate', { path: '/home/hs3/printer_data/config/features.yml' })
     }
 
     @Watch('changed')
@@ -393,5 +473,10 @@ export default class TheEditor extends Mixins(BaseMixin) {
     box-shadow: none;
     background-color: var(--color-primary);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E %3Cpath d='M15.88 8.29L10 14.17l-1.88-1.88a.996.996 0 1 0-1.41 1.41l2.59 2.59c.39.39 1.02.39 1.41 0L17.3 9.7a.996.996 0 0 0 0-1.41c-.39-.39-1.03-.39-1.42 0z' fill='%23fffff'/%3E %3C/svg%3E");
+}
+
+.custom-title {
+    color: orange; /* Change to desired color */
+    
 }
 </style>

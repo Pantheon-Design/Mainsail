@@ -145,6 +145,29 @@ export const actions: ActionTree<EditorState, RootState> = {
             })
     },
 
+
+    regeneratePrinterConfig(
+        { state, commit, getters, rootGetters, dispatch },
+        payload: { scriptPath: string, argument: string }
+    ) {
+        Vue.$toast.success('running regeneratePrinterConfig')
+
+        Vue.$socket.emit('server.files.configgenerate', { path: payload.argument },
+            { action: 'editor/getRegeneratePrinterConfig' }
+        )
+    },
+
+    getRegeneratePrinterConfig({ commit, dispatch }, payload) {
+        if (payload == null) {
+            Vue.$toast.error('return is null')
+        } else {
+            Vue.$toast.success(payload.result)
+        }
+
+    },
+
+
+
     cancelLoad({ state, commit, dispatch }) {
         if (state.cancelToken) {
             state.cancelToken.cancel('User canceled upload/download')
