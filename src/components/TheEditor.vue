@@ -60,7 +60,7 @@
                     <v-btn v-if="isWriteable && restartServiceName !== 'features'" icon tile @click="save(null)">
                         <v-icon>{{ mdiContentSave }}</v-icon>
                     </v-btn>
-                    <v-btn icon tile @click="close">
+                    <v-btn icon tile @click="close(restartServiceName)">
                         <v-icon>{{ mdiCloseThick }}</v-icon>
                     </v-btn>
                 </template>
@@ -150,7 +150,7 @@
                     <v-row>
                         <v-col>
                             <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
-                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYou old printer.cfg can be recovered from config/backups') }}</p>
+                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
                         </v-col>
                     </v-row>
                 </v-card-text>
@@ -161,9 +161,40 @@
                     </v-btn>
                     <template v-if="restartServiceName === 'features'">
                         <v-btn text color="primary" @click="saveAndRegenerate">
-                            {{ ('SAVE AND REGENERATE') }}
+                            {{ ('SAVE AND GENERATE') }}
                         </v-btn>
                     </template>
+                </v-card-actions>
+            </panel>
+        </v-dialog>
+
+        <v-dialog v-model="dialogConfirmCloseFeatures" persistent :width="600">
+            <panel
+                card-class="editor-confirm-change-dialog custom-title"
+                :icon="mdiHelpCircle"
+                :title="$t('Editor.UnsavedChanges')"
+                :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="dialogConfirmCloseFeatures = false">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text class="pt-3">
+                    <v-row>
+                        <v-col>
+                            <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
+                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="discardChanges">
+                        {{ $t('Editor.DontSave') }}
+                    </v-btn>
+                    <v-btn text color="primary" @click="saveAndRegenerate">
+                        {{ $t('SAVE AND GENERATE') }}
+                    </v-btn>
                 </v-card-actions>
             </panel>
         </v-dialog>
@@ -200,6 +231,7 @@ export default class TheEditor extends Mixins(BaseMixin) {
     dialogConfirmChange = false
     dialogDevices = false
     dialogConfirmFeaturesChange = false
+    dialogConfirmCloseFeatures = false
     formatFilesize = formatFilesize
 
     /**
@@ -371,14 +403,20 @@ export default class TheEditor extends Mixins(BaseMixin) {
         if (this.escToClose) this.close()
     }
 
-    close() {
-        if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
-        else this.$store.dispatch('editor/close')
+    close(restartServiceName: string | null = null) {
+        if (restartServiceName !== 'features'){
+            if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
+            else this.$store.dispatch('editor/close')
+        } else {
+            if (this.confirmUnsavedChanges) this.promptFeaturesUnsavedChanges()
+            else this.$store.dispatch('editor/close')
+        }
     }
 
     discardChanges() {
         this.dialogConfirmChange = false
         this.dialogConfirmFeaturesChange = false
+        this.dialogConfirmCloseFeatures = false
         this.$store.dispatch('editor/close')
     }
 
@@ -387,9 +425,15 @@ export default class TheEditor extends Mixins(BaseMixin) {
         else this.dialogConfirmChange = true
     }
 
+    promptFeaturesUnsavedChanges() {
+        if (!this.changed || !this.isWriteable) this.$store.dispatch('editor/close')
+        else this.dialogConfirmCloseFeatures = true
+    }
+
     save(restartServiceName: string | null = null) {
         this.dialogConfirmChange = false
         this.dialogConfirmFeaturesChange = false
+        this.dialogConfirmCloseFeatures = false
         this.$store.dispatch('editor/saveFile', {
             content: this.sourcecode,
             restartServiceName: restartServiceName,
@@ -399,18 +443,19 @@ export default class TheEditor extends Mixins(BaseMixin) {
     featuresSave(restartServiceName: string | null = null) {
         this.dialogConfirmChange = false
         this.dialogConfirmFeaturesChange = true
+        this.dialogConfirmCloseFeatures = false
 
     }
 
     saveAndRegenerate() {
         this.dialogConfirmChange = false
         this.dialogConfirmFeaturesChange = false
+        this.dialogConfirmCloseFeatures = false
         this.$store.dispatch('editor/regeneratePrinterConfig', {
-            scriptPath: '/home/hs3/hs3-data/utilities/config-processor/generate_printer_config.sh',
-            //argument: '-i /home/hs3/printer_data/config/features.yml',
-            argument: '',
-         })
-        //this.$socket.emit('server.files.configgenerate', { path: '/home/hs3/printer_data/config/features.yml' })
+            content: this.sourcecode
+        })
+
+
     }
 
     @Watch('changed')
