@@ -28,6 +28,16 @@
                         {{ $t('Editor.ConfigReference') }}
                     </v-btn>
                     <v-btn
+                        v-if="restartServiceName === 'features'"
+                        text
+                        tile
+                        :href="featuresReference"
+                        target="_blank"
+                        class="d-none d-md-flex">
+                        <v-icon small class="mr-1">{{ mdiHelp }}</v-icon>
+                        {{ 'features reference' }}
+                    </v-btn>
+                    <v-btn
                         v-if="restartServiceNameExists"
                         color="primary"
                         text
@@ -37,10 +47,20 @@
                         <v-icon small class="mr-1">{{ mdiRestart }}</v-icon>
                         {{ $t('Editor.SaveRestart') }}
                     </v-btn>
-                    <v-btn v-if="isWriteable" icon tile @click="save(null)">
+                    <v-btn
+                        v-if="restartServiceName === 'features'"
+                        color="primary"
+                        text
+                        tile
+                        class="d-none d-sm-flex"
+                        @click="featuresSave('klipper')">
+                        <v-icon small class="mr-1">{{ mdiRestart }}</v-icon>
+                        {{ $t('Editor.SaveRestart') }}
+                    </v-btn>
+                    <v-btn v-if="isWriteable && restartServiceName !== 'features'" icon tile @click="save(null)">
                         <v-icon>{{ mdiContentSave }}</v-icon>
                     </v-btn>
-                    <v-btn icon tile @click="close">
+                    <v-btn icon tile @click="close(restartServiceName)">
                         <v-icon>{{ mdiCloseThick }}</v-icon>
                     </v-btn>
                 </template>
@@ -114,6 +134,71 @@
                 </v-card-actions>
             </panel>
         </v-dialog>
+
+        <v-dialog v-model="dialogConfirmFeaturesChange" persistent :width="600">
+            <panel
+                card-class="editor-confirm-change-dialog custom-title"
+                :icon="mdiHelpCircle"
+                :title="('WARNING')"
+                :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="dialogConfirmFeaturesChange = false">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text class="pt-3">
+                    <v-row>
+                        <v-col>
+                            <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
+                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="discardChanges">
+                        {{ $t('Editor.DontSave') }}
+                    </v-btn>
+                    <template v-if="restartServiceName === 'features'">
+                        <v-btn text color="primary" @click="saveAndRegenerate">
+                            {{ ('SAVE AND GENERATE') }}
+                        </v-btn>
+                    </template>
+                </v-card-actions>
+            </panel>
+        </v-dialog>
+
+        <v-dialog v-model="dialogConfirmCloseFeatures" persistent :width="600">
+            <panel
+                card-class="editor-confirm-change-dialog custom-title"
+                :icon="mdiHelpCircle"
+                :title="$t('Editor.UnsavedChanges')"
+                :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="dialogConfirmCloseFeatures = false">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text class="pt-3">
+                    <v-row>
+                        <v-col>
+                            <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
+                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="discardChanges">
+                        {{ $t('Editor.DontSave') }}
+                    </v-btn>
+                    <v-btn text color="primary" @click="saveAndRegenerate">
+                        {{ $t('SAVE AND GENERATE') }}
+                    </v-btn>
+                </v-card-actions>
+            </panel>
+        </v-dialog>
+
         <devices-dialog :show-dialog="dialogDevices" @close="dialogDevices = false" />
     </div>
 </template>
@@ -145,7 +230,8 @@ import DevicesDialog from '@/components/dialogs/DevicesDialog.vue'
 export default class TheEditor extends Mixins(BaseMixin) {
     dialogConfirmChange = false
     dialogDevices = false
-
+    dialogConfirmFeaturesChange = false
+    dialogConfirmCloseFeatures = false
     formatFilesize = formatFilesize
 
     /**
@@ -256,6 +342,9 @@ export default class TheEditor extends Mixins(BaseMixin) {
         // all .cfg files will be klipper config files
         if (this.fileExtension === 'cfg') return 'klipper'
 
+        // special case for features.yml
+        if (this.filename === 'features.yml') return 'features'
+
         return null
     }
 
@@ -301,6 +390,11 @@ export default class TheEditor extends Mixins(BaseMixin) {
         return url
     }
 
+    get featuresReference(): string {
+        let url = 'https://pantheondesign.atlassian.net/wiki/x/AgDiEg'
+        return url
+    }
+
     cancelDownload() {
         this.$store.dispatch('editor/cancelLoad')
     }
@@ -309,13 +403,20 @@ export default class TheEditor extends Mixins(BaseMixin) {
         if (this.escToClose) this.close()
     }
 
-    close() {
-        if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
-        else this.$store.dispatch('editor/close')
+    close(restartServiceName: string | null = null) {
+        if (restartServiceName !== 'features'){
+            if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
+            else this.$store.dispatch('editor/close')
+        } else {
+            if (this.confirmUnsavedChanges) this.promptFeaturesUnsavedChanges()
+            else this.$store.dispatch('editor/close')
+        }
     }
 
     discardChanges() {
         this.dialogConfirmChange = false
+        this.dialogConfirmFeaturesChange = false
+        this.dialogConfirmCloseFeatures = false
         this.$store.dispatch('editor/close')
     }
 
@@ -324,13 +425,37 @@ export default class TheEditor extends Mixins(BaseMixin) {
         else this.dialogConfirmChange = true
     }
 
+    promptFeaturesUnsavedChanges() {
+        if (!this.changed || !this.isWriteable) this.$store.dispatch('editor/close')
+        else this.dialogConfirmCloseFeatures = true
+    }
+
     save(restartServiceName: string | null = null) {
         this.dialogConfirmChange = false
-
+        this.dialogConfirmFeaturesChange = false
+        this.dialogConfirmCloseFeatures = false
         this.$store.dispatch('editor/saveFile', {
             content: this.sourcecode,
             restartServiceName: restartServiceName,
         })
+    }
+
+    featuresSave(restartServiceName: string | null = null) {
+        this.dialogConfirmChange = false
+        this.dialogConfirmFeaturesChange = true
+        this.dialogConfirmCloseFeatures = false
+
+    }
+
+    saveAndRegenerate() {
+        this.dialogConfirmChange = false
+        this.dialogConfirmFeaturesChange = false
+        this.dialogConfirmCloseFeatures = false
+        this.$store.dispatch('editor/regeneratePrinterConfig', {
+            content: this.sourcecode
+        })
+
+
     }
 
     @Watch('changed')
@@ -393,5 +518,10 @@ export default class TheEditor extends Mixins(BaseMixin) {
     box-shadow: none;
     background-color: var(--color-primary);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E %3Cpath d='M15.88 8.29L10 14.17l-1.88-1.88a.996.996 0 1 0-1.41 1.41l2.59 2.59c.39.39 1.02.39 1.41 0L17.3 9.7a.996.996 0 0 0 0-1.41c-.39-.39-1.03-.39-1.42 0z' fill='%23fffff'/%3E %3C/svg%3E");
+}
+
+.custom-title {
+    color: orange; /* Change to desired color */
+    
 }
 </style>

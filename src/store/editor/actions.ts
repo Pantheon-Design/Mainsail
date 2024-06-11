@@ -145,6 +145,135 @@ export const actions: ActionTree<EditorState, RootState> = {
             })
     },
 
+
+    regeneratePrinterConfig(
+        { state, commit, getters, rootGetters, dispatch },
+        payload: { content: string}
+    ) {
+
+
+        const content = new Blob([payload.content], { type: 'text/plain' })
+        const temp_formData = new FormData()
+        temp_formData.append('file', content, 'temp_'+state.filename)
+        temp_formData.append('root', state.fileroot)
+        temp_formData.append('path', state.filepath)
+        temp_formData.append('checksum', sha256(payload.content))
+        const url = rootGetters['socket/getUrl'] + '/server/files/upload'
+        if (state.cancelToken) dispatch('cancelLoad')
+        const CancelToken = axios.CancelToken
+        const source = CancelToken.source()
+        commit('updateCancelTokenSource', source)
+        commit('updateLoaderState', true)
+
+        // saving temp_features.yml file
+        axios
+            .post(url, temp_formData, {
+                cancelToken: source.token,
+                onUploadProgress: (progressEvent) =>
+                    dispatch('downloadProgress', {
+                        progressEvent,
+                        direction: 'uploading',
+                        filesize: null,
+                    }),
+            })
+            .then((response) => {
+                return response.data
+            })
+            .then((data) => {
+                dispatch('clearLoader')
+                //Vue.$toast.success(i18n.t('Editor.SuccessfullySaved', { filename: data.item.path }).toString())
+                //commit('updateLoadedHash', payload.content)
+            })
+            .catch((error) => {
+                window.console.log(error.response?.data.error)
+                dispatch('clearLoader')
+                Vue.$toast.error(i18n.t('Editor.FailedSave', { filename: state.filename }).toString())
+            })
+
+        // regenerate and restart
+        const regenerate_url = rootGetters['socket/getUrl'] + '/server/files/configgenerate'
+        axios
+            .post(regenerate_url, {
+                cancelToken: source.token
+            })
+            .then((response) => {
+                return response.data
+            })
+            .then((data) => {
+                
+                if (data == null || data === '') {
+                    Vue.$toast.success('Printer.cfg generated')
+                    const formData = new FormData()
+                    formData.append('file', content, state.filename)
+                    formData.append('root', state.fileroot)
+                    formData.append('path', state.filepath)
+                    formData.append('checksum', sha256(payload.content))
+                    axios
+                        .post(url, formData, {
+                            cancelToken: source.token,
+                            onUploadProgress: (progressEvent) =>
+                                dispatch('downloadProgress', {
+                                    progressEvent,
+                                    direction: 'uploading',
+                                    filesize: null,
+                                }),
+                        })
+                        .then((response) => {
+                            return response.data
+                        })
+                        .then((data) => {
+                            dispatch('clearLoader')
+                            Vue.$toast.success(i18n.t('Editor.SuccessfullySaved', { filename: data.item.path }).toString())
+                            commit('updateLoadedHash', payload.content)
+                        })
+                        .catch((error) => {
+                            window.console.log(error.response?.data.error)
+                            dispatch('clearLoader')
+                            Vue.$toast.error(i18n.t('Editor.FailedSave', { filename: state.filename }).toString())
+                        })
+                    const klipperRestartMethod = getters['getKlipperRestartMethod']
+                    Vue.$socket.emit('printer.gcode.script', { script: klipperRestartMethod })
+                    Vue.$socket.emit('server.restart', {})
+                    dispatch('close')
+
+                } else {
+                    Vue.$toast.error('Printer.cfg generation failed')
+                    Vue.$toast.error(data['error'], {message:data['error'], duration:50000})
+                }
+
+                // delete temp_features.yml after configgenerate finishes
+                Vue.$socket.emit(
+                    'server.files.delete_file',
+                    { path: 'config' + '/' + 'temp_features.yml' },
+                    {}
+                )
+            })
+            .catch((error) => {
+                window.console.log(error.response?.data.error)
+                dispatch('clearLoader')
+                Vue.$toast.error(error.response?.data.error)
+                Vue.$toast.error(error)
+            })
+
+
+        // Vue.$socket.emit('server.files.configgenerate',
+        //     { action: 'editor/getRegeneratePrinterConfig' }
+        // )
+    },
+
+    getRegeneratePrinterConfig({ commit, dispatch }, payload) {
+        Vue.$toast.success('ran regeneration')
+
+        if (payload == null) {
+            Vue.$toast.error('return is null')
+        } else {
+            Vue.$toast.success(payload.result)
+        }
+
+    },
+
+
+
     cancelLoad({ state, commit, dispatch }) {
         if (state.cancelToken) {
             state.cancelToken.cancel('User canceled upload/download')
