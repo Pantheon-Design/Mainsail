@@ -391,7 +391,7 @@ export default class TheEditor extends Mixins(BaseMixin) {
     }
 
     get featuresReference(): string {
-        let url = 'https://www.pantheondesign.com/about-us'
+        let url = 'https://pantheondesign.atlassian.net/wiki/x/AgDiEg'
         return url
     }
 
