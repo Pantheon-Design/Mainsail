@@ -424,8 +424,6 @@ export default class TheEditor extends Mixins(BaseMixin) {
     }
 
     close(restartServiceName: string | null = null) {
-        this.$toast.success(" " + restartServiceName)
-        this.$toast.error(" " + this.filename)
         if (this.filename == 'features.yml'){
             if (this.confirmUnsavedChanges) this.promptFeaturesUnsavedChanges()
             else this.$store.dispatch('editor/close')
