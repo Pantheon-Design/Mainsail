@@ -57,7 +57,7 @@
                         <v-icon small class="mr-1">{{ mdiRestart }}</v-icon>
                         {{ $t('Editor.SaveRestart') }}
                     </v-btn>
-                    <v-btn v-if="isWriteable && restartServiceName !== 'features'" icon tile @click="save(null)">
+                    <v-btn v-if="isWriteable && fileName !== 'features.yml'" icon tile @click="save(null)">
                         <v-icon>{{ mdiContentSave }}</v-icon>
                     </v-btn>
                     <v-btn icon tile @click="close(restartServiceName)">
@@ -181,20 +181,36 @@
                 </template>
                 <v-card-text class="pt-3">
                     <v-row>
-                        <v-col>
-                            <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
-                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
-                        </v-col>
+                        <template v-if="restartServiceName === 'features'">
+                            <v-col>
+                                <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
+                                <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
+                            </v-col>
+                        </template>
+                        <template v-if="restartServiceName !== 'features'">
+                            <v-col>
+                                <p class="body-1 mb-2">{{ ('Changing features.yml while printing is not allowed') }}</p>
+                            </v-col>
+                        </template>
+
                     </v-row>
                 </v-card-text>
                 <v-card-actions>
                     <v-spacer />
-                    <v-btn text @click="discardChanges">
-                        {{ $t('Editor.DontSave') }}
-                    </v-btn>
-                    <v-btn text color="primary" @click="saveAndRegenerate">
-                        {{ $t('SAVE AND GENERATE') }}
-                    </v-btn>
+                    <template v-if="restartServiceName === 'features'">
+                        <v-btn text @click="discardChanges">
+                            {{ $t('Editor.DontSave') }}
+                        </v-btn>
+                        <v-btn text color="primary" @click="saveAndRegenerate">
+                            {{ $t('SAVE AND GENERATE') }}
+                        </v-btn>
+                    </template>
+
+                    <template v-if="restartServiceName !== 'features'">
+                        <v-btn text @click="discardChanges">
+                            {{ 'Close Without Save' }}
+                        </v-btn>
+                    </template>
                 </v-card-actions>
             </panel>
         </v-dialog>
@@ -322,6 +338,10 @@ export default class TheEditor extends Mixins(BaseMixin) {
         return this.$store.state.server.system_info?.available_services ?? []
     }
 
+    get fileName() {
+        return this.filename
+    }
+
     get restartServiceName() {
         if (!this.isWriteable) return null
         if (['printing', 'paused'].includes(this.printer_state)) return null
@@ -404,12 +424,15 @@ export default class TheEditor extends Mixins(BaseMixin) {
     }
 
     close(restartServiceName: string | null = null) {
-        if (restartServiceName !== 'features'){
-            if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
-            else this.$store.dispatch('editor/close')
-        } else {
+        this.$toast.success(" " + restartServiceName)
+        this.$toast.error(" " + this.filename)
+        if (this.filename == 'features.yml'){
             if (this.confirmUnsavedChanges) this.promptFeaturesUnsavedChanges()
             else this.$store.dispatch('editor/close')
+        } else {
+            if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
+            else this.$store.dispatch('editor/close')
+
         }
     }
 

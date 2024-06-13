@@ -11,7 +11,7 @@
                         alt="Logo" />
                 </template>
                 <template v-else>
-                    <mainsail-logo
+                    <pantheon-logo
                         :color="logoColor"
                         style="height: 32px"
                         class="nav-logo ml-4 mr-1 d-none d-sm-flex"
@@ -97,7 +97,7 @@ import TheTopCornerMenu from '@/components/TheTopCornerMenu.vue'
 import TheSettingsMenu from '@/components/TheSettingsMenu.vue'
 import Panel from '@/components/ui/Panel.vue'
 import PrinterSelector from '@/components/ui/PrinterSelector.vue'
-import MainsailLogo from '@/components/ui/MainsailLogo.vue'
+import PantheonLogo from '@/components/ui/PantheonLogo.vue'
 import TheNotificationMenu from '@/components/notifications/TheNotificationMenu.vue'
 import { topbarHeight } from '@/store/variables'
 import { mdiAlertOctagonOutline, mdiContentSave, mdiFileUpload, mdiClose, mdiCloseThick } from '@mdi/js'
@@ -119,7 +119,7 @@ type uploadSnackbar = {
         TheSettingsMenu,
         TheTopCornerMenu,
         PrinterSelector,
-        MainsailLogo,
+        PantheonLogo,
         TheNotificationMenu,
     },
 })
