@@ -1,6 +1,6 @@
 {
     "name": "mainsail",
-    "version": "2.10.1",
+    "version": "2.10.7",
     "private": true,
     "decription": "a klipper web interface",
     "author": {
@@ -14,7 +14,7 @@
         "format:check": "npm run format:base -- --check",
         "lint": "eslint --ignore-path .gitignore src",
         "lint:fix": "npm run lint -- --fix",
-        "build.zip": "cd ./dist && zip -r mainsail.zip ./ -x '**.DS_Store' ./ && cd ..",
+        "build.zip": "cd ./dist && 7z a -tzip mainsail.zip ./ -xr!*.DS_Store && cd ..",
         "i18n-extract": "vue-i18n-extract use-config",
         "preview": "vite preview",
         "start": "vite build && vite preview",
