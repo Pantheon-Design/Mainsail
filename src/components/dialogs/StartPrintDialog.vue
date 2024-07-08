@@ -1,5 +1,5 @@
 <template>
-    <v-dialog v-model="bool" :max-width="400" @click:outside="closeDialog" @keydown.esc="closeDialog">
+    <v-dialog v-model="bool" :max-width="450" @click:outside="closeDialog" @keydown.esc="closeDialog">
         <v-card>
             <div v-if="file.big_thumbnail" class="d-flex align-center justify-center" style="min-height: 200px">
                 <v-img
@@ -10,10 +10,11 @@
             </div>
             <v-card-title class="text-h5">{{ $t('Dialogs.StartPrint.Headline') }}</v-card-title>
             <v-card-text class="pb-0">
-                <p class="body-2">
-                    {{ question }}
+                <p v-for="(text, index) in question.textArray" :key="index" :style="question.stylesArray[index]">
+                    {{ text }}
                 </p>
             </v-card-text>
+
             <start-print-dialog-spoolman v-if="moonrakerComponents.includes('spoolman')" :file="file" />
             <template v-if="moonrakerComponents.includes('timelapse')">
                 <v-divider v-if="!moonrakerComponents.includes('spoolman')" class="mt-3 mb-2" />
@@ -55,6 +56,8 @@ import { defaultBigThumbnailBackground } from '@/store/variables'
 })
 export default class StartPrintDialog extends Mixins(BaseMixin) {
     mdiPrinter3d = mdiPrinter3d
+
+    printer_config_file_path = '/home/hs3/printer_data/config/printer-config.yml'
 
     @Prop({ required: true, default: false })
     declare readonly bool: boolean
@@ -106,13 +109,245 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }
 
     get question() {
-        if (this.active_spool)
-            return this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
-                filename: this.file?.filename ?? 'unknown',
-            })
+        const defaultStyle = {
+            color: 'white',
+            backgroundColor: 'transparent'
+        }
 
-        return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { filename: this.file?.filename ?? 'unknown' })
+        const warningStyle = {
+            color: 'orange',
+            backgroundColor: 'transparent'
+        }
+
+        const cautionStyle = {
+            color: 'rgb( 218, 218, 11)',
+            backgroundColor: 'transparent'
+        }
+
+        const dangerStyle = {
+            color: 'red',
+            backgroundColor: 'transparent'
+        }
+
+        const cautionHeadlineStyle = {
+            color: 'black',
+            backgroundColor: 'rgb( 218, 218, 11)',
+            fontWeight: 'bold',
+            fontSize: '26px'
+        }
+
+        const warningHeadlineStyle = {
+            color: 'black',
+            backgroundColor: 'orange',
+            fontWeight: 'bold',
+            fontSize: '26px'
+        }
+
+        const dangerHeadlineStyle = {
+            color: 'black',
+            backgroundColor: 'red',
+            fontWeight: 'bold',
+            fontSize: '26px'
+        }
+
+        const cautionGenericStyle = {
+            color: 'rgb( 218, 218, 11)',
+
+            fontSize: '20px'
+        }
+
+        const warningGenericStyle = {
+            color: 'orange',
+
+            fontSize: '20px'
+        }
+
+        const dangerGenericStyle = {
+            color: 'red',
+
+            fontSize: '20px'
+        }
+
+        const cautionGenericText = 'Print Quality may be degraded'
+
+        const warningGenericText = 'Running this file may damage your machine'
+
+        let textArray = []
+        let stylesArray = []
+
+        //this.$toast.success(" " + this.file.config_verifier)
+        //this.$toast.error(" " + this.file.config_yml)
+        //this.$toast.error("====" + this.file.enable_config_verifier)
+
+        if (!this.file.enable_config_verifier){
+            // Scenario 1: config_verifier is not found in the printer
+            if (this.active_spool) {
+                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                    filename: this.file?.filename ?? 'unknown',
+                }))
+                stylesArray.push(defaultStyle)
+            }
+            else {
+                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
+                    filename: this.file?.filename ?? 'unknown' }
+                ))
+                stylesArray.push(defaultStyle)
+                        
+            }
+            return { textArray, stylesArray };
+        }
+
+
+        if (this.file.slicer == 'PantheonSlicer') {
+            // Scenario 2: config_yml doesnt exist for pantheonslicer
+            if (this.file.config_yml == undefined) {
+                if (this.active_spool) {
+                    textArray.push("Caution")
+                    stylesArray.push(cautionHeadlineStyle)
+                    textArray.push(cautionGenericText)
+                    stylesArray.push(cautionGenericStyle)
+                    textArray.push("Caution: Out of date PantheonSlicer Detected.")
+                    stylesArray.push(cautionStyle)
+                    textArray.push("Please update PantheonSlicer and the profiles")
+                    stylesArray.push(cautionStyle)
+                } else {
+                    textArray.push("Caution")
+                    stylesArray.push(cautionHeadlineStyle)
+                    textArray.push(cautionGenericText)
+                    stylesArray.push(cautionGenericStyle)
+                    textArray.push("Caution: Out of date PantheonSlicer Detected.")
+                    stylesArray.push(cautionStyle)
+                    textArray.push("Please update PantheonSlicer and the profiles")
+                    stylesArray.push(cautionStyle)
+                }
+            } else {
+                // Scenario 3:config check passed
+                if (this.file.config_verifier == ''){
+                    if (this.active_spool) {
+                        textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                            filename: this.file?.filename ?? 'unknown',
+                        }))
+                        stylesArray.push(defaultStyle)
+                    }
+                    else {
+                        textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
+                            filename: this.file?.filename ?? 'unknown' }
+                        ))
+                        stylesArray.push(defaultStyle)
+                        
+                    }
+                }
+                else if (this.file.config_verifier == undefined){
+                    // Scenario 4: Gcode_yml format is invalid
+                    if (this.active_spool) {
+                        textArray.push("Caution")
+                        stylesArray.push(cautionHeadlineStyle)
+                        textArray.push(cautionGenericText)
+                        stylesArray.push(cautionGenericStyle)
+                        textArray.push("Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check " +  this.file.slicer
+                        + "template_custom_gcode content")
+                        stylesArray.push(cautionStyle)
+                    }
+                    else {
+                        textArray.push("Caution")
+                        stylesArray.push(cautionHeadlineStyle)
+                        textArray.push(cautionGenericText)
+                        stylesArray.push(cautionGenericStyle)
+                        textArray.push("Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check " +  this.file.slicer
+                        + "template_custom_gcode content")
+                        stylesArray.push(cautionStyle)
+                    }
+                }
+
+                // Scenario 4: Difference found
+                else {
+                    let warningStrings: string[] = [];
+                    let cautionStrings: string[] = [];
+                    let dangerStrings: string[] = [];
+                    let updatedTextArray: string[] = [];
+                    let updatedStylesArray: any[] = [];
+
+                    textArray = this.file.config_verifier
+                    textArray.forEach((str : string) => {
+                        if (str.startsWith("Warning")) {
+                            warningStrings.push(str)
+                            stylesArray.push(defaultStyle);
+                        } else if (str.startsWith("Caution")) {
+                            cautionStrings.push(str)
+                            stylesArray.push(defaultStyle);
+                        } else if (str.startsWith("Danger")) {
+                            dangerStrings.push(str)
+                            stylesArray.push(defaultStyle);
+                        }
+                    });
+
+
+                    // Add warnings and their styles if they exist
+                    if (warningStrings.length > 0) {
+                        updatedTextArray.push("Warning");
+                        updatedStylesArray.push(warningHeadlineStyle); // You can add a separate style for headlines if needed
+                        updatedTextArray.push(warningGenericText)
+                        updatedStylesArray.push(warningGenericStyle)
+                        warningStrings.forEach((str) => {
+                            updatedTextArray.push(str);
+                            updatedStylesArray.push(warningStyle);
+                        });
+                    }
+
+                    // Add cautions and their styles if they exist
+                    if (cautionStrings.length > 0) {
+                        updatedTextArray.push("Caution");
+                        updatedStylesArray.push(cautionHeadlineStyle); // You can add a separate style for headlines if needed
+                        updatedTextArray.push(cautionGenericText)
+                        updatedStylesArray.push(cautionGenericStyle)
+                        cautionStrings.forEach((str) => {
+                            updatedTextArray.push(str);
+                            updatedStylesArray.push(cautionStyle);
+                        });
+                    }
+
+                    // Add dangers and their styles if they exist
+                    if (dangerStrings.length > 0) {
+                        updatedTextArray.push("Danger");
+                        updatedStylesArray.push(dangerHeadlineStyle); // You can add a separate style for headlines if needed
+                        dangerStrings.forEach((str) => {
+                            updatedTextArray.push(str);
+                            updatedStylesArray.push(defaultStyle);
+                        });
+                    }
+                    // Assign the updated arrays back to the original arrays
+                    textArray = updatedTextArray;
+                    stylesArray = updatedStylesArray
+
+                }
+            }
+        } else {
+            //Scenario 5: Not Pantheon Slicer
+            if (this.active_spool) {
+                textArray.push("Warning")
+                stylesArray.push(warningHeadlineStyle)
+                textArray.push(warningGenericText)
+                stylesArray.push(warningGenericStyle)
+                textArray.push("Warning: Third-party slicer detected: <<" +  this.file.slicer
+                + ">>")
+                stylesArray.push(warningStyle)
+            }
+            else {
+                textArray.push("Warning")
+                stylesArray.push(warningHeadlineStyle)
+                textArray.push(warningGenericText)
+                stylesArray.push(warningGenericStyle)
+                textArray.push("Warning: Third-party slicer detected: <<" +  this.file.slicer
+                + ">>")
+                stylesArray.push(warningStyle)
+            }
+        }
+
+
+        return { textArray, stylesArray };
     }
+
+
 
     get maxThumbnailWidth() {
         return this.file?.big_thumbnail_width ?? 400

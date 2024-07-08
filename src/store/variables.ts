@@ -73,6 +73,9 @@ export const allowedMetadata = [
     'slicer',
     'slicer_version',
     'thumbnails',
+    'config_yml',
+    'config_verifier',
+    'enable_config_verifier'
 ]
 
 export const maxEventHistory = 500
