@@ -28,7 +28,7 @@
                         {{ $t('Editor.ConfigReference') }}
                     </v-btn>
                     <v-btn
-                        v-if="restartServiceName === 'features'"
+                        v-if="fileName === 'features.yml'"
                         text
                         tile
                         :href="featuresReference"
