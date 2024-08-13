@@ -1,6 +1,6 @@
 <template>
     <panel 
-        :icon="mdiPrinter3d"
+        :icon="mdiPrinter3dzzz"
         :title="printer_name"
         card-class="farmprinter-panel"
         :class="panelClass"
