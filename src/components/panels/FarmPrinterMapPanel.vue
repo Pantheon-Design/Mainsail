@@ -1,43 +1,11 @@
 <template>
     <panel 
-        :icon="mdiPrinter3dzzz"
+        :icon="mdiPrinter3d"
         :title="printer_name"
         card-class="farmprinter-panel"
         :class="panelClass"
         :loading="printer.socket.isConnecting"
         :toolbar-color="isCurrentPrinter ? 'primary' : ''">
-        <template #buttons>
-            <v-menu v-if="showWebcamSwitch" :offset-y="true" title="Webcam">
-                <template #activator="{ on, attrs }">
-                    <v-btn text v-bind="attrs" v-on="on">
-                        <v-icon small>{{ mdiWebcam }}</v-icon>
-                        <v-icon small>{{ mdiMenuDown }}</v-icon>
-                    </v-btn>
-                </template>
-                <v-list dense class="py-0">
-                    <v-list-item link @click="currentCamName = 'off'">
-                        <v-list-item-icon class="mr-2">
-                            <v-icon small class="mt-1">{{ mdiWebcamOff }}</v-icon>
-                        </v-list-item-icon>
-                        <v-list-item-content>
-                            <v-list-item-title>{{ $t('Panels.FarmPrinterPanel.WebcamOff') }}</v-list-item-title>
-                        </v-list-item-content>
-                    </v-list-item>
-                    <v-list-item
-                        v-for="webcam of printer_webcams"
-                        :key="webcam.name"
-                        link
-                        @click="currentCamName = webcam.name">
-                        <v-list-item-icon class="mr-2">
-                            <v-icon small class="mt-1">{{ convertWebcamIcon(webcam.icon) }}</v-icon>
-                        </v-list-item-icon>
-                        <v-list-item-content>
-                            <v-list-item-title v-text="webcam.name" />
-                        </v-list-item-content>
-                    </v-list-item>
-                </v-list>
-            </v-menu>
-        </template>
         <v-hover>
             <template #default="{ hover }">
                 <div>
