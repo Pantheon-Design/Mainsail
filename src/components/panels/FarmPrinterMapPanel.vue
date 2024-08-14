@@ -10,33 +10,10 @@
             <template #default="{ hover }">
                 <div>
                     <v-img ref="imageDiv" :height="imageHeight" :src="printer_image" class="d-flex align-end">
-                        <div
-                            v-if="
-                                printer.socket.isConnected &&
-                                currentCamName !== 'off' &&
-                                currentWebcam &&
-                                'service' in currentWebcam
-                            "
-                            class="webcamContainer">
-                            <webcam-wrapper :webcam="currentWebcam" :printer-url="printerUrl" :show-fps="false" />
-                        </div>
                         <v-card-title
                             class="white--text py-2"
                             style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(3px)">
                             <v-row>
-                                <v-col class="col-auto pr-0 d-flex align-center" style="width: 58px">
-                                    <img
-                                        v-if="printer_logo"
-                                        :src="printer_logo"
-                                        style="width: 100%"
-                                        class="my-auto"
-                                        alt="Logo" />
-                                    <mainsail-logo
-                                        v-else
-                                        :color="printerLogoColor"
-                                        style="width: 100%"
-                                        class="my-auto" />
-                                </v-col>
                                 <v-col class="col" style="width: 100px">
                                     <h3 class="font-weight-regular">{{ printer_status }}</h3>
                                     <span
@@ -49,19 +26,6 @@
                             </v-row>
                         </v-card-title>
                     </v-img>
-                    <v-card-text v-if="printer_preview.length" class="px-0 py-2">
-                        <v-container class="py-0">
-                            <v-row>
-                                <v-col
-                                    v-for="object in printer_preview"
-                                    :key="object.name"
-                                    :class="object.name === 'ETA' ? 'col-auto' : 'col' + ' px-2'">
-                                    <strong class="d-block text-center">{{ object.name }}</strong>
-                                    <span class="d-block text-center">{{ object.value }}</span>
-                                </v-col>
-                            </v-row>
-                        </v-container>
-                    </v-card-text>
                     <v-fade-transition>
                         <v-overlay v-if="hover" absolute :z-index="4">
                             <v-btn color="primary" @click="clickPrinter">

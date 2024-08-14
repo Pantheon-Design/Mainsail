@@ -41,7 +41,7 @@
         components: { FarmPrinterPanel },
     })
     export default class PageFarm extends Mixins(BaseMixin) {
-        isMapView: boolean = false;
+        isMapView: boolean = true;
         isEditing: boolean = false;
         draggingPrinter: any = null;
         offsetX: number = 0;
@@ -83,12 +83,18 @@
         }
 
         getStyle(printer: any) {
+            const size = "50px"; // Diameter of the circle
+
             return {
                 position: 'absolute',
                 left: this.positionX + 'px',
                 top: this.positionY + 'px',
-                width: "500px",
-                height: "500px",
+                width: size,
+                height: size,
+                borderRadius: '50%',  // Make the div a circle visually
+                overflow: 'hidden',   // Ensure content stays within the circle
+                clipPath: 'circle(50%)', // Constrain interaction to the circular area
+                border: "0.5em solid blue"
             };
         }
 
