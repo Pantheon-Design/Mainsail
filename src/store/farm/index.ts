@@ -53,6 +53,7 @@ export const farm: Module<FarmState, RootState> = {
                 hostname: payload.values.hostname,
                 port: payload.values.port,
                 isConnecting: true,
+                position: payload.values.position
             })
             dispatch(payload.id + '/reconnect')
         },

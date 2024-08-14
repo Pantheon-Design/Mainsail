@@ -84,6 +84,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 id,
                 hostname: payload.values.hostname ?? '',
                 port: payload.values.port ?? 7125,
+                position: payload.values.position
             },
             { root: true }
         )

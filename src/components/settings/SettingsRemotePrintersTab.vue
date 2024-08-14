@@ -141,6 +141,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         const printer = {
             hostname: this.form.hostname,
             port: this.form.port,
+            position: {x:500, y:0}
         }
 
         this.$store.dispatch('gui/remoteprinters/store', { values: printer })

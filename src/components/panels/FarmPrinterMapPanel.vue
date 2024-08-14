@@ -99,7 +99,8 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     get printer_name() {
-        return this.$store.getters['farm/' + this.printer._namespace + '/getPrinterName']
+        return this.printer.socket.position
+        //return this.$store.getters['farm/' + this.printer._namespace + '/getPrinterName']
     }
 
     get printer_status() {

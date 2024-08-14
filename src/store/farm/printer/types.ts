@@ -32,6 +32,7 @@ export interface FarmPrinterStateSocket {
     reconnectInterval: number
     // eslint-disable-next-line
     wsData: any[]
+    position?: {x:number, y:number}
 }
 
 export interface FarmPrinterStateServer {
