@@ -57,6 +57,14 @@ export const farm: Module<FarmState, RootState> = {
             })
             dispatch(payload.id + '/reconnect')
         },
+        updatePrinterOnDrag({ dispatch, commit }, payload) {
+            commit(payload.id + '/setSocketData', {
+                hostname: payload.values.hostname,
+                port: payload.values.port,
+                isConnecting: true,
+                position: payload.values.position
+            })
+        },
         unregisterPrinter({ state }, id) {
             if (id in state) {
                 state[id].socket?.instance?.close()

@@ -95,7 +95,12 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     update({ commit, dispatch }, payload) {
         commit('update', payload)
         dispatch('farm/updatePrinter', payload, { root: true })
+        dispatch('upload', payload.id)
+    },
 
+    updateOnDrag({ commit, dispatch }, payload) {
+        commit('update', payload)
+        dispatch('farm/updatePrinterOnDrag', payload, { root: true })
         dispatch('upload', payload.id)
     },
 

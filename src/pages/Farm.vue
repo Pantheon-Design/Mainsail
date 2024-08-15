@@ -17,6 +17,7 @@
             <div v-for="(printer, key) in printers" :key="key"
                  :style="getStyle(printer)"
                  :class="{ 'draggable': isEditing }"
+                 :data-printer-id="printer.socket.id"
                  @mousedown="isEditing ? startDrag($event, printer) : null">
                 <farm-printer-map-panel :printer="printer"></farm-printer-map-panel>
             </div>
@@ -36,7 +37,8 @@
     import FarmPrinterPanel from '@/components/panels/FarmPrinterPanel.vue';
     import FarmPrinterMapPanel from '@/components/panels/FarmPrinterMapPanel.vue';
     import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue'
-import { number } from 'echarts/core';
+    import { number } from 'echarts/core';
+    import Vue from 'vue'
     @Component({
         components: { FarmPrinterPanel, SettingsRemotePrintersTab },
     })
@@ -53,7 +55,7 @@ import { number } from 'echarts/core';
 
 
         get printers() {
-            this.$toast.success("getting printers");
+            //this.$toast.success("getting printers");
             return this.$store.getters['farm/getPrinters'];
         }
 
@@ -78,12 +80,13 @@ import { number } from 'echarts/core';
 
         onDrag(event: MouseEvent) {
             if (this.draggingPrinter) {
-                //this.selectedX = event.clientX - this.offsetX;
-                //this.selectedY = event.clientY - this.offsetY;
-                // this.positions[id] = { x, y };
+                //this.$toast.success("draging")
                 let x = event.clientX - this.offsetX;
                 let y = event.clientY - this.offsetY;
                 this.positions[this.draggingPrinter.socket.id] = { x, y };
+                this.updatePrinterPositionOnDrag(this.getPositionX(this.draggingPrinter.socket.id), this.getPositionY(this.draggingPrinter.socket.id))
+                //Vue.set(this.positions, this.draggingPrinter.socket.id, { x, y });
+
             }
         }
 
@@ -103,27 +106,24 @@ import { number } from 'echarts/core';
                 position: { x: xpos, y: ypos }
             }
             this.$store.dispatch('gui/remoteprinters/update', { id: this.printerId, values })
+        }
 
+        updatePrinterPositionOnDrag(xpos: number, ypos: number) {
+            //this.$toast.error("printer " + this.printerId + " dragged and updating x:"+ xpos + " y:" + ypos);
+            const values = {
+                hostname: this.printerHostName,
+                port: this.printerPort,
+                position: { x: xpos, y: ypos }
+            }
+            this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printerId, values })
         }
 
         getStyle(printer: any) {
-            //const size = "250px"; // Diameter of the circle
 
-            //return {
-            //    position: 'absolute',
-            //    left: this.positionX + 'px',
-            //    top: this.positionY + 'px',
-            //    width: size,
-            //    height: size,
-            //    borderRadius: '50%',  // Make the div a circle visually
-            //    overflow: 'hidden',   // Ensure content stays within the circle
-            //    clipPath: 'circle(50%)', // Constrain interaction to the circular area
-            //    border: "0.5em solid red"
-            //};
-            //this.$toast.error()
+            //this.$toast.error("");
 
             this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
-
+            //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
 
             return {
                 position: 'absolute',
