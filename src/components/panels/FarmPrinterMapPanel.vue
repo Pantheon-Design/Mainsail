@@ -1,38 +1,27 @@
 <template>
-    <panel 
-        :icon="mdiPrinter3d"
-        :title="printer_name"
-        card-class="farmprinter-panel"
-        :class="panelClass"
-        :loading="printer.socket.isConnecting"
-        :toolbar-color="isCurrentPrinter ? 'primary' : ''">
-        <v-hover>
+    <farmPanel card-class="farmprinter-panel"
+           :class="panelClass"
+           :loading="printer.socket.isConnecting"
+           :title="''">
+        <v-hover v-if="!isEditing">
             <template #default="{ hover }">
-                <div>
-                    <v-img ref="imageDiv" :height="imageHeight" :src="printer_image" class="d-flex align-end">
-                        <v-card-title
-                            class="white--text py-2"
-                            style="background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(3px)">
-                            <v-row>
-                                <v-col class="col" style="width: 100px">
-                                    <h3 class="font-weight-regular">{{ printer_status }}</h3>
-                                    <span
-                                        v-if="printer_current_filename !== ''"
-                                        class="subtitle-2 text-truncate px-0 text--disabled d-block">
-                                        <v-icon small class="mr-1">{{ mdiFileOutline }}</v-icon>
-                                        {{ printer_current_filename }}
-                                    </span>
-                                </v-col>
-                            </v-row>
-                        </v-card-title>
-                    </v-img>
+                <div style="position: relative;">
+                    <div ref="squareDiv"
+                         :style="{
+                    width: 200 + 'px',
+                    height: 200 + 'px',
+                    backgroundColor: 'transparent'
+                }"
+                         class="d-flex align-end">
+                    </div>
                     <v-fade-transition>
                         <v-overlay v-if="hover" absolute :z-index="4">
-                            <v-btn color="primary" @click="clickPrinter">
+                            <v-btn color="transparent" @click="clickPrinter"
+                                   style="width: 500px; height: 500px; ">
                                 {{
-                                    printer.socket.isConnected
-                                        ? $t('Panels.FarmPrinterPanel.SwitchToPrinter')
-                                        : $t('Panels.FarmPrinterPanel.ReconnectToPrinter')
+                            printer.socket.isConnected
+                                ? ''
+                                : ''
                                 }}
                             </v-btn>
                         </v-overlay>
@@ -41,7 +30,7 @@
             </template>
         </v-hover>
         <resize-observer @notify="handleResize" />
-    </panel>
+    </farmPanel>
 </template>
 
 <script lang="ts">
@@ -49,7 +38,7 @@ import { Component, Mixins, Prop, Ref, Vue } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import { FarmPrinterState } from '@/store/farm/printer/types'
 import PantheonLogo from '@/components/ui/PantheonLogo.vue'
-import Panel from '@/components/ui/Panel.vue'
+import FarmPanel from '@/components/ui/FarmPanel.vue'
 import { mdiPrinter3d, mdiWebcam, mdiMenuDown, mdiWebcamOff, mdiFileOutline } from '@mdi/js'
 import { Debounce } from 'vue-debounce-decorator'
 import WebcamMixin from '@/components/mixins/webcam'
@@ -59,7 +48,7 @@ import ThemeMixin from '@/components/mixins/theme'
 
 @Component({
     components: {
-        Panel,
+        FarmPanel,
         'webcam-wrapper': WebcamWrapper,
         'pantheon-logo': PantheonLogo,
     },
@@ -74,6 +63,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     private imageHeight = 200
 
     @Prop({ type: Object, required: true }) declare printer: FarmPrinterState
+    @Prop({ type: Boolean, required: true }) declare isEditing: boolean
     @Ref() declare readonly imageDiv: Vue
 
     get printerUrl() {
@@ -161,12 +151,26 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     clickPrinter() {
-        if (this.printer.socket.isConnected) this.$store.dispatch('changePrinter', { printer: this.printer._namespace })
+        //this.$toast.success(this.printer + '1');
+        if (this.printer.socket.isConnected) {
+            //this.$store.dispatch('changePrinter', { printer: this.printer._namespace })
+            window.open(this.getPrinterUrl());
+        }
         else this.$store.dispatch('farm/' + this.printer._namespace + '/reconnect')
     }
 
     mounted() {
         this.calcImageHeight()
+    }
+
+    getPrinterUrl() {
+        const thisUrl = window.location.href.split('/')
+        const protocol = thisUrl[0]
+
+        let url = protocol + '//' + this.printer.socket.hostname
+        if (80 !== this.printer.socket.webPort) url += ':' + this.printer.socket.webPort
+
+        return url
     }
 
     calcImageHeight() {
@@ -188,35 +192,35 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
 </script>
 
 <style scoped>
-.v-card.disabledPrinter {
-    opacity: 0.6;
-    filter: grayscale(70%);
-}
+    .v-card.disabledPrinter {
+        opacity: 0.6;
+        filter: grayscale(70%);
+    }
 
-.webcamContainer,
-.webcamContainer .vue-load-image,
-.webcamContainer > div,
-.webcamContainer img {
-    position: absolute !important;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-}
+    .webcamContainer,
+    .webcamContainer .vue-load-image,
+    .webcamContainer > div,
+    .webcamContainer img {
+        position: absolute !important;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
 
-.webcamContainer img {
-    height: 100%;
-}
+    .webcamContainer img {
+        height: 100%;
+    }
 
-.webcamContainer .webcamFpsOutput {
-    display: none;
-}
+    .webcamContainer .webcamFpsOutput {
+        display: none;
+    }
 
-.v-overlay {
-    top: 48px;
-}
+    .v-overlay {
+        top: 48px;
+    }
 
-::v-deep .farmprinter-panel {
-    position: relative;
-}
+    ::v-deep .farmprinter-panel {
+        position: relative;
+    }
 </style>

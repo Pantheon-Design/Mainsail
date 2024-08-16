@@ -19,7 +19,7 @@
                  :class="{ 'draggable': isEditing }"
                  :data-printer-id="printer.socket.id"
                  @mousedown="isEditing ? startDrag($event, printer) : null">
-                <farm-printer-map-panel :printer="printer"></farm-printer-map-panel>
+                <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
             </div>
         </div>
         <div v-else>
@@ -67,7 +67,7 @@
         }
 
         startDrag(event: MouseEvent, printer: any) {
-            //this.$toast.success(printer.socket.position.x);
+            //this.$toast.success(printer);
             this.draggingPrinter = printer;
             this.offsetX = event.clientX - this.getPositionX(this.draggingPrinter.socket.id);
             this.offsetY = event.clientY - this.getPositionY(this.draggingPrinter.socket.id);
@@ -120,18 +120,38 @@
 
         getStyle(printer: any) {
 
-            //this.$toast.error("");
+            //this.$toast.error(printer?.data?.print_stats?.state);
+            //convert the printer state into a color code
+            let color = 'gray'; // Default color
+
+            if (printer.data?.print_stats?.state) {
+                const state = printer.data.print_stats.state;
+                if (state === 'error' || state === 'paused') {
+                    color = 'red';
+                } else if (state === 'printing') {
+                    color = 'green';
+                } else if (state === 'complete') {
+                    color = 'purple';
+                } else if (state === 'standby') {
+                    color = 'blue';
+                }
+            }
 
             this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
             //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
+            const size = "100px"; // Diameter of the circle
+
 
             return {
                 position: 'absolute',
                 left: this.positions[printer.socket.id].x + 'px',
                 top: this.positions[printer.socket.id].y + 'px',
-                width: "500px",
-                height: "400px",
-                border: "0.5em solid blue"
+                width: size,
+                height: size,
+                borderRadius: '50%',  // Make the div a circle visually
+                overflow: 'hidden',   // Ensure content stays within the circle
+                clipPath: 'circle(50%)', // Constrain interaction to the circular area
+                border: "0.5em solid " + color
             };
         }
 
