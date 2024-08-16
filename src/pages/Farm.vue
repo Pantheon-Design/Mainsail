@@ -139,7 +139,7 @@
 
             this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
             //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-            const size = "100px"; // Diameter of the circle
+            const size = "70px"; // Diameter of the circle
 
 
             return {

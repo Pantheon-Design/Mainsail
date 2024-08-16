@@ -1,32 +1,45 @@
 <template>
     <farmPanel card-class="farmprinter-panel"
-           :class="panelClass"
-           :loading="printer.socket.isConnecting"
-           :title="''">
-        <v-hover v-if="!isEditing">
+               :class="panelClass"
+               :loading="printer.socket.isConnecting"
+               :title="''">
+        <v-hover v-if="!isEditing" :style="{
+                 backgroundColor: 'black',
+                 width: 200 + 'px',
+                 height: 200 + 'px', }">
             <template #default="{ hover }">
                 <div style="position: relative;">
                     <div ref="squareDiv"
                          :style="{
-                    width: 200 + 'px',
-                    height: 200 + 'px',
-                    backgroundColor: 'transparent'
+                    width: 55 + 'px',
+                    height: 40 + 'px',
+                    backgroundColor: 'transparent',
+                    display: 'flex',  // Use flexbox
+                    alignItems: 'center',  // Center vertically
+                    justifyContent: 'center'  // Center horizontally
                 }"
                          class="d-flex align-end">
+                        <span :style="{
+                color: '#98FF98',
+                userSelect: 'none',  // Prevent text selection
+                pointerEvents: 'none'  // Disable interaction
+            }">
+                            {{printer?.data?.print_stats?.state}}
+                        </span>
                     </div>
                     <v-fade-transition>
                         <v-overlay v-if="hover" absolute :z-index="4">
                             <v-btn color="transparent" @click="clickPrinter"
-                                   style="width: 500px; height: 500px; ">
+                                   style="width: 400px; height: 400px;">
                                 {{
                             printer.socket.isConnected
                                 ? ''
                                 : ''
-                                }}
+                            }}
                             </v-btn>
-                        </v-overlay>
-                    </v-fade-transition>
-                </div>
+                            </v-overlay>
+                            </v-fade-transition>
+</div>
             </template>
         </v-hover>
         <resize-observer @notify="handleResize" />
