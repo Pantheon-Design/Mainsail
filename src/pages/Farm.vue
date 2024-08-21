@@ -67,7 +67,8 @@
         }
 
         startDrag(event: MouseEvent, printer: any) {
-            //this.$toast.success(printer);
+            this.$toast.success(printer);
+            if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
             this.draggingPrinter = printer;
             this.offsetX = event.clientX - this.getPositionX(this.draggingPrinter.socket.id);
             this.offsetY = event.clientY - this.getPositionY(this.draggingPrinter.socket.id);
@@ -99,7 +100,7 @@
         }
 
         updatePrinterPosition(xpos: number, ypos: number) {
-            //this.$toast.error("printer " + this.printerId + " dragged and updating x:"+ xpos + " y:" + ypos);
+            //this.$toast.error("printer " + this.printerId);
             const values = {
                 hostname: this.printerHostName,
                 port: this.printerPort,
@@ -126,7 +127,7 @@
 
             if (printer.data?.print_stats?.state) {
                 const state = printer.data.print_stats.state;
-                if (state === 'error' || state === 'paused') {
+                if (state === 'error' || state === 'paused' || state === 'cancelled') {
                     color = 'red';
                 } else if (state === 'printing') {
                     color = 'green';
@@ -139,7 +140,7 @@
 
             this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
             //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-            const size = "70px"; // Diameter of the circle
+            const size = "50px"; // Diameter of the circle
 
 
             return {
