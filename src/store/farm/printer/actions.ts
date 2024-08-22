@@ -1,6 +1,7 @@
 import { ActionTree } from 'vuex'
 import { FarmPrinterState } from '@/store/farm/printer/types'
 import { RootState } from '@/store/types'
+import Vue from 'vue'
 
 export const actions: ActionTree<FarmPrinterState, RootState> = {
     reset({ commit }) {
@@ -242,5 +243,19 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
 
     getWebcamsData({ commit }, payload) {
         commit('setWebcamsData', payload.webcams)
+    },
+
+    getFilamentType({ commit, dispatch }, payload) {
+        Vue.$toast.error('2')
+        Vue.$socket.emit(
+            'server.history.list',
+            {},
+            { action: 'farm/' + payload.id + '/setFilamentType' }
+        )
+    },
+
+    setFilamentType({ commit, dispatch }, payload) {
+        Vue.$toast.error("3")
+        commit('updateFilamentType', payload)
     },
 }

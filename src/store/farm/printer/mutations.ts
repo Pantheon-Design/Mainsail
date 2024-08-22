@@ -89,4 +89,13 @@ export const mutations: MutationTree<FarmPrinterState> = {
     setWebcamsData(state, payload) {
         Vue.set(state.data, 'webcams', payload)
     },
+
+    updateFilamentType(state, payload) {
+        Vue.$toast.success(payload)
+        //if (payload.id in state.printers) {
+        //    Vue.$toast.error("in")
+        //}
+
+
+    },
 }

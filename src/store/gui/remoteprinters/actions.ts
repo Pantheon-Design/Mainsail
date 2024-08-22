@@ -102,8 +102,6 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
         commit('update', payload)
         dispatch('farm/updatePrinterOnDrag', payload, { root: true })
         dispatch('upload', payload.id)
-        Vue.$socket.emit('server.history.last_file_printed', {
-        })
     },
 
     updateSettings({ commit, dispatch }, payload) {

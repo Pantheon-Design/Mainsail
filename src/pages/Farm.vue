@@ -67,8 +67,8 @@
         }
 
         startDrag(event: MouseEvent, printer: any) {
-            this.$toast.success(printer);
-            if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
+            this.$toast.success(printer.data.print_stats);
+            //if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
             this.draggingPrinter = printer;
             this.offsetX = event.clientX - this.getPositionX(this.draggingPrinter.socket.id);
             this.offsetY = event.clientY - this.getPositionY(this.draggingPrinter.socket.id);
@@ -77,6 +77,7 @@
             this.printerPort = printer.socket.port;
             document.addEventListener('mousemove', this.onDrag);
             document.addEventListener('mouseup', this.stopDrag);
+            this.getLastPrintedFilamentType();
         }
 
         onDrag(event: MouseEvent) {
@@ -117,6 +118,11 @@
                 position: { x: xpos, y: ypos }
             }
             this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printerId, values })
+        }
+
+        getLastPrintedFilamentType() {
+            this.$toast.error('1')
+            this.$store.dispatch('farm/' + this.printerId + '/getFilamentType', { id: this.printerId }, {root: true})
         }
 
         getStyle(printer: any) {
