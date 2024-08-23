@@ -91,13 +91,27 @@ export const mutations: MutationTree<FarmPrinterState> = {
     },
 
     updateFilamentType(state, payload) {
-        Vue.$toast.success(payload)
+        console.log('updateFilamentType state: ');
+        console.log(state);
+        console.log('updateFilamentType state end, payload: ');
+        console.log(payload);
+        console.log('updateFilamentType payload')
         //Vue.$toast.success(this.$socket)
 
         //if (payload.id in state.printers) {
         //    Vue.$toast.error("in")
         //}
+        const value = {
+            hostname: state.socket.hostname,
+            port: state.socket.port,
+            lastPrintedFilament: state.socket.lastPrintedFilament,
+        }
 
+        Vue.$socket.emit('server.database.post_item', {
+            namespace: 'mainsail',
+            key: payload.key,
+            value,
+        })
 
     },
 }

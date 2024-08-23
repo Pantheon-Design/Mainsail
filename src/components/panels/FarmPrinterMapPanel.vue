@@ -18,7 +18,7 @@
                     alignItems: 'center',  // Center vertically
                     justifyContent: 'center',  // Center horizontally
                     marginLeft: '20px',  // Move 20px to the right
-                    marginTop: '30px'    // Move 20px down
+                    marginTop: '100px'    // Move 20px down
                 }"
                          class="d-flex align-end">
                         <span :style="{
@@ -26,8 +26,9 @@
                                             userSelect: 'none',  // Prevent text selection
                                             pointerEvents: 'none'  // Disable interaction
                                         }">
-                            {{printer?.socket?.hostname}}:{{printer?.socket?.lastPrintedFilament}}<br>
-                            {{printer?.current_file?.filament_type}}<br>
+                            {{printer?.socket?.hostname}} last:{{printer?.socket?.lastPrintedFilament}}<br>
+                            current:{{printer?.current_file?.filament_type}}<br>
+                            {{printer?.socket?.position}}
                         </span>
                     </div>
                     <v-fade-transition>
@@ -199,6 +200,11 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         this.imageHeight = 200
     }
 
+    getLastPrintedFilamentType() {
+        //this.$toast.error('1')
+        this.$store.dispatch('farm/' + this.printer._namespace + '/getFilamentType', { id: this.printer._namespace }, { root: true })
+    }
+
     @Debounce(200)
     handleResize() {
         this.$nextTick(() => {
@@ -210,9 +216,9 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     //('printer.current_file.filament_type')
     @Watch('printer.current_file.filament_type')
     onFilamentChange(newFilament: string, oldFilament: string) {
-        console.log(`Hostname changed from ${oldFilament} to ${newFilament}`);
+        //console.log(`Hostname changed from ${oldFilament} to ${newFilament}`);
         if (!newFilament || newFilament.trim() === '') { return; }
-        console.log(`changing the host name`);
+        //console.log(`changing the host name`);
         this.printer.socket.lastPrintedFilament = newFilament
         this.handleFilamentChange();
     }
@@ -222,8 +228,8 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
             port: this.printer.socket.port,
             position: { x: this.printer.socket.position?.x, y: this.printer.socket.position?.y }
         }
-        this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printer._namespace, values })
-
+        //this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printer._namespace, values })
+        this.getLastPrintedFilamentType()
     }
 }
 </script>

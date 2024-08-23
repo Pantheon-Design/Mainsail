@@ -221,7 +221,7 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
     },
 
     getDatabases({ commit, dispatch }, payload) {
-        //Vue.$toast.error(payload.namespaces)
+        //Vue.$toast.error('RETRIEVE')
 
         commit('setDatabases', payload.namespaces)
 
@@ -253,7 +253,7 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
             'server.database.get_item',
             {
                 namespace: 'mainsail',
-                //key: 'remoteprinters.printers.' + payload.id,
+                key: 'remoteprinters.printers.' + payload.id,
             },
             { action: 'farm/' + payload.id + '/setFilamentType' }
         )

@@ -44,6 +44,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     port: printer.port ?? 7125,
                     settings: printer.settings ?? {},
                     lastPrintedFilament: printer.lastPrintedFilament ?? '',
+                    position: printer.position ?? { x: 400, y: 400 },
                 },
                 { root: true }
             )
@@ -55,13 +56,13 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
         //console.log(state.printers);
         if (rootState.instancesDB === 'browser') {
             const printers: any[] = []
-
             Object.keys(state.printers).forEach((id: string) => {
                 printers.push({
                     hostname: state.printers[id].hostname,
                     port: state.printers[id].port,
                     settings: state.printers[id].settings,
-                    lastPrintedFilament: state.printers[id].lastPrintedFilament,
+                    lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
+                    position: state.printers[id].position ?? { x: 400, y: 400 },
                 })
             })
 
@@ -71,8 +72,16 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 hostname: state.printers[id].hostname,
                 port: state.printers[id].port,
                 settings: state.printers[id].settings ?? {},
-                lastPrintedFilament: state.printers[id].lastPrintedFilament,
+                lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
+                position: state.printers[id].position ?? { x: 400, y: 400 },
             }
+            //console.log(`API database post item: ${value.hostname} :` + value.lastPrintedFilament);
+            console.log(state);
+            console.log('upload root state: ');
+            console.log(rootState);
+            console.log('upload value')
+            console.log(value);
+
             Vue.$socket.emit('server.database.post_item', {
                 namespace: 'mainsail',
                 key: 'remoteprinters.printers.' + id,

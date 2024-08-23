@@ -76,7 +76,6 @@
             this.printerPort = printer.socket.port;
             document.addEventListener('mousemove', this.onDrag);
             document.addEventListener('mouseup', this.stopDrag);
-            this.getLastPrintedFilamentType();
         }
 
         onDrag(event: MouseEvent) {
