@@ -60,14 +60,13 @@
         }
 
         toggleEditMode() {
-            if (this.isEditing) {
-                this.savePrinterPositions();
-            }
             this.isEditing = !this.isEditing;
         }
 
         startDrag(event: MouseEvent, printer: any) {
-            this.$toast.success(printer.data.print_stats);
+            //console.log(this.$store.state);
+
+            //this.$toast.success(printer);
             //if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
             this.draggingPrinter = printer;
             this.offsetX = event.clientX - this.getPositionX(this.draggingPrinter.socket.id);
@@ -87,8 +86,6 @@
                 let y = event.clientY - this.offsetY;
                 this.positions[this.draggingPrinter.socket.id] = { x, y };
                 this.updatePrinterPositionOnDrag(this.getPositionX(this.draggingPrinter.socket.id), this.getPositionY(this.draggingPrinter.socket.id))
-                //Vue.set(this.positions, this.draggingPrinter.socket.id, { x, y });
-
             }
         }
 
@@ -121,7 +118,7 @@
         }
 
         getLastPrintedFilamentType() {
-            this.$toast.error('1')
+            //this.$toast.error('1')
             this.$store.dispatch('farm/' + this.printerId + '/getFilamentType', { id: this.printerId }, {root: true})
         }
 
@@ -146,7 +143,7 @@
 
             this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
             //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-            const size = "50px"; // Diameter of the circle
+            const size = "200px"; // Diameter of the circle
 
 
             return {
@@ -155,17 +152,12 @@
                 top: this.positions[printer.socket.id].y + 'px',
                 width: size,
                 height: size,
-                borderRadius: '50%',  // Make the div a circle visually
+                //borderRadius: '50%',  // Make the div a circle visually
                 overflow: 'hidden',   // Ensure content stays within the circle
-                clipPath: 'circle(50%)', // Constrain interaction to the circular area
+                //clipPath: 'circle(50%)', // Constrain interaction to the circular area
                 border: "0.5em solid " + color
             };
         }
-
-        savePrinterPositions() {
-            
-        }
-
 
         // Method to add a new position
         addPosition(id: string, x: number, y: number) {

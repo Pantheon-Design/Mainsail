@@ -29,9 +29,12 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     async initStore({ commit, dispatch }, payload) {
+        Vue.$toast.success("init Store :");
+        //console.log(payload);
         dispatch('reset')
         Object.keys(payload).forEach((printerId: string) => {
             const printer = payload[printerId]
+            Vue.$toast.success(printer);
             commit('store', { id: printerId, values: printer })
             dispatch(
                 'farm/registerPrinter',
@@ -40,6 +43,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     hostname: printer.hostname ?? '',
                     port: printer.port ?? 7125,
                     settings: printer.settings ?? {},
+                    lastPrintedFilament: printer.lastPrintedFilament ?? '',
                 },
                 { root: true }
             )
@@ -47,6 +51,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     upload({ state, rootState }, id) {
+
+        //console.log(state.printers);
         if (rootState.instancesDB === 'browser') {
             const printers: any[] = []
 
@@ -55,6 +61,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     hostname: state.printers[id].hostname,
                     port: state.printers[id].port,
                     settings: state.printers[id].settings,
+                    lastPrintedFilament: state.printers[id].lastPrintedFilament,
                 })
             })
 
@@ -64,8 +71,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 hostname: state.printers[id].hostname,
                 port: state.printers[id].port,
                 settings: state.printers[id].settings ?? {},
+                lastPrintedFilament: state.printers[id].lastPrintedFilament,
             }
-
             Vue.$socket.emit('server.database.post_item', {
                 namespace: 'mainsail',
                 key: 'remoteprinters.printers.' + id,

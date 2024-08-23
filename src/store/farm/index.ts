@@ -63,6 +63,7 @@ export const farm: Module<FarmState, RootState> = {
                 port: payload.values.port,
                 isConnecting: true,
                 position: payload.values.position
+
             })
         },
         unregisterPrinter({ state }, id) {

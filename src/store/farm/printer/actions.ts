@@ -221,6 +221,8 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
     },
 
     getDatabases({ commit, dispatch }, payload) {
+        //Vue.$toast.error(payload.namespaces)
+
         commit('setDatabases', payload.namespaces)
 
         if (payload.namespaces.includes('mainsail')) {
@@ -248,14 +250,17 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
     getFilamentType({ commit, dispatch }, payload) {
         Vue.$toast.error('2')
         Vue.$socket.emit(
-            'server.history.list',
-            {},
+            'server.database.get_item',
+            {
+                namespace: 'mainsail',
+                //key: 'remoteprinters.printers.' + payload.id,
+            },
             { action: 'farm/' + payload.id + '/setFilamentType' }
         )
     },
 
     setFilamentType({ commit, dispatch }, payload) {
-        Vue.$toast.error("3")
+        //Vue.$toast.error("3")
         commit('updateFilamentType', payload)
     },
 }

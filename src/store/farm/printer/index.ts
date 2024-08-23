@@ -20,7 +20,8 @@ export const getDefaultState = (): FarmPrinterState => {
             maxReconnects: 2,
             reconnectInterval: 1000,
             wsData: [],
-            position:{x:400,y:400}
+            position: { x: 400, y: 400 },
+            lastPrintedFilament: ''
         },
         server: {
             klippy_connected: false,

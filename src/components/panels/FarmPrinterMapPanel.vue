@@ -11,20 +11,23 @@
                 <div style="position: relative;">
                     <div ref="squareDiv"
                          :style="{
-                    width: 55 + 'px',
+                    width: 100 + 'px',
                     height: 40 + 'px',
-                    backgroundColor: 'transparent',
+                    backgroundColor: 'red',
                     display: 'flex',  // Use flexbox
                     alignItems: 'center',  // Center vertically
-                    justifyContent: 'center'  // Center horizontally
+                    justifyContent: 'center',  // Center horizontally
+                    marginLeft: '20px',  // Move 20px to the right
+                    marginTop: '30px'    // Move 20px down
                 }"
                          class="d-flex align-end">
                         <span :style="{
-                color: '#98FF98',
-                userSelect: 'none',  // Prevent text selection
-                pointerEvents: 'none'  // Disable interaction
-            }">
-                            {{printer?.data?.print_stats?.state}}
+                                            color: '#98FF98',
+                                            userSelect: 'none',  // Prevent text selection
+                                            pointerEvents: 'none'  // Disable interaction
+                                        }">
+                            {{printer?.socket?.hostname}}:{{printer?.socket?.lastPrintedFilament}}<br>
+                            {{printer?.current_file?.filament_type}}<br>
                         </span>
                     </div>
                     <v-fade-transition>
@@ -58,6 +61,7 @@ import WebcamMixin from '@/components/mixins/webcam'
 import WebcamWrapper from '@/components/webcams/WebcamWrapper.vue'
 import { GuiWebcamStateWebcam } from '@/store/gui/webcams/types'
 import ThemeMixin from '@/components/mixins/theme'
+import { Watch } from 'vue-property-decorator'
 
 @Component({
     components: {
@@ -200,6 +204,26 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         this.$nextTick(() => {
             this.calcImageHeight()
         })
+    }
+
+    //printer?.data?.toolhead?.estimated_print_time
+    //('printer.current_file.filament_type')
+    @Watch('printer.current_file.filament_type')
+    onFilamentChange(newFilament: string, oldFilament: string) {
+        console.log(`Hostname changed from ${oldFilament} to ${newFilament}`);
+        if (!newFilament || newFilament.trim() === '') { return; }
+        console.log(`changing the host name`);
+        this.printer.socket.lastPrintedFilament = newFilament
+        this.handleFilamentChange();
+    }
+    handleFilamentChange() {
+        const values = {
+            hostname: this.printer.socket.hostname,
+            port: this.printer.socket.port,
+            position: { x: this.printer.socket.position?.x, y: this.printer.socket.position?.y }
+        }
+        this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printer._namespace, values })
+
     }
 }
 </script>

@@ -92,6 +92,8 @@ export const mutations: MutationTree<FarmPrinterState> = {
 
     updateFilamentType(state, payload) {
         Vue.$toast.success(payload)
+        //Vue.$toast.success(this.$socket)
+
         //if (payload.id in state.printers) {
         //    Vue.$toast.error("in")
         //}

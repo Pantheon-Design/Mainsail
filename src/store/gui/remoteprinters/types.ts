@@ -14,4 +14,5 @@ export interface GuiRemoteprintersStatePrinter {
     settings?: {
         [key: string]: any
     }
+    lastPrintedFilament: string
 }
