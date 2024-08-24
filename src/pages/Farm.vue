@@ -143,7 +143,7 @@
 
                 this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
                 //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-                const size = "500px"; // Diameter of the circle
+                const size = "50px"; // Diameter of the circle
 
 
                 return {
@@ -152,9 +152,9 @@
                     top: this.positions[printer.socket.id].y + 'px',
                     width: size,
                     height: size,
-                    //borderRadius: '50%',  // Make the div a circle visually
+                    borderRadius: '50%',  // Make the div a circle visually
                     overflow: 'hidden',   // Ensure content stays within the circle
-                    //clipPath: 'circle(50%)', // Constrain interaction to the circular area
+                    clipPath: 'circle(50%)', // Constrain interaction to the circular area
                     border: "0.5em solid " + color,
                     backgroundcolor: 'blue',
                 };
@@ -210,9 +210,9 @@
 
         .background-container {
             background-image: url('@/components/ui/NewBuilding v2.png');
-            background-size: contain; /* Retains the aspect ratio */
+            background-size: 100% 50%; /* Retains the aspect ratio */
             background-repeat: no-repeat; /* Prevents repeating the image */
-            background-position: top; /* Centers the image */
+            background-position: left; /* Centers the image */
             width: 1000px;
             height: 1000px; /* Adjusts the height automatically */
             position: absolute;

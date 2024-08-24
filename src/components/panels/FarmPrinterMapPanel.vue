@@ -13,14 +13,15 @@
                  }">
             <template #default="{ hover }">
                 <div style="position: relative; width: 100%; height: 100vh;">
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; background-color: lightcoral;">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-215%, -200%); width: 50px; height: 50px; background-color: black; text-align: center; color: #b9d4c6 ">
                         <span :style="{
                                             userSelect: 'none',  // Prevent text selection
                                             pointerEvents: 'none',  // Disable interaction
+                                            padding: '5px',
+                                            lineHeight: '5',
+                                            fontSize: '7.5px',
                                         }">
-                            {{printer?.socket?.hostname}} last:{{printer?.socket?.lastPrintedFilament}}<br>
-                            current:{{printer?.current_file?.filament_type}}<br>
-                            {{printer?.socket?.position}}
+                            {{printer?.socket?.lastPrintedFilament}}
                         </span>
 
                         <v-fade-transition>
