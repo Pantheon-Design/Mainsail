@@ -155,7 +155,7 @@
                     borderRadius: '50%',  // Make the div a circle visually
                     overflow: 'hidden',   // Ensure content stays within the circle
                     clipPath: 'circle(50%)', // Constrain interaction to the circular area
-                    border: "0.5em solid " + color,
+                    border: "0.4em solid " + color,
                     backgroundcolor: 'blue',
                 };
             }
