@@ -18,10 +18,10 @@
                                             userSelect: 'none',  // Prevent text selection
                                             pointerEvents: 'none',  // Disable interaction
                                             padding: '5px',
-                                            lineHeight: '5',
-                                            fontSize: '7.5px',
+                                            lineHeight: '2',
+                                            fontSize: '18px',
                                         }">
-                            {{printer?.socket?.lastPrintedFilament}}
+                            {{ displayFilamentType }}
                         </span>
 
                         <v-fade-transition>
@@ -226,6 +226,23 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         }
         //this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printer._namespace, values })
         this.getLastPrintedFilamentType()
+    }
+
+    // Computed property to get the correct filament type abbreviation
+    get displayFilamentType(): string {
+        const filament = this.printer?.socket?.lastPrintedFilament;
+        switch (filament) {
+            case "PA-CF":
+                return "CN";
+            case "PA-GF":
+                return "GN";
+            case "PETG-CF":
+                return "CP";
+            case "TPU":
+                return "FL";
+            default:
+                return filament || "";
+        }
     }
 }
 </script>
