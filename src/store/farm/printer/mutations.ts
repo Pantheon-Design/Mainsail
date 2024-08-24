@@ -91,11 +91,11 @@ export const mutations: MutationTree<FarmPrinterState> = {
     },
 
     updateFilamentType(state, payload) {
-        console.log('updateFilamentType state: ');
-        console.log(state);
-        console.log('updateFilamentType state end, payload: ');
-        console.log(payload);
-        console.log('updateFilamentType payload')
+        //console.log('updateFilamentType state: ');
+        //console.log(state);
+        //console.log('updateFilamentType state end, payload: ');
+        //console.log(payload);
+        //console.log('updateFilamentType payload')
         //Vue.$toast.success(this.$socket)
 
         //if (payload.id in state.printers) {
@@ -118,11 +118,11 @@ export const mutations: MutationTree<FarmPrinterState> = {
 
 
     getRemotePrintersInfo(state, payload) {
-        console.log('DATABASE state: ');
-        console.log(state);
-        console.log('DATABASE state end, payload: ');
-        console.log(payload);
-        console.log('DATABASE payload')
+        //console.log('DATABASE state: ');
+        //console.log(state);
+        //console.log('DATABASE state end, payload: ');
+        //console.log(payload);
+        //console.log('DATABASE payload')
         //Vue.$toast.success(this.$socket)
 
         //if (payload.id in state.printers) {

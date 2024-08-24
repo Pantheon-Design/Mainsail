@@ -4,47 +4,42 @@
                :loading="printer.socket.isConnecting"
                :title="''">
         <v-hover v-if="!isEditing" :style="{
-                 backgroundColor: 'black',
-                 width: 200 + 'px',
-                 height: 200 + 'px', }">
+                 backgroundColor: 'transparent',
+                 width: 500 + 'px',
+                 height: 500 + 'px',
+                 display: flex,
+                 marginTop: -150 + 'px',
+                 marginLeft: -150 + 'px',
+                 }">
             <template #default="{ hover }">
-                <div style="position: relative;">
-                    <div ref="squareDiv"
-                         :style="{
-                    width: 100 + 'px',
-                    height: 40 + 'px',
-                    backgroundColor: 'red',
-                    display: 'flex',  // Use flexbox
-                    alignItems: 'center',  // Center vertically
-                    justifyContent: 'center',  // Center horizontally
-                    marginLeft: '20px',  // Move 20px to the right
-                    marginTop: '100px'    // Move 20px down
-                }"
-                         class="d-flex align-end">
+                <div style="position: relative; width: 100%; height: 100vh;">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; background-color: lightcoral;">
                         <span :style="{
-                                            color: '#98FF98',
                                             userSelect: 'none',  // Prevent text selection
-                                            pointerEvents: 'none'  // Disable interaction
+                                            pointerEvents: 'none',  // Disable interaction
                                         }">
                             {{printer?.socket?.hostname}} last:{{printer?.socket?.lastPrintedFilament}}<br>
                             current:{{printer?.current_file?.filament_type}}<br>
                             {{printer?.socket?.position}}
                         </span>
-                    </div>
-                    <v-fade-transition>
-                        <v-overlay v-if="hover" absolute :z-index="4">
-                            <v-btn color="transparent" @click="clickPrinter"
-                                   style="width: 400px; height: 400px;">
-                                {{
-                            printer.socket.isConnected
-                                ? ''
-                                : ''
-                            }}
-                            </v-btn>
+
+                        <v-fade-transition>
+                            <v-overlay v-if="hover" absolute :z-index="4">
+                                <v-btn color="transparent" @click="clickPrinter"
+                                       style="width: 500px; height: 500px;">
+                                    {{
+                                printer.socket.isConnected
+                                    ? ''
+                                    : ''
+                                    }}
+                                </v-btn>
                             </v-overlay>
-                            </v-fade-transition>
-</div>
-            </template>
+                        </v-fade-transition>
+
+                    </div>
+                </div>
+
+</template>
         </v-hover>
         <resize-observer @notify="handleResize" />
     </farmPanel>
@@ -164,7 +159,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         let output = []
 
         if (!this.printer.socket.isConnected && !this.printer.socket.isConnecting) output.push('disabledPrinter')
-
+        console.log(output)
         return output
     }
 
@@ -265,5 +260,16 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
 
     ::v-deep .farmprinter-panel {
         position: relative;
+    }
+
+    .hover-style {
+        background-color: transparent;
+        width: 200px;
+        height: 100px;
+        align-items: center; /* Note: align-items only works in flexbox containers */
+    }
+
+    .justbackgroundcolor {
+        background-color: blue;
     }
 </style>

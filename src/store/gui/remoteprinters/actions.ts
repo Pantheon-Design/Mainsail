@@ -75,14 +75,14 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
                 position: state.printers[id].position ?? { x: 400, y: 400 },
             }
-            console.log('=============================================')
-            console.log(`API database post item: ${value.hostname} :` + value.lastPrintedFilament);
-            console.log(state);
-            console.log('upload root state: ');
-            console.log(rootState);
-            console.log('upload value')
-            console.log(value);
-            console.log('=============================================')
+            //console.log('=============================================')
+            //console.log(`API database post item: ${value.hostname} :` + value.lastPrintedFilament);
+            //console.log(state);
+            //console.log('upload root state: ');
+            //console.log(rootState);
+            //console.log('upload value')
+            //console.log(value);
+            //console.log('=============================================')
 
             Vue.$socket.emit('server.database.post_item', {
                 namespace: 'mainsail',
@@ -150,7 +150,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     getRemotePrintersInfo({ state, rootState }, id) {
-        console.log(state)
+        //console.log(state)
         
         Vue.$socket.emit(
             'server.database.get_item',
