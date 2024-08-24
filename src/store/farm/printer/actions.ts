@@ -263,4 +263,9 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
         //Vue.$toast.error("3")
         commit('updateFilamentType', payload)
     },
+
+    getRemotePrintersInfo({ commit, dispatch }, payload) {
+        //Vue.$toast.error("3")
+        commit('getRemotePrintersInfo', payload)
+    },
 }

@@ -105,6 +105,7 @@ export const mutations: MutationTree<FarmPrinterState> = {
             hostname: state.socket.hostname,
             port: state.socket.port,
             lastPrintedFilament: state.socket.lastPrintedFilament,
+            position: state.socket.position
         }
 
         Vue.$socket.emit('server.database.post_item', {
@@ -112,6 +113,22 @@ export const mutations: MutationTree<FarmPrinterState> = {
             key: payload.key,
             value,
         })
+
+    },
+
+
+    getRemotePrintersInfo(state, payload) {
+        console.log('DATABASE state: ');
+        console.log(state);
+        console.log('DATABASE state end, payload: ');
+        console.log(payload);
+        console.log('DATABASE payload')
+        //Vue.$toast.success(this.$socket)
+
+        //if (payload.id in state.printers) {
+        //    Vue.$toast.error("in")
+        //}
+
 
     },
 }

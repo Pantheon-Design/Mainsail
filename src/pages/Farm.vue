@@ -5,7 +5,7 @@
         <!-- Toggle Button -->
         <v-switch v-model="isMapView"
                   :label="isMapView ? 'Switch to List View' : 'Switch to Map View'"
-                  class="mb-4" /> 
+                  class="mb-4 custom-width-switch" /> 
         <!-- Edit/Save Button -->
         <v-btn v-if="isMapView" @click="toggleEditMode" class="mb-4">
             {{ isEditing ? 'Save' : 'Edit' }}
@@ -65,7 +65,8 @@
 
             startDrag(event: MouseEvent, printer: any) {
                 //console.log(this.$store.state);
-
+                console.log(printer);
+                this.getRemotePrinters();
                 //this.$toast.success(printer);
                 //if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
                 this.draggingPrinter = printer;
@@ -116,9 +117,9 @@
                 this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: this.printerId, values })
             }
 
-            getLastPrintedFilamentType() {
+            getRemotePrinters() {
                 //this.$toast.error('1')
-                this.$store.dispatch('farm/' + this.printerId + '/getFilamentType', { id: this.printerId }, {root: true})
+                this.$store.dispatch('gui/remoteprinters/getRemotePrinters', { id: this.printerId})
             }
 
             getStyle(printer: any) {
@@ -142,7 +143,7 @@
 
                 this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
                 //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-                const size = "200px"; // Diameter of the circle
+                const size = "500px"; // Diameter of the circle
 
 
                 return {
@@ -154,7 +155,8 @@
                     //borderRadius: '50%',  // Make the div a circle visually
                     overflow: 'hidden',   // Ensure content stays within the circle
                     //clipPath: 'circle(50%)', // Constrain interaction to the circular area
-                    border: "0.5em solid " + color
+                    border: "0.5em solid " + color,
+                    backgroundcolor: 'blue',
                 };
             }
 
@@ -214,6 +216,10 @@
             width: 1000px;
             height: 1000px; /* Adjusts the height automatically */
             position: absolute;
+        }
+
+        .custom-width-switch {
+            width: 200px; /* Set the desired width */
         }
 
         .draggable {
