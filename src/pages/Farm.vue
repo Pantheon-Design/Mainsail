@@ -5,21 +5,22 @@
         <!-- Toggle Button -->
         <v-switch v-model="isMapView"
                   :label="isMapView ? 'Switch to List View' : 'Switch to Map View'"
-                  class="mb-4 custom-width-switch" /> 
+                  class="mb-4 custom-width-switch" />
         <!-- Edit/Save Button -->
         <v-btn v-if="isMapView" @click="toggleEditMode" class="mb-4">
             {{ isEditing ? 'Save' : 'Edit' }}
         </v-btn>
 
         <!-- Conditional Rendering of Views -->
-        <div v-if="isMapView" class="background-container">
-            <!--    <img src="@/components/ui/NewBuilding v2.png" class="map-background" alt="Map Background">  -->
-            <div v-for="(printer, key) in printers" :key="key"
-                 :style="getStyle(printer)"
-                 :class="{ 'draggable': isEditing }"
-                 :data-printer-id="printer.socket.id"
-                 @mousedown="isEditing ? startDrag($event, printer) : null">
-                <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
+        <div v-if="isMapView" class="map-container" @wheel="onScroll" @mousedown="startPan" @mousemove="onPan" @mouseup="endPan">
+            <div class="background-container" :style="mapStyle">
+                <div v-for="(printer, key) in printers" :key="key"
+                     :style="getStyle(printer)"
+                     :class="{ 'draggable': isEditing }"
+                     :data-printer-id="printer.socket.id"
+                     @mousedown="isEditing ? startDrag($event, printer) : null">
+                    <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
+                </div>
             </div>
         </div>
             <div v-else>
@@ -54,6 +55,14 @@
             positions: { [id: string]: { x: number, y: number } } = {};
 
 
+            // properties for zooming and panning
+            scale: number = 1;             // Zoom level
+            panX: number = 0;              // Horizontal pan offset
+            panY: number = 0;              // Vertical pan offset
+            isPanning: boolean = false;    // Flag for panning state
+            startX: number = 0;            // Initial X position for pan
+            startY: number = 0;            // Initial Y position for pan
+
             get printers() {
                 //this.$toast.success("getting printers");
                 return this.$store.getters['farm/getPrinters'];
@@ -82,8 +91,8 @@
             onDrag(event: MouseEvent) {
                 if (this.draggingPrinter) {
                     //this.$toast.success("draging")
-                    let x = event.clientX - this.offsetX;
-                    let y = event.clientY - this.offsetY;
+                    let x = event.clientX - this.offsetX * this.scale;
+                    let y = event.clientY - this.offsetY * this.scale;
                     this.positions[this.draggingPrinter.socket.id] = { x, y };
                     this.updatePrinterPositionOnDrag(this.getPositionX(this.draggingPrinter.socket.id), this.getPositionY(this.draggingPrinter.socket.id))
                 }
@@ -188,6 +197,40 @@
             removePosition(id: string) {
                 delete this.positions[id];
             }
+
+            // Computed property for map styling (zoom and pan)
+            get mapStyle() {
+                return {
+                    transform: `scale(${this.scale}) translate(${this.panX}px, ${this.panY}px)`
+                };
+            }
+
+            // Method for zooming the map
+            onScroll(event: WheelEvent) {
+                event.preventDefault();
+                const delta = event.deltaY > 0 ? -0.1 : 0.1;
+                this.scale = Math.min(Math.max(this.scale + delta, 0.5), 3); // Limit zoom level between 0.5 and 3
+            }
+
+            // Methods for handling panning of the map
+            startPan(event: MouseEvent) {
+                if (!this.isEditing) {
+                    this.isPanning = true;
+                    this.startX = event.clientX - this.panX * this.scale;
+                    this.startY = event.clientY - this.panY * this.scale;
+                }
+            }
+
+            onPan(event: MouseEvent) {
+                if (this.isPanning) {
+                    this.panX = (event.clientX - this.startX) / this.scale;
+                    this.panY = (event.clientY - this.startY) / this.scale;
+                }
+            }
+
+            endPan() {
+                this.isPanning = false;
+            }
         }
     </script>
 
@@ -210,11 +253,11 @@
 
         .background-container {
             background-image: url('@/components/ui/NewBuilding v2.png');
-            background-size: 100% 50%; /* Retains the aspect ratio */
+            background-size: 100% 100%; /* Retains the aspect ratio */
             background-repeat: no-repeat; /* Prevents repeating the image */
             background-position: left; /* Centers the image */
             width: 1000px;
-            height: 1000px; /* Adjusts the height automatically */
+            height: 500px; /* Adjusts the height automatically */
             position: absolute;
         }
 
