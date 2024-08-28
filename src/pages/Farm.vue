@@ -142,24 +142,11 @@
 
                 //this.$toast.error(printer?.data?.print_stats?.state);
                 //convert the printer state into a color code
-                let color = 'gray'; // Default color
 
                 this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
                 //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
                 const size = "25px"; // Diameter of the circle
 
-                if (printer.data?.print_stats?.state) {
-                    const state = printer.data.print_stats.state;
-                    if (state === 'error' || state === 'paused' || state === 'cancelled') {
-                        color = 'red';
-                    } else if (state === 'printing') {
-                        color = 'blue';
-                    } else if (state === 'complete') {
-                        color = 'blue';
-                    } else if (state === 'standby') {
-                        color = 'green';
-                    }
-                }
 
                 return {
                     position: 'absolute',
@@ -170,7 +157,7 @@
                     borderRadius: '50%',  // Make the div a circle visually
                     overflow: 'hidden',   // Ensure content stays within the circle
                     clipPath: 'circle(50%)', // Constrain interaction to the circular area
-                    //border: "0.2em solid " + color,
+                    backgroundColor: 'transparent'
                 };
             }
 
@@ -199,7 +186,7 @@
                     } else if (state === 'complete') {
                         color = 'blue';
                     } else if (state === 'standby') {
-                        color = 'green';
+                        color = 'lawngreen';
                     }
                 }
                 return {
