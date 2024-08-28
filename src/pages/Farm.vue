@@ -196,7 +196,7 @@
                     width: '100%',
                     height: '100%',
                     borderRadius: '50%',
-                    border: "0.2em solid "+color, // Transparent base for the border
+                    border: "0.25em solid "+color, // Transparent base for the border
                     zIndex: 2, // Ensure the border is above the content
                     pointerEvents: 'none', // Prevent the spinning border from capturing mouse events
                 };
