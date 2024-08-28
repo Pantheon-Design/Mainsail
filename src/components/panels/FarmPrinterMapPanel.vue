@@ -7,13 +7,12 @@
                  backgroundColor: 'transparent',
                  width: 500 + 'px',
                  height: 500 + 'px',
-                 display: flex,
                  marginTop: -150 + 'px',
                  marginLeft: -150 + 'px',
                  }">
             <template #default="{ hover }">
                 <div style="position: relative; width: 100%; height: 100vh;">
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-230%, -208%); width: 50px; height: 50px; background-color: black; text-align: center; color: #b9d4c6 ">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-225%, -204%); width: 50px; height: 50px; background-color: dimgray; text-align: center; color: #b9d4c6 ">
                         <span :style="{
                                             userSelect: 'none',  // Prevent text selection
                                             pointerEvents: 'none',  // Disable interaction
@@ -249,7 +248,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
 
 <style scoped>
     .v-card.disabledPrinter {
-        opacity: 0.6;
+        opacity: 0.3;
         filter: grayscale(70%);
     }
 

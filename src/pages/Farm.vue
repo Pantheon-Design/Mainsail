@@ -19,6 +19,8 @@
                      :class="{ 'draggable': isEditing }"
                      :data-printer-id="printer.socket.id"
                      @mousedown="isEditing ? startDrag($event, printer) : null">
+                    <div :style="spinningBorderStyle(printer)"></div>
+
                     <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
                 </div>
             </div>
@@ -142,23 +144,22 @@
                 //convert the printer state into a color code
                 let color = 'gray'; // Default color
 
+                this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
+                //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
+                const size = "25px"; // Diameter of the circle
+
                 if (printer.data?.print_stats?.state) {
                     const state = printer.data.print_stats.state;
                     if (state === 'error' || state === 'paused' || state === 'cancelled') {
                         color = 'red';
                     } else if (state === 'printing') {
-                        color = 'green';
-                    } else if (state === 'complete') {
-                        color = 'purple';
-                    } else if (state === 'standby') {
                         color = 'blue';
+                    } else if (state === 'complete') {
+                        color = 'blue';
+                    } else if (state === 'standby') {
+                        color = 'green';
                     }
                 }
-
-                this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
-                //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-                const size = "25px"; // Diameter of the circle
-
 
                 return {
                     position: 'absolute',
@@ -169,9 +170,50 @@
                     borderRadius: '50%',  // Make the div a circle visually
                     overflow: 'hidden',   // Ensure content stays within the circle
                     clipPath: 'circle(50%)', // Constrain interaction to the circular area
-                    border: "0.2em solid " + color,
-                    backgroundcolor: 'blue',
+                    //border: "0.2em solid " + color,
                 };
+            }
+
+            spinningBorderStyle(printer: any) {
+                let color = 'gray'; // Default color
+
+                if (printer.data?.print_stats?.state) {
+                    const state = printer.data.print_stats.state;
+                    if (state === 'error' || state === 'paused' || state === 'cancelled') {
+                        color = 'red';
+                    } else if (state === 'printing') {
+                        color = 'blue';
+                        return {
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            borderRadius: '50%',
+                            background: `conic-gradient(transparent 0%, ${color} 10%, transparent 80%)`, // Gradient effect
+                            mask: "radial-gradient(farthest-side, transparent calc(100% - 0.3em), black calc(100% - 0.3em))",
+                            animation: 'spin 2s linear infinite', // Apply spinning animation
+                            zIndex: 2, // Ensure the border is above the content
+                            pointerEvents: 'none', // Prevent the spinning border from capturing mouse events
+                        };
+                    } else if (state === 'complete') {
+                        color = 'blue';
+                    } else if (state === 'standby') {
+                        color = 'green';
+                    }
+                }
+                return {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    border: "0.2em solid "+color, // Transparent base for the border
+                    zIndex: 2, // Ensure the border is above the content
+                    pointerEvents: 'none', // Prevent the spinning border from capturing mouse events
+                };
+
             }
 
             // Method to add a new position
@@ -273,5 +315,22 @@
         .draggable {
             cursor: move;
             z-index: 1;
+            background-image: url('@/components/ui/logo.png');
+            background-size: 55% 55%; /* Retains the aspect ratio */
+            background-repeat: no-repeat; /* Prevents repeating the image */
+            background-position: center; /* Centers the image */
+            position: absolute;
+            background-color: #424143;
         }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
     </style>
