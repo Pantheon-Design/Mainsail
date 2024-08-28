@@ -74,13 +74,18 @@
 
             startDrag(event: MouseEvent, printer: any) {
                 //console.log(this.$store.state);
-                console.log(printer);
+                //console.log(printer);
                 this.getRemotePrinters();
                 //this.$toast.success(printer);
                 //if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
                 this.draggingPrinter = printer;
-                this.offsetX = event.clientX - this.getPositionX(this.draggingPrinter.socket.id);
-                this.offsetY = event.clientY - this.getPositionY(this.draggingPrinter.socket.id);
+                this.offsetX = (event.clientX - (this.getPositionX(this.draggingPrinter.socket.id) * this.scale + this.panX)) / this.scale;
+                this.offsetY = (event.clientY - (this.getPositionY(this.draggingPrinter.socket.id) * this.scale + this.panY)) / this.scale;
+
+                //console.log("mouse position X: " + event.clientX + " Y: " + event.clientY);
+                //console.log("printer position X: " + this.getPositionX(this.draggingPrinter.socket.id) + " Y: " + this.getPositionY(this.draggingPrinter.socket.id));
+                //console.log("offset X: " + this.offsetX + " Y: " + this.offsetY);
+
                 this.printerId = printer.socket.id;
                 this.printerHostName = printer.socket.hostname;
                 this.printerPort = printer.socket.port;
@@ -90,9 +95,9 @@
 
             onDrag(event: MouseEvent) {
                 if (this.draggingPrinter) {
-                    //this.$toast.success("draging")
-                    let x = event.clientX - this.offsetX * this.scale;
-                    let y = event.clientY - this.offsetY * this.scale;
+                    let x = (event.clientX - this.panX) / this.scale - this.offsetX;
+                    let y = (event.clientY - this.panY) / this.scale - this.offsetY;
+
                     this.positions[this.draggingPrinter.socket.id] = { x, y };
                     this.updatePrinterPositionOnDrag(this.getPositionX(this.draggingPrinter.socket.id), this.getPositionY(this.draggingPrinter.socket.id))
                 }
@@ -152,7 +157,7 @@
 
                 this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y);
                 //if (!this.positions[printer.socket.id]) { this.addPosition(printer.socket.id, printer.socket.position.x, printer.socket.position.y); }
-                const size = "50px"; // Diameter of the circle
+                const size = "25px"; // Diameter of the circle
 
 
                 return {
@@ -164,7 +169,7 @@
                     borderRadius: '50%',  // Make the div a circle visually
                     overflow: 'hidden',   // Ensure content stays within the circle
                     clipPath: 'circle(50%)', // Constrain interaction to the circular area
-                    border: "0.4em solid " + color,
+                    border: "0.2em solid " + color,
                     backgroundcolor: 'blue',
                 };
             }
