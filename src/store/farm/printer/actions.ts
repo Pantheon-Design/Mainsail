@@ -248,7 +248,7 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
     },
 
     getFilamentType({ commit, dispatch }, payload) {
-        Vue.$toast.error('2')
+        //Vue.$toast.error('2')
         Vue.$socket.emit(
             'server.database.get_item',
             {

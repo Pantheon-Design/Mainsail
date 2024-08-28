@@ -29,12 +29,12 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     async initStore({ commit, dispatch }, payload) {
-        Vue.$toast.success("init Store :");
+        //Vue.$toast.success("init Store :");
         //console.log(payload);
         dispatch('reset')
         Object.keys(payload).forEach((printerId: string) => {
             const printer = payload[printerId]
-            Vue.$toast.success(printer);
+            //Vue.$toast.success(printer);
             commit('store', { id: printerId, values: printer })
             dispatch(
                 'farm/registerPrinter',
