@@ -76,7 +76,7 @@
 
             startDrag(event: MouseEvent, printer: any) {
                 //console.log(this.$store.state);
-                //console.log(printer);
+                console.log(printer);
                 this.getRemotePrinters();
                 //this.$toast.success(printer);
                 //if (printer.data?.print_stats?.state) this.$toast.error(printer.data?.print_stats?.state)
@@ -186,7 +186,7 @@
                     } else if (state === 'complete') {
                         color = 'blue';
                     } else if (state === 'standby') {
-                        color = 'lawngreen';
+                        color = 'hsl(90, 100%, 32%)';
                     }
                 }
                 return {
