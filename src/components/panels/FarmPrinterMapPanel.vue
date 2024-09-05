@@ -12,13 +12,15 @@
                  }">
             <template #default="{ hover }">
                 <div style="position: relative; width: 100%; height: 100vh;">
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-225%, -204%); width: 50px; height: 50px; background-color: dimgray; text-align: center; color: #b9d4c6 ">
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-225%, -202%); width: 50px; height: 50px; background-color: #ffffff; text-align: center; color: #000000 ">
                         <span :style="{
                                             userSelect: 'none',  // Prevent text selection
                                             pointerEvents: 'none',  // Disable interaction
                                             padding: '5px',
                                             lineHeight: '1',
-                                            fontSize: '9px',
+                                            fontSize: '10px',
+                                            fontWeight: 'bold',  // Make text bold
+
                                         }">
                             {{ displayFilamentType }}
                         </span>

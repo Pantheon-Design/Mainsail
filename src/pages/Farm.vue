@@ -177,7 +177,7 @@
                             width: '100%',
                             height: '100%',
                             borderRadius: '50%',
-                            background: `conic-gradient(transparent 0%, ${color} 10%, transparent 80%)`, // Gradient effect
+                            background: `conic-gradient(transparent 0%, ${color} 10%, transparent 90%)`, // Gradient effect
                             mask: "radial-gradient(farthest-side, transparent calc(100% - 0.3em), black calc(100% - 0.3em))",
                             animation: 'spin 2s linear infinite', // Apply spinning animation
                             zIndex: 2, // Ensure the border is above the content
