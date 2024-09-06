@@ -72,86 +72,23 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
             backgroundColor: 'transparent'
         }
 
-        const warningStyle = {
-            color: 'orange',
-            backgroundColor: 'transparent'
-        }
-
-        const cautionStyle = {
-            color: 'rgb( 218, 218, 11)',
-            backgroundColor: 'transparent'
-        }
-
-        const dangerStyle = {
-            color: 'red',
-            backgroundColor: 'transparent'
-        }
-
-        const cautionHeadlineStyle = {
-            color: 'black',
-            backgroundColor: 'rgb( 218, 218, 11)',
-            fontWeight: 'bold',
-            fontSize: '26px'
-        }
-
-        const warningHeadlineStyle = {
-            color: 'black',
-            backgroundColor: 'orange',
-            fontWeight: 'bold',
-            fontSize: '26px'
-        }
-
-        const dangerHeadlineStyle = {
-            color: 'black',
-            backgroundColor: 'red',
-            fontWeight: 'bold',
-            fontSize: '26px'
-        }
-
-        const cautionGenericStyle = {
-            color: 'rgb( 218, 218, 11)',
-
-            fontSize: '20px'
-        }
-
-        const warningGenericStyle = {
-            color: 'orange',
-
-            fontSize: '20px'
-        }
-
-        const dangerGenericStyle = {
-            color: 'red',
-
-            fontSize: '20px'
-        }
-
-        const cautionGenericText = 'Print Quality may be degraded'
-
-        const warningGenericText = 'Running this file may damage your machine'
-
         let textArray = []
         let stylesArray = []
 
-        //this.$toast.success(" " + this.file.config_verifier)
-        //this.$toast.error(" " + this.file.config_yml)
-        //this.$toast.error("====" + this.file.enable_config_verifier)
+            
+        textArray.push('Please follow the following instruction to prime the printer:')
+        stylesArray.push(defaultStyle)
+        textArray.push("1. Clear bed of parts, prime line, and supports.")
+        stylesArray.push(defaultStyle)
+        textArray.push("2. Inspect nozzle for goop, clean if goopy.")
+        stylesArray.push(defaultStyle)
+        textArray.push("3. Clean bed with alcohol and clean room wipe.")
+        stylesArray.push(defaultStyle)
+        textArray.push("4. Coat bed with adhesive.")
+        stylesArray.push(defaultStyle)
 
-        if (true){
-            // Scenario 1: config_verifier is not found in the printer
-            if (true) {
-                textArray.push('Please follow the following instruction to prime the printer:')
-                stylesArray.push(defaultStyle)
-            }
-            else {
-                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
-                    filename: 'unknown' }
-                ))
-                stylesArray.push(defaultStyle)
-                        
-            }
-            return { textArray, stylesArray };
-        }
+        return { textArray, stylesArray }
+        
 
     }
 
