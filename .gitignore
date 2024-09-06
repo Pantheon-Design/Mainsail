@@ -16,6 +16,8 @@ package-lock.json
 *.local
 .env
 .vscode
+.vs/
+
 
 cypress/screenshots/
 cypress/videos/
