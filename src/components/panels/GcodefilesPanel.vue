@@ -573,6 +573,7 @@
             :filename="dialogAddBatchToQueue.filename"
             @close="closeAddBatchToQueueDialog" />
         <prime-printer-dialog :bool="show_prime_printer_dialog"
+                            :filename="selectedFilename"
                             @closeDialog="closePrimePrint" />
     </div>
 </template>
@@ -681,6 +682,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     sortFiles = sortFiles
 
     show_prime_printer_dialog = false
+    selectedFilename = ''
 
 
     declare $refs: {
@@ -1196,6 +1198,8 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     }
 
     clickRow(item: FileStateGcodefile, force = false) {
+        this.selectedFilename = ''
+
         if (!this.contextMenu.shown || force) {
             if (force) this.contextMenu.shown = false
 
@@ -1207,6 +1211,8 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                     // Block action if the printer is currently printing or paused
                 } else if (['error', 'cancelled', 'complete'].includes(this.printer_state)) {
                     // If the printer state is error, cancelled, or complete, show the Prime Printer dialog
+                    this.selectedFilename = item.filename
+
                     this.show_prime_printer_dialog = true;
                 } else {
                     // Default action: Show the print dialog for G-code files

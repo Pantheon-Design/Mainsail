@@ -1,7 +1,7 @@
 <template>
     <v-dialog v-model="bool" :max-width="450" @click:outside="closeDialog" @keydown.esc="closeDialog">
         <v-card>
-            <v-card-title class="text-h5">Prime Printer</v-card-title>
+            <v-card-title class="text-h5">{{ filename ? 'Prime Printer First' : 'Prime Printer' }}</v-card-title>
             <v-card-text class="pb-0">
                 <p v-for="(text, index) in question.textArray" :key="index" :style="question.stylesArray[index]">
                     {{ text }}
@@ -165,7 +165,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }
 
     primeAndPrintAction() {
-        this.$toast.error('Primed and Print ${this.filename}!')
+        //this.$toast.error('Primed and Print ${this.filename}!')
         this.closeDialog()
         this.$socket.emit('printer.print.start', { filename: this.filename }, { loading: 'statusPrintReprint' })
     }
