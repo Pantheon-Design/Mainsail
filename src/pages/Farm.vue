@@ -36,6 +36,8 @@
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
                     <p>Filament: {{ hoveredPrinter.socket.lastPrintedFilament }}</p>
                     <p>CurrentFile: {{ hoveredPrinter.current_file.filename }}</p>
+                    <p>Progress: {{ getPrinterPrintPercent(hoveredPrinter) }}%</p>
+
                 </div>
             </div>
         </div>
@@ -86,6 +88,9 @@
                 position: 'absolute',
             };
 
+            get printPercent() {
+                return Math.floor(this.$store.getters['printer/getPrintPercent'] * 100)
+            }
 
             get printers() {
                 //this.$toast.success("getting printers");
@@ -290,7 +295,7 @@
 
             // Show the tooltip
             showTooltip(printer: any) {
-                console.log(printer)
+                //console.log(printer)
                 this.hoveredPrinter = printer;
                 // Use the printer's position to position the tooltip outside the circle
                 const printerPosition = this.positions[printer.socket.id];
@@ -313,6 +318,10 @@
                 } else {
                     console.warn('No printers available to reconnect');
                 }
+            }
+
+            getPrinterPrintPercent(printer: any) {
+                return Math.floor(this.$store.getters['farm/' + printer._namespace + '/getPrintPercent']*100);
             }
 
         }
