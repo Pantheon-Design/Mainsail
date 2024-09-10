@@ -274,14 +274,6 @@ export default class StatusPanel extends Mixins(BaseMixin) {
                 click: this.btnPauseAtLayer,
             },
             {
-                text: 'Prime Printer',
-                color: 'primary',
-                icon: mdiBroom,
-                loadingName: 'statusPrintClear',
-                status: () => ['error', 'complete', 'cancelled'].includes(this.printer_state),
-                click: this.btnClearJob,
-            },
-            {
                 text: this.$t('Panels.StatusPanel.ReprintJob'),
                 color: 'primary',
                 icon: mdiPrinter,

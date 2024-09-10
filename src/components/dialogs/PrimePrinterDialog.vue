@@ -15,10 +15,21 @@
                        contain></v-img>
             </div>
 
+
+            <v-card-text class="pb-0">
+                <!-- Display TextArray Content -->
+                <p v-if="filename" class="non-selectable">If you are 100% sure the printer is primed, you can enter the filename to force print:<br>{{ filename }}</p>
+                <!-- Text Input Field for Filename -->
+                <v-text-field v-model="userInput"
+                              label="Enter filename"
+                              outlined></v-text-field>
+            </v-card-text>
+
             <v-card-actions>
                 <v-spacer />
                 <v-btn text @click="closeDialog">Cancel</v-btn>
-                <v-btn color="primary"
+                <v-btn :disabled="userInput !== filename"
+                       color="primary"
                        text
                        @click="handlePrimeAction()">
                     {{ filename ? 'PRIME AND PRINT' : 'PRIME' }}
@@ -54,6 +65,12 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     })
     declare readonly filename: string
 
+    @Prop({
+        required: false,
+        default: '',
+    })
+    declare readonly userInput: string
+
     get timelapseEnabled() {
         return this.$store.state.server.timelapse?.settings?.enabled ?? false
     }
@@ -76,16 +93,9 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         let stylesArray = []
 
             
-        textArray.push('Please follow the following instruction to prime the printer:')
+        textArray.push('Please prime the printer, and confirm it on the printer\'s touchscreen')
         stylesArray.push(defaultStyle)
-        textArray.push("1. Clear bed of parts, prime line, and supports.")
-        stylesArray.push(defaultStyle)
-        textArray.push("2. Inspect nozzle for goop, clean if goopy.")
-        stylesArray.push(defaultStyle)
-        textArray.push("3. Clean bed with alcohol and clean room wipe.")
-        stylesArray.push(defaultStyle)
-        textArray.push("4. Coat bed with adhesive.")
-        stylesArray.push(defaultStyle)
+
 
         return { textArray, stylesArray }
         
@@ -118,3 +128,9 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
     }
 }
 </script>
+
+<style>
+    .non-selectable {
+        user-select: none;
+    }
+</style>
