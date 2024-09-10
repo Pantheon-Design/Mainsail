@@ -41,7 +41,7 @@
                     </div>
                 </div>
 
-</template>
+            </template>
         </v-hover>
         <resize-observer @notify="handleResize" />
     </farmPanel>

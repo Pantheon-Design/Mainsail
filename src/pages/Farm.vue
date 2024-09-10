@@ -7,8 +7,13 @@
                   :label="isMapView ? 'Switch to List View' : 'Switch to Map View'"
                   class="mb-4 custom-width-switch" />
         <!-- Edit/Save Button -->
-        <v-btn v-if="isMapView" @click="toggleEditMode" class="mb-4">
+        <v-btn v-if="isMapView" @click="toggleEditMode" class="mb-4 mr-4">
             {{ isEditing ? 'Save' : 'Edit' }}
+        </v-btn>
+
+        <!-- Reconnect All Button -->
+        <v-btn v-if="isMapView" @click="reconnectAllPrinters" class="mb-4">
+            Reconnect All
         </v-btn>
 
         <!-- Conditional Rendering of Views -->
@@ -18,22 +23,31 @@
                      :style="getStyle(printer)"
                      :class="{ 'draggable': isEditing }"
                      :data-printer-id="printer.socket.id"
-                     @mousedown="isEditing ? startDrag($event, printer) : null">
+                     @mousedown="isEditing ? startDrag($event, printer) : null"
+                     @mouseover="showTooltip(printer)"
+                     @mouseleave="hideTooltip">
                     <div :style="spinningBorderStyle(printer)"></div>
 
                     <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
                 </div>
+                <!-- Tooltip: Shows printer details on hover -->
+                <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
+                    <p>Name: {{ hoveredPrinter.socket.hostname }}</p>
+                    <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
+                    <p>Filament: {{ hoveredPrinter.socket.lastPrintedFilament }}</p>
+                    <p>CurrentFile: {{ hoveredPrinter.current_file.filename }}</p>
+                </div>
             </div>
         </div>
-            <div v-else>
-                <v-row>
-                    <v-col v-for="(printer, key) in printers" :key="key" class="col-12 col-sm-6 col-md-4 pb-0">
-                        <farm-printer-panel :printer="printer"></farm-printer-panel>
-                    </v-col>
-                </v-row>
-            </div>
+        <div v-else>
+            <v-row>
+                <v-col v-for="(printer, key) in printers" :key="key" class="col-12 col-sm-6 col-md-4 pb-0">
+                    <farm-printer-panel :printer="printer"></farm-printer-panel>
+                </v-col>
+            </v-row>
         </div>
-    </template>
+    </div>
+</template>
     <script lang="ts">
         import { Component, Mixins } from 'vue-property-decorator';
         import BaseMixin from '@/components/mixins/base';
@@ -64,6 +78,14 @@
             isPanning: boolean = false;    // Flag for panning state
             startX: number = 0;            // Initial X position for pan
             startY: number = 0;            // Initial Y position for pan
+
+            hoveredPrinter: any = null; // Mutable data property for hoveredPrinter
+            tooltipStyle = {
+                top: '0px',
+                left: '0px',
+                position: 'absolute',
+            };
+
 
             get printers() {
                 //this.$toast.success("getting printers");
@@ -265,6 +287,34 @@
             endPan() {
                 this.isPanning = false;
             }
+
+            // Show the tooltip
+            showTooltip(printer: any) {
+                console.log(printer)
+                this.hoveredPrinter = printer;
+                // Use the printer's position to position the tooltip outside the circle
+                const printerPosition = this.positions[printer.socket.id];
+                this.tooltipStyle.top = `${printerPosition.y - 40}px`; // Adjust this to move it above the circle
+                this.tooltipStyle.left = `${printerPosition.x + 30}px`; // Adjust this to move it to the right
+            }
+            // Hides the tooltip
+            hideTooltip() {
+                this.hoveredPrinter = null;
+            }
+
+            // Reconnect all printers by dispatching Vuex actions
+            reconnectAllPrinters() {
+                const printersArray = Object.values(this.printers); // Convert the object to an array
+
+                if (printersArray.length > 0) {
+                    printersArray.forEach((printer: any) => {
+                        this.$store.dispatch('farm/' + printer._namespace + '/reconnect');
+                    });
+                } else {
+                    console.warn('No printers available to reconnect');
+                }
+            }
+
         }
     </script>
 
@@ -318,6 +368,18 @@
             to {
                 transform: rotate(360deg);
             }
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 10;
+            top: -50px; /* Adjust based on your printer element */
+            left: 0; /* Adjust as needed */
         }
 
     </style>
