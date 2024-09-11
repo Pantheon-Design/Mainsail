@@ -1,5 +1,3 @@
-<style></style>
-
 <template>
     <div>
         <!-- Toggle Button -->
@@ -24,14 +22,14 @@
                      :class="{ 'draggable': isEditing }"
                      :data-printer-id="printer.socket.id"
                      @mousedown="isEditing ? startDrag($event, printer) : null"
-                     @mouseover="showTooltip(printer)"
+                     @mouseover="showTooltip(printer, $event)"
                      @mouseleave="hideTooltip">
                     <div :style="spinningBorderStyle(printer)"></div>
 
                     <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
                 </div>
                 <!-- Tooltip: Shows printer details on hover -->
-                <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
+                <div v-if="hoveredPrinter" class="tooltip" ref="tooltip" :style="tooltipStyle">
                     <p>Name: {{ hoveredPrinter.socket.hostname }}</p>
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
                     <p>Filament: {{ hoveredPrinter.socket.lastPrintedFilament }}</p>
@@ -294,13 +292,38 @@
             }
 
             // Show the tooltip
-            showTooltip(printer: any) {
-                //console.log(printer)
+            showTooltip(printer: any, event: MouseEvent) {
                 this.hoveredPrinter = printer;
-                // Use the printer's position to position the tooltip outside the circle
-                const printerPosition = this.positions[printer.socket.id];
-                this.tooltipStyle.top = `${printerPosition.y - 40}px`; // Adjust this to move it above the circle
-                this.tooltipStyle.left = `${printerPosition.x + 30}px`; // Adjust this to move it to the right
+
+                this.$nextTick(() => {
+                    const tooltipElement = this.$refs.tooltip as HTMLElement;
+
+                    if (!tooltipElement) return;
+                    // Get the position of the printer element
+                    const printerPosition = this.positions[printer.socket.id];
+
+                    // Get the width of the screen and tooltip
+                    const screenWidth = window.innerWidth;
+                    const tooltipWidth = tooltipElement.offsetWidth;// Set the tooltip's width 
+
+                    // Calculate the default tooltip position (to the right of the printer)
+                    let tooltipLeft = this.positions[printer.socket.id].x + 50;
+                    console.log("before: " + tooltipLeft);
+                    console.log("screenWidth: " + screenWidth)
+                    console.log("tooltipWidth: " + tooltipWidth)
+
+                    // If the tooltip is too close to the right edge, move it to the left side
+                    if (event.clientX + tooltipWidth > (screenWidth - 300)) {
+                        tooltipLeft = this.positions[printer.socket.id].x - tooltipWidth + 20; // Move tooltip to the left
+                        console.log("out of screen")
+                    }
+                    console.log("after: " + tooltipLeft);
+                    console.log("mouse position " + event.clientX);
+
+                    // Set the tooltip position
+                    this.tooltipStyle.top = `${this.positions[printer.socket.id].y + 20}px`; // Adjust to position above the mouse
+                    this.tooltipStyle.left = `${tooltipLeft - 20}px`;
+                });
             }
             // Hides the tooltip
             hideTooltip() {
