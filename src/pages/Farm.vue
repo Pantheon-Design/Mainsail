@@ -308,17 +308,11 @@
 
                     // Calculate the default tooltip position (to the right of the printer)
                     let tooltipLeft = this.positions[printer.socket.id].x + 50;
-                    console.log("before: " + tooltipLeft);
-                    console.log("screenWidth: " + screenWidth)
-                    console.log("tooltipWidth: " + tooltipWidth)
 
                     // If the tooltip is too close to the right edge, move it to the left side
                     if (event.clientX + tooltipWidth > (screenWidth - 300)) {
                         tooltipLeft = this.positions[printer.socket.id].x - tooltipWidth + 20; // Move tooltip to the left
-                        console.log("out of screen")
                     }
-                    console.log("after: " + tooltipLeft);
-                    console.log("mouse position " + event.clientX);
 
                     // Set the tooltip position
                     this.tooltipStyle.top = `${this.positions[printer.socket.id].y + 20}px`; // Adjust to position above the mouse
