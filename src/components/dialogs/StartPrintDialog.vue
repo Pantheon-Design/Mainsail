@@ -183,7 +183,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
 
         //this.$toast.error("====" + this.file.enable_config_verifier)
 
-        if (this.file.enable_config_verifier){
+        if (!this.file.enable_config_verifier){
             // Scenario 1: config_verifier is not found in the printer
             if (this.active_spool) {
                 textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
