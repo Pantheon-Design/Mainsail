@@ -225,10 +225,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                     stylesArray.push(cautionStyle)
                 }
             } else {
-                // TODO: Handle filament type and nozzle size check. the following parameters are available
-                // this.file.config_verifier
-                // this.$store.state.printer.toolhead.filament_type
-                // this.$toast.error(this.$store.state.printer.toolhead.nozzle_size
+                // Handle filament type and nozzle size check. the following parameters are available
                 // Create a copy of the config_verifier array to add warnings
                 let configVerifier = [...this.file.config_verifier];  // Shallow copy of the config_verifier array
 
