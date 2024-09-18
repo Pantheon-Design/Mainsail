@@ -30,7 +30,7 @@
                 </div>
                 <!-- Tooltip: Shows printer details on hover -->
                 <div v-if="hoveredPrinter" class="tooltip" ref="tooltip" :style="tooltipStyle">
-                    <p>Name: {{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.data.print_stats.state }}</p>
+                    <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.data.print_stats.state }}</p>
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
                     <p>Filament: {{ hoveredPrinter.data.toolhead.filament_type }}</p>
                     <p>Nozzle: {{ hoveredPrinter.data.toolhead.nozzle_size }}</p>
