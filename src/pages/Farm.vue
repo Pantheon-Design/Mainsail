@@ -192,9 +192,24 @@
                     backgroundColor: 'transparent'
                 };
             }
-
             spinningBorderStyle(printer: any) {
                 let color = 'gray'; // Default color
+
+                // Check if the printer is connected
+                if (!printer.socket.isConnected) {
+                    // If the printer is not connected, return gray style
+                    return {
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: '50%',
+                        border: "0.25em solid gray", // Gray border for disconnected state
+                        zIndex: 2, // Ensure the border is above the content
+                        pointerEvents: 'none', // Prevent the spinning border from capturing mouse events
+                    };
+                }
 
                 if (printer.data?.print_stats?.state) {
                     const state = printer.data.print_stats.state;
