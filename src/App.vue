@@ -69,7 +69,9 @@ export default class App extends Mixins(BaseMixin, ThemeMixin) {
     public metaInfo(): any {
         let title = this.$store.getters['getTitle']
 
-        if (this.isPrinterPowerOff) title = this.$t('App.Titles.PrinterOff')
+        //if (this.isPrinterPowerOff) title = this.$t('App.Titles.PrinterOff')
+
+        title = 'Pantheon Fleet'
 
         return {
             title,

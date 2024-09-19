@@ -152,64 +152,9 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
                 title: this.$t('Settings.UiSettingsTab.UiSettings'),
             },
             {
-                icon: mdiMonitorDashboard,
-                name: 'dashboard',
-                title: this.$t('Settings.DashboardTab.Dashboard'),
-            },
-            {
-                icon: mdiWebcam,
-                name: 'webcams',
-                title: this.$t('Settings.WebcamsTab.Webcams'),
-            },
-            {
-                icon: mdiCodeTags,
-                name: 'macros',
-                title: this.$t('Settings.MacrosTab.Macros'),
-            },
-            {
-                icon: mdiTune,
-                name: 'control',
-                title: this.$t('Settings.ControlTab.Control'),
-            },
-            {
-                icon: mdiConsoleLine,
-                name: 'console',
-                title: this.$t('Settings.ConsoleTab.Console'),
-            },
-            {
-                icon: mdiFire,
-                name: 'presets',
-                title: this.$t('Settings.PresetsTab.PreheatPresets'),
-            },
-            {
                 icon: mdiPrinter3d,
                 name: 'remote-printers',
                 title: this.$t('Settings.RemotePrintersTab.RemotePrinters'),
-            },
-            {
-                icon: mdiVideo3d,
-                name: 'g-code-viewer',
-                title: this.$t('Settings.GCodeViewerTab.GCodeViewer'),
-            },
-            {
-                icon: mdiFileDocumentEditOutline,
-                name: 'editor',
-                title: this.$t('Settings.EditorTab.Editor'),
-            },
-            {
-                icon: mdiDipSwitch,
-                name: 'miscellaneous',
-                title: this.$t('Settings.MiscellaneousTab.Miscellaneous'),
-            },
-            {
-                icon: mdiMenu,
-                name: 'navigation',
-                title: this.$t('Settings.NavigationTab.Navigation'),
-            },
-            {
-                icon: mdiGrid,
-                name: 'heightmap',
-                title: this.$t('Settings.HeightmapTab.Heightmap'),
             },
         ]
 

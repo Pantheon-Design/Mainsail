@@ -1,7 +1,6 @@
 <template>
     <div>
         <v-app-bar app elevate-on-scroll :height="topbarHeight" class="topbar pa-0" clipped-left>
-            <v-app-bar-nav-icon tile @click.stop="naviDrawer = !naviDrawer" />
             <router-link to="/">
                 <template v-if="sidebarLogo">
                     <img
@@ -54,18 +53,7 @@
                 <v-icon class="mr-md-2">{{ mdiFileUpload }}</v-icon>
                 <span class="d-none d-md-inline">{{ $t('App.TopBar.UploadPrint') }}</span>
             </v-btn>
-            <v-btn
-                v-if="klippyIsConnected"
-                tile
-                :icon="$vuetify.breakpoint.smAndDown"
-                :text="$vuetify.breakpoint.mdAndUp"
-                color="error"
-                class="button-min-width-auto px-3 emergency-button"
-                :loading="loadings.includes('topbarEmergencyStop')"
-                @click="btnEmergencyStop">
-                <v-icon class="mr-md-2">{{ mdiAlertOctagonOutline }}</v-icon>
-                <span class="d-none d-md-inline">{{ $t('App.TopBar.EmergencyStop') }}</span>
-            </v-btn>
+
             <the-notification-menu />
             <the-settings-menu />
             <the-top-corner-menu />
@@ -160,7 +148,7 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     }
 
     set naviDrawer(newVal) {
-        this.$store.dispatch('setNaviDrawer', newVal)
+        this.$store.dispatch('setNaviDrawer', false)
     }
 
     get currentPage() {
@@ -225,19 +213,7 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     }
 
     mounted() {
-        //this.naviDrawer = this.$vuetify.breakpoint.lgAndUp
-        switch (this.defaultNavigationStateSetting) {
-            case 'alwaysClosed':
-                this.naviDrawer = false
-                break
-
-            case 'lastState':
-                this.naviDrawer = (localStorage.getItem('naviDrawer') ?? 'true') === 'true'
-                break
-
-            default:
-                this.naviDrawer = this.$vuetify.breakpoint.lgAndUp
-        }
+        this.naviDrawer = false
     }
 
     btnEmergencyStop() {

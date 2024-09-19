@@ -1,6 +1,7 @@
 <template>
     <v-navigation-drawer
         :key="navigationStyle"
+        v-if="false"
         v-model="naviDrawer"
         :mini-variant="navigationStyle === 'iconsOnly'"
         :width="navigationWidth"

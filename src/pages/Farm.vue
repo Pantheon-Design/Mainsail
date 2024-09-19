@@ -10,8 +10,13 @@
         </v-btn>
 
         <!-- Reconnect All Button -->
-        <v-btn v-if="isMapView" @click="reconnectAllPrinters" class="mb-4">
+        <v-btn v-if="isMapView" @click="reconnectAllPrinters" class="mb-4 mr-4">
             Reconnect All
+        </v-btn>
+
+        <!-- Add Printer Button -->
+        <v-btn v-if="isMapView" @click="openAddPrinterDialog" class="mb-4">
+            WIP:Add Printer
         </v-btn>
 
         <!-- Conditional Rendering of Views -->
@@ -57,8 +62,9 @@
         import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue'
         import { number } from 'echarts/core';
         import Vue from 'vue'
+
         @Component({
-            components: { FarmPrinterPanel, SettingsRemotePrintersTab },
+            components: { FarmPrinterPanel, SettingsRemotePrintersTab},
         })
         export default class PageFarm extends Mixins(BaseMixin) {
             isMapView: boolean = true;
@@ -337,6 +343,11 @@
                     console.warn('No printers available to reconnect');
                 }
             }
+
+            openAddPrinterDialog() {
+                const settingsMenu = this.$refs.settingsMenu as any;
+                settingsMenu.activeTab = 'remote-printers';
+                settingsMenu.showSettings = true;            }
 
             getPrinterPrintPercent(printer: any) {
                 return Math.floor(this.$store.getters['farm/' + printer._namespace + '/getPrintPercent']*100);
