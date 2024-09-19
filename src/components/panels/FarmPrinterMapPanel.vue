@@ -14,14 +14,14 @@
                 <div style="position: relative; width: 100%; height: 100vh;">
                     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-225%, -202%); width: 50px; height: 50px; background-color: #ffffff; text-align: center; color: #000000 ">
                         <span :style="{
-                                            userSelect: 'none',  // Prevent text selection
-                                            pointerEvents: 'none',  // Disable interaction
-                                            padding: '5px',
-                                            lineHeight: '1',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',  // Make text bold
-
-                                        }">
+                              userSelect: 'none' , // Prevent text selection
+                              pointerEvents: 'none' , // Disable interaction
+                              padding: '5px' ,
+                              lineHeight: '1' ,
+                              fontSize: displayFilamentType.length>
+                            2 ? '8px' : '10px',  // Adjust font size based on length
+                            fontWeight: 'bold',  // Make text bold
+                            }">
                             {{ displayFilamentType }}
                         </span>
 
@@ -231,7 +231,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
 
     // Computed property to get the correct filament type abbreviation
     get displayFilamentType(): string {
-        const filament = this.printer?.socket?.lastPrintedFilament;
+        const filament = this.printer?.data?.toolhead?.filament_type;
         switch (filament) {
             case "PA-CF":
                 return "CN";
