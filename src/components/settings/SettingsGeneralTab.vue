@@ -2,7 +2,7 @@
     <div>
         <v-card flat>
             <v-card-text>
-                <settings-row :title="$t('Settings.GeneralTab.PrinterName')">
+                <settings-row :title="$t('Name')">
                     <v-text-field v-model="printerName" hide-details outlined dense></v-text-field>
                 </settings-row>
                 <v-divider class="my-2" />

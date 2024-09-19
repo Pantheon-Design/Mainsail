@@ -67,6 +67,10 @@ export const getters: GetterTree<RootState, any> = {
         return state.gui?.general.printername ?? state.printer?.hostname ?? 'Mainsail'
     },
 
+    getSimpleTitle: (state, getters) => {
+        return state.gui?.general.printername ?? state.printer?.hostname ?? 'Mainsail'
+    },
+
     getDependencies: (state) => {
         const dependencies: RootStateDependency[] = []
 

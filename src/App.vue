@@ -67,11 +67,12 @@ Component.registerHooks(['metaInfo'])
 })
 export default class App extends Mixins(BaseMixin, ThemeMixin) {
     public metaInfo(): any {
-        let title = this.$store.getters['getTitle']
+        let title = this.$store.getters['getSimpleTitle']
 
-        //if (this.isPrinterPowerOff) title = this.$t('App.Titles.PrinterOff')
+        if (title == '') {
+            title = 'Pantheon Fleet'
+        }
 
-        title = 'Pantheon Fleet'
 
         return {
             title,
