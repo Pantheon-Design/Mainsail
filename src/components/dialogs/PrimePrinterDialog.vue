@@ -9,9 +9,8 @@
             </v-card-text>
 
             <div class="d-flex justify-center" style="min-height: 150px;">
-                <v-img src="/img/neko-cat.gif"
-                       max-width="300"
-                       aspect-ratio="1"
+                <v-img src="/img/MachinePrep.gif"
+                       style="margin-bottom: 10px;"
                        contain></v-img>
             </div>
 

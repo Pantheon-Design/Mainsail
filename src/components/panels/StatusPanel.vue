@@ -140,7 +140,7 @@ import {
     mdiDotsVertical,
 } from '@mdi/js'
 import { PrinterStateMacro } from '@/store/printer/types'
-import PrimePrinterDialog from '@/components/dialogs/PrimePrintDialog.vue'
+import PrimePrinterDialog from '@/components/dialogs/PrimePrinterDialog.vue'
 
 
 @Component({
