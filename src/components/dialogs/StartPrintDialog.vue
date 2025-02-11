@@ -175,8 +175,12 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         let textArray = []
         let stylesArray = []
 
-        //this.$toast.success(" " + this.file.config_verifier)
-        //this.$toast.error(" " + this.file.config_yml)
+        //console.log(this.file.config_verifier);
+        //this.$toast.error(this.$store.state.printer.toolhead.filament_type)
+        //this.$toast.error(this.$store.state.printer.toolhead.nozzle_size)
+        
+        //this.$toast.success(this.file.config_verifier)
+
         //this.$toast.error("====" + this.file.enable_config_verifier)
 
         if (!this.file.enable_config_verifier){
@@ -221,8 +225,27 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                     stylesArray.push(cautionStyle)
                 }
             } else {
+                // Handle filament type and nozzle size check. the following parameters are available
+                // Create a copy of the config_verifier array to add warnings
+                let configVerifier = [...this.file.config_verifier];  // Shallow copy of the config_verifier array
+
+                // Handle filament type check
+                if (this.file.filament_type !== this.$store.state.printer.toolhead.filament_type) {
+                    const filamentWarning = `Warning! Filament type mismatch: expected ${this.file.filament_type},\n\t but the printer filament is set to ${this.$store.state.printer.toolhead.filament_type}`;
+                    configVerifier.push(filamentWarning);
+                }
+
+                // Handle nozzle size check
+                const nozzleDiameter = parseFloat(this.$store.state.printer.toolhead.nozzle_size);
+                if (this.file.nozzle_diameter !== nozzleDiameter) {
+                    const nozzleWarning = `Warning! Nozzle diameter mismatch: expected ${this.file.nozzle_diameter} mm,\n\t but the printer nozzle size is set to ${this.$store.state.printer.toolhead.nozzle_size} mm`;
+                    configVerifier.push(nozzleWarning);
+                }
+                //console.log(configVerifier);
+
+
                 // Scenario 3:config check passed
-                if (this.file.config_verifier == ''){
+                if (configVerifier.length === 0){
                     if (this.active_spool) {
                         textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
                             filename: this.file?.filename ?? 'unknown',
@@ -258,7 +281,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                         stylesArray.push(cautionStyle)
                     }
                 }
-
+                // HERE================
                 // Scenario 4: Difference found
                 else {
                     let warningStrings: string[] = [];
@@ -266,8 +289,8 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
                     let dangerStrings: string[] = [];
                     let updatedTextArray: string[] = [];
                     let updatedStylesArray: any[] = [];
-
-                    textArray = this.file.config_verifier
+                  
+                    textArray = configVerifier
                     textArray.forEach((str : string) => {
                         if (str.startsWith("Warning")) {
                             warningStrings.push(str)

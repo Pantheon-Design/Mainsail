@@ -572,6 +572,9 @@
             :is-visible="dialogAddBatchToQueue.isVisible"
             :filename="dialogAddBatchToQueue.filename"
             @close="closeAddBatchToQueueDialog" />
+        <prime-printer-dialog :bool="show_prime_printer_dialog"
+                            :filename="selectedFilename"
+                            @closeDialog="closePrimePrint" />
     </div>
 </template>
 
@@ -677,6 +680,10 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     formatFilesize = formatFilesize
     formatPrintTime = formatPrintTime
     sortFiles = sortFiles
+
+    show_prime_printer_dialog = false
+    selectedFilename = ''
+
 
     declare $refs: {
         fileUpload: HTMLInputElement
@@ -1191,14 +1198,27 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     }
 
     clickRow(item: FileStateGcodefile, force = false) {
+        this.selectedFilename = ''
+
         if (!this.contextMenu.shown || force) {
             if (force) this.contextMenu.shown = false
 
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
-            } else if (!['error', 'printing', 'paused'].includes(this.printer_state) && this.isGcodeFile(item)) {
-                this.dialogPrintFile.show = true
-                this.dialogPrintFile.item = item
+            } else if (this.isGcodeFile(item)) {
+                // Handle different printer states
+                if (['printing', 'paused'].includes(this.printer_state)) {
+                    // Block action if the printer is currently printing or paused
+                } else if (['error', 'cancelled', 'complete'].includes(this.printer_state)) {
+                    // If the printer state is error, cancelled, or complete, show the Prime Printer dialog
+                    this.selectedFilename = item.filename
+
+                    this.show_prime_printer_dialog = true;
+                } else {
+                    // Default action: Show the print dialog for G-code files
+                    this.dialogPrintFile.show = true;
+                    this.dialogPrintFile.item = item;
+                }
             }
         }
     }
@@ -1484,6 +1504,10 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                     return value
             }
         } else return '--'
+    }
+
+    closePrimePrint() {
+        this.show_prime_printer_dialog = false
     }
 }
 </script>
