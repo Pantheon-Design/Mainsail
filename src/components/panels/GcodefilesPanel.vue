@@ -1199,7 +1199,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     clickRow(item: FileStateGcodefile, force = false) {
         this.selectedFilename = ''
-        this.$toast.error(this.$store.state.printer.machine_state.enable_prime)
+        //this.$toast.error(this.$store.state.printer.machine_state.enable_prime)
 
         if (!this.contextMenu.shown || force) {
             if (force) this.contextMenu.shown = false
@@ -1209,6 +1209,11 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state
                 const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
+
+                if (this.$store.state.printer.machine_state.is_purging === 1) {
+                    this.$toast.error("Purging wet filament, print will start shortly!");
+                    return
+                } 
 
                 // Handle different printer states
                 if (['printing', 'paused'].includes(this.printer_state)) {
