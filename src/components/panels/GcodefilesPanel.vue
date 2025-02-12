@@ -1199,6 +1199,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     clickRow(item: FileStateGcodefile, force = false) {
         this.selectedFilename = ''
+        this.$toast.error(this.$store.state.printer.machine_state.enable_prime)
 
         if (!this.contextMenu.shown || force) {
             if (force) this.contextMenu.shown = false
@@ -1206,6 +1207,9 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
             } else if (this.isGcodeFile(item)) {
+                // Retrieve enable_prime safely from Vuex state
+                const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
+
                 // Handle different printer states
                 if (['printing', 'paused'].includes(this.printer_state)) {
                     // Block action if the printer is currently printing or paused
@@ -1213,7 +1217,12 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                     // If the printer state is error, cancelled, or complete, show the Prime Printer dialog
                     this.selectedFilename = item.filename
 
-                    this.show_prime_printer_dialog = true;
+                    if (enablePrime === 1) {
+                        this.show_prime_printer_dialog = true;
+                    } else if (enablePrime === 0) {
+                        this.dialogPrintFile.show = true;
+                        this.dialogPrintFile.item = item;
+                    }
                 } else {
                     // Default action: Show the print dialog for G-code files
                     this.dialogPrintFile.show = true;
