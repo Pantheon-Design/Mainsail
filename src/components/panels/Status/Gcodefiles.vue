@@ -401,7 +401,7 @@ export default class StatusPanelGcodefiles extends Mixins(BaseMixin, ControlMixi
 
     showDialog(file: FileStateGcodefile) {
         if (this.$store.state.printer.machine_state.is_purging === 1) {
-            this.$toast.error("Purging wet filament, print will start shortly!");
+            this.$toast.success("Purging wet filament, print will start shortly!");
             return
         } 
         this.currentPath =

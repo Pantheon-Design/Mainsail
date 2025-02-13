@@ -1211,7 +1211,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                 const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
 
                 if (this.$store.state.printer.machine_state.is_purging === 1) {
-                    this.$toast.error("Purging wet filament, print will start shortly!");
+                    this.$toast.success("Purging wet filament, print will start shortly!");
                     return
                 } 
 
