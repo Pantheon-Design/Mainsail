@@ -2,7 +2,7 @@
     <panel
         v-if="showPanel"
         :icon="mdiPrinter3dNozzle"
-        :title="$t('Panels.ExtruderControlPanel.Headline')"
+        :title="panelTitle"
         :collapsible="true"
         card-class="extruder-control-panel">
         <!-- PANEL-HEADER 3-DOT-MENU -->
@@ -124,6 +124,12 @@ export default class ExtruderControlPanel extends Mixins(BaseMixin, ControlMixin
     mdiDotsVertical = mdiDotsVertical
 
     private heatWaitGcodes = ['printer.extruder.can_extrude', 'TEMPERATURE_WAIT', 'M109']
+
+    get panelTitle(): string {
+        const filamentType = this.$store.state.printer.toolhead.filament_type || 'Unknown Filament';
+        const nozzleSize = this.$store.state.printer.toolhead.nozzle_size || 'Unknown Nozzle';
+        return `${this.$t('Panels.ExtruderControlPanel.Headline')}: ${filamentType}, ${nozzleSize} mm`;
+    }
 
     get showPanel(): boolean {
         return this.klipperReadyForGui && this.extruders.length > 0

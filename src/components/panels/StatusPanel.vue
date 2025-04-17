@@ -2,31 +2,28 @@
     <div>
         <min-settings-panel />
         <klippy-state-panel />
-        <panel
-            v-if="klipperReadyForGui"
-            :icon="mdiInformation"
-            :title="printerStateOutput"
-            :collapsible="true"
-            card-class="status-panel">
+        <panel v-if="klipperReadyForGui"
+               :icon="mdiInformation"
+               :title="printerStateOutput"
+               :collapsible="true"
+               card-class="status-panel">
             <template #icon>
-                <v-progress-circular
-                    v-if="['paused', 'printing'].includes(printer_state)"
-                    :rotate="-90"
-                    :size="30"
-                    :width="5"
-                    :value="printPercent"
-                    color="primary"
-                    class="mr-3" />
+                <v-progress-circular v-if="['paused', 'printing'].includes(printer_state)"
+                                     :rotate="-90"
+                                     :size="30"
+                                     :width="5"
+                                     :value="printPercent"
+                                     color="primary"
+                                     class="mr-3" />
             </template>
             <template #buttons>
-                <v-btn
-                    v-for="button in filteredToolbarButtons"
-                    :key="button.loadingName"
-                    :color="button.color"
-                    :loading="loadings.includes(button.loadingName)"
-                    icon
-                    tile
-                    @click="button.click">
+                <v-btn v-for="button in filteredToolbarButtons"
+                       :key="button.loadingName"
+                       :color="button.color"
+                       :loading="loadings.includes(button.loadingName)"
+                       icon
+                       tile
+                       @click="button.click">
                     <v-tooltip top>
                         <template #activator="{ on, attrs }">
                             <v-icon v-bind="attrs" v-on="on">{{ button.icon }}</v-icon>
@@ -41,9 +38,8 @@
                         </v-btn>
                     </template>
                     <v-list dense>
-                        <v-list-item
-                            v-for="(entry, index) in multiFunctionMenuButtonsFiltered"
-                            :key="'multiFunction_' + index">
+                        <v-list-item v-for="(entry, index) in multiFunctionMenuButtonsFiltered"
+                                     :key="'multiFunction_' + index">
                             <v-btn small style="width: 100%" @click="entry.click()">
                                 <v-icon left small>{{ entry.icon }}</v-icon>
                                 {{ entry.text }}
@@ -110,6 +106,9 @@
                 </v-tab-item>
             </v-tabs-items>
         </panel>
+        <prime-printer-dialog :bool="show_prime_printer_dialog"
+                              :filename="selectedFilename"
+                            @closeDialog="closePrimePrint" />
     </div>
 </template>
 
@@ -141,6 +140,8 @@ import {
     mdiDotsVertical,
 } from '@mdi/js'
 import { PrinterStateMacro } from '@/store/printer/types'
+import PrimePrinterDialog from '@/components/dialogs/PrimePrinterDialog.vue'
+
 
 @Component({
     components: {
@@ -161,6 +162,9 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     mdiCloseCircle = mdiCloseCircle
     mdiDotsVertical = mdiDotsVertical
     mdiAlertOutline = mdiAlertOutline
+
+    show_prime_printer_dialog = false
+    selectedFilename = ''
 
     declare $refs: {
         bigThumbnail: any
@@ -270,14 +274,6 @@ export default class StatusPanel extends Mixins(BaseMixin) {
                 click: this.btnPauseAtLayer,
             },
             {
-                text: this.$t('Panels.StatusPanel.ClearPrintStats'),
-                color: 'primary',
-                icon: mdiBroom,
-                loadingName: 'statusPrintClear',
-                status: () => ['error', 'complete', 'cancelled'].includes(this.printer_state),
-                click: this.btnClearJob,
-            },
-            {
                 text: this.$t('Panels.StatusPanel.ReprintJob'),
                 color: 'primary',
                 icon: mdiPrinter,
@@ -297,6 +293,9 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     }
 
     get display_message() {
+        //this.$toast.success(this.printer_state)
+        //this.$toast.success(this.current_filename)
+
         return this.$store.state.printer.display_status?.message ?? null
     }
 
@@ -396,11 +395,19 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     }
 
     btnClearJob() {
-        this.$socket.emit('printer.gcode.script', { script: 'SDCARD_RESET_FILE' }, { loading: 'statusPrintClear' })
+        this.selectedFilename = ''
+        this.show_prime_printer_dialog = true
+        //this.$socket.emit('printer.gcode.script', { script: 'SDCARD_RESET_FILE' }, { loading: 'statusPrintClear' })
     }
 
     btnReprintJob() {
-        this.$socket.emit('printer.print.start', { filename: this.current_filename }, { loading: 'statusPrintReprint' })
+        this.selectedFilename = this.current_filename
+        this.show_prime_printer_dialog = true
+        //this.$socket.emit('printer.print.start', { filename: this.current_filename }, { loading: 'statusPrintReprint' })
+    }
+
+    closePrimePrint() {
+        this.show_prime_printer_dialog = false
     }
 }
 </script>
