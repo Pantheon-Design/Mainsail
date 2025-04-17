@@ -46,7 +46,7 @@ export const actions: ActionTree<PrinterState, RootState> = {
     },
 
     initSubscripts({ dispatch }, payload) {
-        let subscripts = {}
+        let subscripts = {"machine_state": null}
         const blocklist = ['menu']
 
         payload.objects.forEach((key: string) => {
@@ -130,7 +130,6 @@ export const actions: ActionTree<PrinterState, RootState> = {
                 { root: true }
             )
         }
-
         commit('setData', payload)
     },
 

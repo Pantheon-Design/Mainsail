@@ -401,9 +401,17 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     }
 
     btnReprintJob() {
-        this.selectedFilename = this.current_filename
-        this.show_prime_printer_dialog = true
-        //this.$socket.emit('printer.print.start', { filename: this.current_filename }, { loading: 'statusPrintReprint' })
+        // retrieve enable_prime from Vuex state
+        const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
+
+        if (enablePrime === undefined || enablePrime === 1) {
+            // If enable_prime does not exist OR is 1, show the Prime Printer Dialog
+            this.selectedFilename = this.current_filename
+            this.show_prime_printer_dialog = true;
+        } else if (enablePrime === 0) {
+            // If enable_prime is 0, start printing immediately
+            this.$socket.emit('printer.print.start', { filename: this.current_filename }, { loading: 'statusPrintReprint' });
+        }
     }
 
     closePrimePrint() {
