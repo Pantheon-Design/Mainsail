@@ -2,6 +2,8 @@ import { ActionTree } from 'vuex'
 import { FarmPrinterState } from '@/store/farm/printer/types'
 import { RootState } from '@/store/types'
 import Vue from 'vue'
+import { ActionContext } from "vuex";
+
 
 export const actions: ActionTree<FarmPrinterState, RootState> = {
     reset({ commit }) {
@@ -270,3 +272,17 @@ export const actions: ActionTree<FarmPrinterState, RootState> = {
         commit('getRemotePrintersInfo', payload)
     },
 }
+
+export const fetchFleetDaemonData = async (
+    { commit }: ActionContext<FarmPrinterState, any>
+) => {
+    try {
+        const response = await fetch("http://localhost:8090/");
+        const data = await response.json();
+        if (data && data.cache) {
+            commit("SET_FLEET_DAEMON_PRINTERS", data.cache);
+        }
+    } catch (error) {
+        console.error("Failed to fetch from fleet daemon:", error);
+    }
+};

@@ -47,8 +47,11 @@
         </div>
         <div v-else>
             <v-row>
-                <v-col v-for="(printer, key) in printers" :key="key" class="col-12 col-sm-6 col-md-4 pb-0">
-                    <farm-printer-panel :printer="printer"></farm-printer-panel>
+                <v-col v-for="(printer, hostname) in fleetDaemonPrinters"
+                       :key="hostname"
+                       class="col-12 col-sm-6 col-md-4 pb-0">
+                    <farm-printer-panel :hostname="hostname"
+                                        :printer-data="printer" />
                 </v-col>
             </v-row>
         </div>
@@ -101,6 +104,49 @@
                 //this.$toast.success("getting printers");
                 return this.$store.getters['farm/getPrinters'];
             }
+
+            get fleetDaemonPrinters() {
+                return this.$store.getters['farm/printer/fleetDaemonPrinters'] || {};
+            }
+            fleetSocket: WebSocket | null = null;
+
+            mounted() {
+                this.fleetSocket = new WebSocket("ws://localhost:8090/ws");
+                Vue.$toast.success("1");
+                this.fleetSocket.onmessage = (event: MessageEvent) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        if (message.hostname && message.update) {
+                            const existing = this.fleetDaemonPrinters;
+                            this.$store.commit('farm/printer/SET_FLEET_DAEMON_PRINTERS', {
+                                ...existing,
+                                [message.hostname]: {
+                                    ...(existing[message.hostname] || {}),
+                                    ...message.update,
+                                },
+                            });
+                        }
+                        Vue.$toast.success("msg=" + JSON.stringify(message));
+                    } catch (e) {
+                        console.warn("Fleet daemon WS error:", e);
+                        Vue.$toast.error("3");
+
+                    }
+                };
+
+                this.fleetSocket.onclose = () => {
+                    console.warn("Fleet daemon WebSocket closed");
+                    this.fleetSocket = null;
+                };
+            }
+
+            beforeDestroy() {
+                if (this.fleetSocket) {
+                    this.fleetSocket.close();
+                    this.fleetSocket = null;
+                }
+            }
+
 
             toggleEditMode() {
                 this.isEditing = !this.isEditing;

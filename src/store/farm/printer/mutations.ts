@@ -132,3 +132,11 @@ export const mutations: MutationTree<FarmPrinterState> = {
 
     },
 }
+
+export const SET_FLEET_DAEMON_PRINTERS = (
+    state: FarmPrinterState,
+    payload: { [hostname: string]: any }
+) => {
+    state.fleetDaemonPrinters = payload;
+};
+

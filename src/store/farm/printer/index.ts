@@ -39,6 +39,8 @@ export const getDefaultState = (): FarmPrinterState => {
             permissions: '',
         },
         theme_files: [],
+        fleetDaemonPrinters: {},
+        printers: {},
     }
 }
 

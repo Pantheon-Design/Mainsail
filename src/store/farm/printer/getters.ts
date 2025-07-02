@@ -319,4 +319,8 @@ export const getters: GetterTree<FarmPrinterState, any> = {
     getPrinterWebcams: (state) => {
         return state.data.webcams.filter((webcam: GuiWebcamStateWebcam) => webcam.enabled)
     },
+
+    fleetDaemonPrinters: (state) => {
+        return state.fleetDaemonPrinters || {};
+    },
 }
