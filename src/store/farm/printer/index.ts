@@ -5,6 +5,9 @@ import { mutations } from '@/store/farm/printer/mutations'
 import { getters } from '@/store/farm/printer/getters'
 import { Module } from 'vuex'
 
+import { printer as printerModule } from '@/store/farm/printer'
+import { RootState } from '@/store/types'
+
 export const getDefaultState = (): FarmPrinterState => {
     return {
         _namespace: '',
@@ -56,4 +59,16 @@ export const printer: Module<FarmPrinterState, any> = {
     getters,
     actions,
     mutations,
+}
+
+export interface FarmState {
+    // Define additional submodules later if needed
+}
+
+export const farm: Module<FarmState, RootState> = {
+    namespaced: true,
+    modules: {
+        // ✅ Register the printer module under farm/printer
+        printer: printerModule,
+    },
 }

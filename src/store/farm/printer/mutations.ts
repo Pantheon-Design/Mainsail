@@ -131,12 +131,15 @@ export const mutations: MutationTree<FarmPrinterState> = {
 
 
     },
+
+    // ✅ Add this to the object:
+    SET_FLEET_DAEMON_PRINTERS(state, payload) {
+        Vue.set(state, 'fleetDaemonPrinters', {
+            ...state.fleetDaemonPrinters,
+            ...payload
+        });
+        Vue.$toast.error("4");
+    },
 }
 
-export const SET_FLEET_DAEMON_PRINTERS = (
-    state: FarmPrinterState,
-    payload: { [hostname: string]: any }
-) => {
-    state.fleetDaemonPrinters = payload;
-};
 

@@ -2,9 +2,12 @@ import { printer } from '@/store/farm/printer'
 import { Module } from 'vuex'
 import { FarmState } from '@/store/farm/types'
 import { RootState } from '@/store/types'
+import Vue from 'vue'
 
 export const getDefaultState = (): FarmState => {
-    return {}
+    return {
+        fleetDaemonPrinters: {},
+    }
 }
 
 // initial state
@@ -73,5 +76,13 @@ export const farm: Module<FarmState, RootState> = {
             }
         },
     },
-    mutations: {},
+    mutations: {
+        SET_FLEET_DAEMON_PRINTERS(state, payload) {
+            Vue.set(state, 'fleetDaemonPrinters', {
+                ...state.fleetDaemonPrinters,
+                ...payload,
+            })
+        },
+    },
 }
+

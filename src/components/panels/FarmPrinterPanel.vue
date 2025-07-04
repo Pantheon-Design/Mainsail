@@ -28,11 +28,26 @@
                             </v-row>
                         </v-card-title>
                     </v-img>
-                    <v-card-text v-if="false" class="px-0 py-2">
+                    <v-card-text v-if="printer_preview.length" class="px-0 py-2">
                         <v-container class="py-0">
                             <v-row>
-                                <v-col>
-                                    <strong class="d-block text-center">Preview Hidden</strong>
+                                <v-col v-for="object in printer_preview"
+                                       :key="object.name"
+                                       :class="object.name === 'ETA' ? 'col-auto' : 'col' + ' px-2'">
+                                    <strong class="d-block text-center">{{ object.name }}</strong>
+                                    <span class="d-block text-center">{{ object.value }}</span>
+                                </v-col>
+                            </v-row>
+                        </v-container>
+                    </v-card-text>
+                    <v-card-text v-if="printer_position.length" class="px-0 py-2">
+                        <v-container class="py-0">
+                            <v-row>
+                                <v-col v-for="coord in printer_position"
+                                       :key="coord.axis"
+                                       class="col px-2">
+                                    <strong class="d-block text-center">{{ coord.axis }}</strong>
+                                    <span class="d-block text-center">{{ coord.value }}</span>
                                 </v-col>
                             </v-row>
                         </v-container>
@@ -83,6 +98,48 @@
 
         get printer_image() {
             return this.sidebarBgImage
+        }
+
+        get printer_preview() {
+            const preview = []
+
+            const extruder = this.printerData?.extruder
+            const bed = this.printerData?.heater_bed
+            const z = this.printerData?.toolhead?.position?.[2]
+
+            if (extruder?.temperature !== undefined && extruder?.target !== undefined) {
+                preview.push({
+                    name: 'Hotend',
+                    value: `${extruder.temperature.toFixed(0)}° / ${extruder.target.toFixed(0)}°`
+                })
+            }
+
+            if (bed?.temperature !== undefined && bed?.target !== undefined) {
+                preview.push({
+                    name: 'Bed',
+                    value: `${bed.temperature.toFixed(0)}° / ${bed.target.toFixed(0)}°`
+                })
+            }
+
+            if (z !== undefined) {
+                preview.push({
+                    name: 'Z',
+                    value: `${z.toFixed(2)} mm`
+                })
+            }
+
+            return preview
+        }
+
+        get printer_position() {
+            const pos = this.printerData?.toolhead?.position;
+            if (!pos || pos.length < 3) return [];
+
+            return [
+                { axis: 'X', value: `${pos[0].toFixed(2)} mm` },
+                { axis: 'Y', value: `${pos[1].toFixed(2)} mm` },
+                { axis: 'Z', value: `${pos[2].toFixed(2)} mm` },
+            ];
         }
 
         get panelClass(): string[] {
