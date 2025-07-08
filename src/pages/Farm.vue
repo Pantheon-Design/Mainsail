@@ -12,6 +12,10 @@
             Reconnect All
         </v-btn>
 
+        <v-btn @click="reconnectAllFleetPrinters" class="mb-4 mr-4">
+            Reconnect All Fleet2
+        </v-btn>
+
         <v-btn v-if="isMapView" @click="openAddPrinterDialog" class="mb-4">
             WIP:Add Printer
         </v-btn>
@@ -85,7 +89,7 @@
                             },
                         });
                     }
-                    //Vue.$toast.success('msg=' + JSON.stringify(message));
+                    Vue.$toast.success('msg=' + JSON.stringify(message.hostname));
                 } catch (e) {
                     console.warn('Fleet daemon WS error:', e);
                     Vue.$toast.error('3');
@@ -125,6 +129,67 @@
             const settingsMenu = this.$refs.settingsMenu as any;
             settingsMenu.activeTab = 'remote-printers';
             settingsMenu.showSettings = true;
+        }
+
+        reconnectAllFleetPrinters() {
+            if (this.fleetSocket) {
+                this.fleetSocket.close(); // Close old connection
+            }
+
+            Vue.$toast.info('Reconnecting WebSocket...');
+
+            this.fleetSocket = new WebSocket('ws://pantheonfleet2.local:8090/ws');
+
+            this.fleetSocket.onopen = () => {
+                Vue.$toast.success('WebSocket reconnected, triggering printer reconnect...');
+
+                // Now trigger reconnect_all
+                fetch('http://pantheonfleet2.local:8090/reconnect_all', { method: 'POST' })
+                    .then(res => {
+                        if (res.ok) {
+                            Vue.$toast.success('Reconnecting all printers...');
+                        } else {
+                            throw new Error('Failed to reconnect');
+                        }
+                    })
+                    .catch(err => {
+                        console.warn(err);
+                        Vue.$toast.error('Failed to trigger reconnect');
+                    });
+            };
+
+            this.fleetSocket.onmessage = (event: MessageEvent) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.hostname && message.update) {
+                        this.$store.commit('farm/SET_FLEET_DAEMON_PRINTERS', {
+                            [message.hostname]: {
+                                socket: {
+                                    hostname: message.hostname,
+                                    isConnected: true,
+                                    webPort: 80,
+                                },
+                                ...message.update,
+                                current_file: {
+                                    filename: message.update?.print_stats?.filename ?? '',
+                                },
+                            },
+                        });
+
+                    Vue.$toast.success('msg=' + JSON.stringify(message.hostname));
+
+                    }
+                } catch (e) {
+                    console.warn('Fleet daemon WS error:', e);
+                    Vue.$toast.error('3');
+                }
+            };
+
+            this.fleetSocket.onclose = () => {
+                console.warn('Fleet daemon WebSocket closed');
+                this.fleetSocket = null;
+                Vue.$toast.error('WebSocket disconnected');
+            };
         }
     }
 </script>
