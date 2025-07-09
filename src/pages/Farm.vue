@@ -358,9 +358,10 @@
 
         spinningBorderStyle(printer: any) {
             let color = 'gray';
+            const fleetDisconnected = printer.fleet_to_printer_ws === false;
 
             // Check both fleet daemon connection AND individual printer connection
-            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected|| fleetDisconnected) {
                 return {
                     position: 'absolute',
                     top: 0,
