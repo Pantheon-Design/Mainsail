@@ -166,12 +166,14 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     clickPrinter() {
-        //this.$toast.success(this.printer + '1');
+        this.$toast.success(JSON.stringify(this.printer, null, 2));
+        /*
         if (this.printer.socket.isConnected) {
             //this.$store.dispatch('changePrinter', { printer: this.printer._namespace })
             window.open(this.getPrinterUrl());
         }
         else this.$store.dispatch('farm/' + this.printer._namespace + '/reconnect')
+        */
     }
 
     mounted() {
@@ -231,7 +233,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
 
     // Computed property to get the correct filament type abbreviation
     get displayFilamentType(): string {
-        const filament = this.printer?.data?.toolhead?.filament_type;
+        const filament = this.printer?.toolhead?.filament_type;
         switch (filament) {
             case "PA-CF":
                 return "CN";
@@ -245,6 +247,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
                 return filament || "";
         }
     }
+
 }
 </script>
 

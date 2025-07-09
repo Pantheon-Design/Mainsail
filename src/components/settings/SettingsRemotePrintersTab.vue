@@ -86,6 +86,7 @@ import BaseMixin from '../mixins/base'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import { GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
 import { mdiCancel, mdiCheckboxMarkedCircle, mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
+import Vue from 'vue';
 
 interface printerForm {
     bool: boolean
@@ -150,6 +151,8 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.port = 7125
         this.form.id = null
         this.form.bool = false
+
+        this.refreshPrinterList()
     }
 
     editPrinter(printer: GuiRemoteprintersStatePrinter) {
@@ -171,10 +174,29 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.hostname = ''
         this.form.port = 7125
         this.form.bool = false
+        this.refreshPrinterList()
     }
 
     delPrinter(id: string) {
         this.$store.dispatch('gui/remoteprinters/delete', id)
+         Vue.$toast.success('123123');
+        this.refreshPrinterList()
     }
+
+    refreshPrinterList() {
+        fetch('http://pantheonfleet2.local:8090/refresh_printer_list', { method: 'POST' })
+            .then(res => {
+                if (res.ok) {
+                    Vue.$toast.success('Printer list refreshed');
+                } else {
+                    throw new Error('Failed to refresh printer list');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Vue.$toast.error('Failed to refresh printer list');
+            });
+    }
+
 }
 </script>

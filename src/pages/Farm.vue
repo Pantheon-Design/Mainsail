@@ -347,7 +347,8 @@
         spinningBorderStyle(printer: any) {
             let color = 'gray';
 
-            if (!printer.socket?.isConnected) {
+            // Check both fleet daemon connection AND individual printer connection
+            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
                 return {
                     position: 'absolute',
                     top: 0,
@@ -460,9 +461,7 @@
         }
 
         openAddPrinterDialog() {
-            const settingsMenu = this.$refs.settingsMenu as any;
-            settingsMenu.activeTab = 'remote-printers';
-            settingsMenu.showSettings = true;
+            //TODO: jump to settings button then Printers, then add printer to get to the settingsremoteprintertab
         }
 
         getPrinterPrintPercent(printer: any) {
