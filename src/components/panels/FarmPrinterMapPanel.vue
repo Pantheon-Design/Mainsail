@@ -19,7 +19,7 @@
                               padding: '5px' ,
                               lineHeight: '1' ,
                               fontSize: displayFilamentType.length>
-                            2 ? '8px' : '10px',  // Adjust font size based on length
+                            2 ? '6.5px' : '10px',  // Adjust font size based on length
                             fontWeight: 'bold',  // Make text bold
                             }">
                             {{ displayFilamentType }}
@@ -231,9 +231,10 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         this.getLastPrintedFilamentType()
     }
 
-    // Computed property to get the correct filament type abbreviation
     get displayFilamentType(): string {
         const filament = this.printer?.toolhead?.filament_type;
+
+        // Return abbreviations for known types
         switch (filament) {
             case "PA-CF":
                 return "CN";
@@ -243,10 +244,17 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
                 return "CP";
             case "TPU":
                 return "FL";
-            default:
-                return filament || "";
         }
+
+        // For unknown or long custom names: first 2 + "..." + last char
+        if (filament && filament.length > 3) {
+            return `${filament.slice(0, 2)}...${filament.slice(-1)}`;
+        }
+
+        // Otherwise return as-is (short custom names, null, etc.)
+        return filament || "";
     }
+
 
 }
 </script>
