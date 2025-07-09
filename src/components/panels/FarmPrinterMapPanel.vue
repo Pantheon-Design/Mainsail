@@ -161,7 +161,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         let output = []
 
         if (!this.printer.socket.isConnected && !this.printer.socket.isConnecting) output.push('disabledPrinter')
-        console.log(output)
+        //console.log(output)
         return output
     }
 
@@ -247,7 +247,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
         }
 
         // For unknown or long custom names: first 2 + "..." + last char
-        if (filament && filament.length > 3) {
+        if (filament && filament.length > 4) {
             return `${filament.slice(0, 2)}...${filament.slice(-1)}`;
         }
 

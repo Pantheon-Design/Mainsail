@@ -15,15 +15,17 @@
             Reconnect All
         </v-btn>
 
-        <!-- Refresh Printer List Button -->
+        <!-- Refresh Printer List Button 
         <v-btn @click="refreshPrinterList" class="mb-4 mr-4">
             Refresh Printer List
         </v-btn>
+        -->
 
-        <!-- Add Printer Button -->
+        <!-- Add Printer Button 
         <v-btn v-if="isMapView" @click="openAddPrinterDialog" class="mb-4">
             WIP:Add Printer
         </v-btn>
+        -->
 
         <!-- Display printer count -->
         <p>Total Printers: {{ Object.keys(fleetDaemonPrinters).length }}</p>
@@ -244,6 +246,16 @@
         }
 
         reconnectAllFleetPrinters() {
+            Vue.$toast.info('Reconnecting all printers...');
+
+            // Run reconnect logic twice
+            this._reconnectAllFleetPrinters();
+            setTimeout(() => {
+                this._reconnectAllFleetPrinters();
+            }, 50); // Small delay to prevent websocket race
+        }
+
+        _reconnectAllFleetPrinters() {
             // First reconnect WebSocket
             this.cleanup();
             this.connectWebSocket();
