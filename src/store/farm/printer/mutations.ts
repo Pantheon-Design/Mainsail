@@ -91,16 +91,6 @@ export const mutations: MutationTree<FarmPrinterState> = {
     },
 
     updateFilamentType(state, payload) {
-        //console.log('updateFilamentType state: ');
-        //console.log(state);
-        //console.log('updateFilamentType state end, payload: ');
-        //console.log(payload);
-        //console.log('updateFilamentType payload')
-        //Vue.$toast.success(this.$socket)
-
-        //if (payload.id in state.printers) {
-        //    Vue.$toast.error("in")
-        //}
         const value = {
             hostname: state.socket.hostname,
             port: state.socket.port,
@@ -113,33 +103,9 @@ export const mutations: MutationTree<FarmPrinterState> = {
             key: payload.key,
             value,
         })
-
     },
-
 
     getRemotePrintersInfo(state, payload) {
-        //console.log('DATABASE state: ');
-        //console.log(state);
-        //console.log('DATABASE state end, payload: ');
-        //console.log(payload);
-        //console.log('DATABASE payload')
-        //Vue.$toast.success(this.$socket)
-
-        //if (payload.id in state.printers) {
-        //    Vue.$toast.error("in")
-        //}
-
-
-    },
-
-    // ✅ Add this to the object:
-    SET_FLEET_DAEMON_PRINTERS(state, payload) {
-        Vue.set(state, 'fleetDaemonPrinters', {
-            ...state.fleetDaemonPrinters,
-            ...payload
-        });
-        Vue.$toast.error("4");
+        // Placeholder for remote printers info
     },
 }
-
-

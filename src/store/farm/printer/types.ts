@@ -39,22 +39,3 @@ export interface FarmPrinterStateSocket {
 export interface FarmPrinterStateServer {
     klippy_connected: boolean
 }
-
-export interface FarmPrinterState {
-  printers: { [hostname: string]: PrinterData };
-  fleetDaemonPrinters: { [hostname: string]: any };  // Add this line
-}
-
-export interface PrinterData {
-    // Define required fields used in your getters/components
-    print_stats?: {
-        state?: string;
-        filename?: string;
-        print_duration?: number;
-        filament_used?: number;
-    };
-    toolhead?: {
-        position?: number[];
-    };
-    [key: string]: any;
-}

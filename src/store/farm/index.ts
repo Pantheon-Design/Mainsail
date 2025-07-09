@@ -39,6 +39,9 @@ export const farm: Module<FarmState, RootState> = {
         existsPrinter: (state) => (namespace: string) => {
             return Object.keys(state).includes(namespace)
         },
+        getFleetDaemonPrinters: (state) => {
+            return state.fleetDaemonPrinters || {}
+        },
     },
     actions: {
         registerPrinter({ commit, dispatch }, payload) {
@@ -66,7 +69,6 @@ export const farm: Module<FarmState, RootState> = {
                 port: payload.values.port,
                 isConnecting: true,
                 position: payload.values.position
-
             })
         },
         unregisterPrinter({ state }, id) {
@@ -77,12 +79,43 @@ export const farm: Module<FarmState, RootState> = {
         },
     },
     mutations: {
+        // Individual printer mutation
+        SET_FLEET_DAEMON_PRINTER(state, payload: { hostname: string; data: any }) {
+            const { hostname, data } = payload;
+
+            // Ensure the printer data has the expected structure
+            const printerData = {
+                ...data,
+                socket: {
+                    hostname: hostname,
+                    isConnected: true,
+                    webPort: 80,
+                    ...data.socket
+                },
+                _namespace: hostname
+            };
+
+            Vue.set(state.fleetDaemonPrinters, hostname, printerData);
+        },
+
+        // Bulk update mutation
         SET_FLEET_DAEMON_PRINTERS(state, payload) {
             Vue.set(state, 'fleetDaemonPrinters', {
                 ...state.fleetDaemonPrinters,
                 ...payload,
             })
         },
+
+        // Remove individual printer mutation
+        REMOVE_FLEET_DAEMON_PRINTER(state, hostname: string) {
+            if (state.fleetDaemonPrinters && hostname in state.fleetDaemonPrinters) {
+                Vue.delete(state.fleetDaemonPrinters, hostname);
+            }
+        },
+
+        // Clear all fleet daemon printers
+        CLEAR_FLEET_DAEMON_PRINTERS(state) {
+            Vue.set(state, 'fleetDaemonPrinters', {});
+        }
     },
 }
-
