@@ -53,6 +53,9 @@
                     <p>Nozzle: {{ hoveredPrinter.toolhead?.nozzle_size || 'N/A' }}</p>
                     <p>CurrentFile: {{ hoveredPrinter.current_file?.filename || 'None' }}</p>
                     <p>Progress: {{ getPrinterPrintPercent(hoveredPrinter) }}%</p>
+                    <p v-if="hoveredPrinter.webhooks?.state_message" style="white-space: pre-wrap; max-width: 300px;">
+                        <strong>Webhook:</strong><br>{{ hoveredPrinter.webhooks.state_message }}
+                    </p>
                 </div>
             </div>
         </div>
@@ -375,14 +378,14 @@
 
 
         spinningBorderStyle(printer: any) {
-            let color = 'gray';
-            const fleetDisconnected = printer.fleet_to_printer_ws === false;
             const hostname = printer.socket?.hostname || '';
             const model = this.getPrinterModel(hostname);
             const isSquare = model === 'HS-Pro';
 
-            // Check both fleet daemon connection AND individual printer connection
-            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected || fleetDisconnected) {
+            const fleetDisconnected = printer.fleet_to_printer_ws === false;
+
+            // ✅ 1. FLEET TO PRINTER WS is disconnected = GRAY
+            if (fleetDisconnected) {
                 return {
                     position: 'absolute',
                     top: 0,
@@ -390,59 +393,89 @@
                     width: '100%',
                     height: '100%',
                     borderRadius: isSquare ? '0%' : '50%',
-                    border: "0.25em solid gray",
+                    border: '0.25em solid gray',
                     zIndex: 2,
                     pointerEvents: 'none',
                 };
             }
 
+            // ✅ 2. WebSocket or printer connection is down = GRAY
+            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+                return {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: isSquare ? '0%' : '50%',
+                    border: '0.25em solid gray',
+                    zIndex: 2,
+                    pointerEvents: 'none',
+                };
+            }
+
+            // ✅ 3. Webhook shutdown = RED
+            if (printer.webhooks?.state === 'shutdown') {
+                return {
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: isSquare ? '0%' : '50%',
+                    border: '0.25em solid red',
+                    zIndex: 2,
+                    pointerEvents: 'none',
+                };
+            }
+
+            // ✅ 4. Printing = spinning animation
             const state = printer.print_stats?.state;
-            if (state) {
-                if (state === 'error' || state === 'paused' || state === 'cancelled') {
-                    color = 'red';
-                } else if (state === 'printing') {
-                    // For printing state with spinning animation
-                    if (isSquare) {
-                        // Square spinning border - use conic gradient with square mask
-                        return {
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            borderRadius: '0%',
-                            background: `conic-gradient(transparent 0%, blue 10%, transparent 90%)`,
-                            mask: `
-                                linear-gradient(#fff 0 0) content-box,
-                                linear-gradient(#fff 0 0)
-                            `,
-                            maskComposite: 'subtract',
-                            padding: '0.25em',
-                            animation: 'spin 2s linear infinite',
-                            zIndex: 2,
-                            pointerEvents: 'none',
-                        };
-                    } else {
-                        // Original circular spinning border
-                        return {
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            borderRadius: '50%',
-                            background: `conic-gradient(transparent 0%, blue 10%, transparent 90%)`,
-                            mask: "radial-gradient(farthest-side, transparent calc(100% - 0.3em), black calc(100% - 0.3em))",
-                            animation: 'spin 2s linear infinite',
-                            zIndex: 2,
-                            pointerEvents: 'none',
-                        };
-                    }
-                } else if (state === 'complete') {
-                    color = 'blue';
-                } else if (state === 'standby') {
-                    color = 'hsl(90, 100%, 32%)';
+            if (state === 'printing') {
+                if (isSquare) {
+                    return {
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: '0%',
+                        background: `conic-gradient(transparent 0%, blue 10%, transparent 90%)`,
+                        mask: `
+                            linear-gradient(#fff 0 0) content-box,
+                            linear-gradient(#fff 0 0)
+                        `,
+                        maskComposite: 'subtract',
+                        padding: '0.25em',
+                        animation: 'spin 2s linear infinite',
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                    };
+                } else {
+                    return {
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: '50%',
+                        background: `conic-gradient(transparent 0%, blue 10%, transparent 90%)`,
+                        mask: "radial-gradient(farthest-side, transparent calc(100% - 0.3em), black calc(100% - 0.3em))",
+                        animation: 'spin 2s linear infinite',
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                    };
                 }
+            }
+
+            // ✅ 5. Other states
+            let color = 'gray';
+            if (state === 'error' || state === 'paused' || state === 'cancelled') {
+                color = 'red';
+            } else if (state === 'complete') {
+                color = 'blue';
+            } else if (state === 'standby') {
+                color = 'hsl(90, 100%, 32%)';
             }
 
             return {
@@ -457,6 +490,7 @@
                 pointerEvents: 'none',
             };
         }
+
 
         // Zoom and pan methods
         get mapStyle() {
