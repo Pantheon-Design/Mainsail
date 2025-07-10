@@ -490,25 +490,38 @@
             this.isPanning = false;
         }
 
-        // Tooltip methods
+        // Fixed tooltip method - keeps your coordinate system, adds left edge check
         showTooltip(printer: any, event: MouseEvent) {
             this.hoveredPrinter = printer;
-
+    
             this.$nextTick(() => {
                 const tooltipElement = this.$refs.tooltip as HTMLElement;
                 if (!tooltipElement) return;
-
+        
                 const hostname = printer.socket?.hostname || '';
                 const printerPosition = this.positions[hostname] || { x: 400, y: 400 };
                 const screenWidth = window.innerWidth;
                 const tooltipWidth = tooltipElement.offsetWidth;
-
+        
+                // DEFAULT: Position tooltip 50px to the RIGHT of printer
                 let tooltipLeft = printerPosition.x + 50;
-
+        
+                // CHECK: If tooltip would go off RIGHT edge of screen
                 if (event.clientX + tooltipWidth > (screenWidth - 300)) {
+                    // Move tooltip to the LEFT of printer
                     tooltipLeft = printerPosition.x - tooltipWidth + 20;
+            
+                    // NEW: Check if moving to left would go off LEFT edge of screen
+                    if (tooltipLeft < 10) {
+                        // If left positioning would go off screen, force it to stay on right
+                        tooltipLeft = printerPosition.x + 50;
+                        // And if right is still too far, clamp it to screen edge
+                        if (tooltipLeft + tooltipWidth > screenWidth - 10) {
+                            tooltipLeft = screenWidth - tooltipWidth - 10;
+                        }
+                    }
                 }
-
+        
                 this.tooltipStyle.top = `${printerPosition.y + 20}px`;
                 this.tooltipStyle.left = `${tooltipLeft - 20}px`;
             });
@@ -534,8 +547,6 @@
         position: relative;
         width: 100%;
         height: 600px;
-        overflow: hidden;
-        border: 1px solid #ccc;
     }
 
     .background-container {
