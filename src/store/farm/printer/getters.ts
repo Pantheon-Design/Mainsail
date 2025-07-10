@@ -3,6 +3,7 @@ import { convertName } from '@/plugins/helpers'
 import { GetterTree } from 'vuex'
 import { FarmPrinterState } from '@/store/farm/printer/types'
 import { GuiWebcamStateWebcam } from '@/store/gui/webcams/types'
+import Vue from 'vue';
 
 // eslint-disable-next-line
 export const getters: GetterTree<FarmPrinterState, any> = {
@@ -162,7 +163,6 @@ export const getters: GetterTree<FarmPrinterState, any> = {
 
     getPosition: (state) => {
         if ('toolhead' in state.data && 'position' in state.data.toolhead) return state.data.toolhead.position
-
         return []
     },
 

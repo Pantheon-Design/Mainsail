@@ -63,6 +63,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     settings: state.printers[id].settings,
                     lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
                     position: state.printers[id].position ?? { x: 400, y: 400 },
+                    printerModel: state.printers[id].printerModel ?? 'HS-3', 
                 })
             })
 
@@ -74,6 +75,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 settings: state.printers[id].settings ?? {},
                 lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
                 position: state.printers[id].position ?? { x: 400, y: 400 },
+                printerModel: state.printers[id].printerModel ?? 'HS-3',
             }
             //console.log('=============================================')
             //console.log(`API database post item: ${value.hostname} :` + value.lastPrintedFilament);
@@ -102,7 +104,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 id,
                 hostname: payload.values.hostname ?? '',
                 port: payload.values.port ?? 7125,
-                position: payload.values.position
+                position: payload.values.position,
+                printerModel: payload.values.printerModel ?? 'HS-3', 
             },
             { root: true }
         )

@@ -16,4 +16,5 @@ export interface GuiRemoteprintersStatePrinter {
     }
     lastPrintedFilament: string
     position?: { x: number, y: number }
+    printerModel?: 'HS-3' | 'HS-Pro'
 }
