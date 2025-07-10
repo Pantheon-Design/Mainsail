@@ -166,15 +166,15 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     clickPrinter() {
-        this.$toast.success(JSON.stringify(this.printer, null, 2));
-        this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
-        /*
+        //this.$toast.success(JSON.stringify(this.printer, null, 2));
+        //this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
+        
         if (this.printer.socket.isConnected) {
             //this.$store.dispatch('changePrinter', { printer: this.printer._namespace })
             window.open(this.getPrinterUrl());
         }
         else this.$store.dispatch('farm/' + this.printer._namespace + '/reconnect')
-        */
+        
     }
 
     mounted() {

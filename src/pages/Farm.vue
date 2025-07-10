@@ -288,8 +288,8 @@
 
             document.addEventListener('mousemove', this.onDrag);
             document.addEventListener('mouseup', this.stopDrag);
-            this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
-            this.$toast.error(printer);
+            //this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
+            //this.$toast.error(printer);
 
 
         }
