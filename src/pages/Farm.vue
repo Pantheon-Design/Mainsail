@@ -15,20 +15,27 @@
             Reconnect All
         </v-btn>
 
-        <!-- Refresh Printer List Button 
-        <v-btn @click="refreshPrinterList" class="mb-4 mr-4">
-            Refresh Printer List
-        </v-btn>
-        -->
-
-        <!-- Add Printer Button 
-        <v-btn v-if="isMapView" @click="openAddPrinterDialog" class="mb-4">
-            WIP:Add Printer
-        </v-btn>
-        -->
-
-        <!-- Display printer count -->
-        <p>Total Printers: {{ Object.keys(fleetDaemonPrinters).length }}</p>
+        <!-- Display printer count and status breakdown -->
+        <div class="printer-stats mb-4">
+            <p class="mb-1">Total Printers: {{ Object.keys(fleetDaemonPrinters).length }}</p>
+            <div class="status-counters">
+                <span class="status-counter ready" v-if="printerStatusCounts.ready > 0">
+                    <v-icon small color="hsl(90, 100%, 32%)">mdi-check-circle</v-icon> Ready: {{ printerStatusCounts.ready }}
+                </span>
+                <span class="status-counter printing pulsing-text" v-if="printerStatusCounts.printing > 0">
+                    <v-icon small color="blue">mdi-play-circle</v-icon> Printing: {{ printerStatusCounts.printing }}
+                </span>
+                <span class="status-counter complete" v-if="printerStatusCounts.complete > 0">
+                    <v-icon small color="blue">mdi-checkbox-marked-circle</v-icon> Complete: {{ printerStatusCounts.complete }}
+                </span>
+                <span class="status-counter error" v-if="printerStatusCounts.error > 0">
+                    <v-icon small color="red">mdi-alert-circle</v-icon> Error: {{ printerStatusCounts.error }}
+                </span>
+                <span class="status-counter disconnected" v-if="printerStatusCounts.disconnected > 0">
+                    <v-icon small color="gray">mdi-connection</v-icon> Disconnected: {{ printerStatusCounts.disconnected }}
+                </span>
+            </div>
+        </div>
 
         <!-- Conditional Rendering of Views -->
         <div v-if="isMapView" class="map-container" @wheel="onScroll" @mousedown="startPan" @mousemove="onPan" @mouseup="endPan">
@@ -118,6 +125,58 @@
 
         get fleetDaemonPrinters() {
             return this.$store.state.farm.fleetDaemonPrinters || {};
+        }
+
+        get printerStatusCounts() {
+            const counts = {
+                printing: 0,
+                ready: 0,
+                complete: 0,
+                error: 0,
+                disconnected: 0
+            };
+
+            Object.values(this.fleetDaemonPrinters).forEach((printer: any) => {
+                const status = this.getPrinterStatus(printer);
+                counts[status]++;
+            });
+
+            return counts;
+        }
+
+        // Determine printer status using same logic as spinningBorderStyle
+        getPrinterStatus(printer: any): 'disconnected' | 'error' | 'printing' | 'complete' | 'ready' {
+            const fleetDisconnected = printer.fleet_to_printer_ws === false;
+
+            // 1. Fleet to printer WS is disconnected
+            if (fleetDisconnected) {
+                return 'disconnected';
+            }
+
+            // 2. WebSocket or printer connection is down
+            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+                return 'disconnected';
+            }
+
+            // 3. Webhook shutdown
+            if (printer.webhooks?.state === 'shutdown') {
+                return 'error';
+            }
+
+            // 4. Check print_stats state
+            const state = printer.print_stats?.state;
+            if (state === 'printing') {
+                return 'printing';
+            } else if (state === 'error' || state === 'paused' || state === 'cancelled') {
+                return 'error';
+            } else if (state === 'complete') {
+                return 'complete';
+            } else if (state === 'standby') {
+                return 'ready';
+            }
+
+            // Default to disconnected if state is unknown
+            return 'disconnected';
         }
 
         mounted() {
@@ -527,24 +586,24 @@
         // Fixed tooltip method - keeps your coordinate system, adds left edge check
         showTooltip(printer: any, event: MouseEvent) {
             this.hoveredPrinter = printer;
-    
+
             this.$nextTick(() => {
                 const tooltipElement = this.$refs.tooltip as HTMLElement;
                 if (!tooltipElement) return;
-        
+
                 const hostname = printer.socket?.hostname || '';
                 const printerPosition = this.positions[hostname] || { x: 400, y: 400 };
                 const screenWidth = window.innerWidth;
                 const tooltipWidth = tooltipElement.offsetWidth;
-        
+
                 // DEFAULT: Position tooltip 50px to the RIGHT of printer
                 let tooltipLeft = printerPosition.x + 50;
-        
+
                 // CHECK: If tooltip would go off RIGHT edge of screen
                 if (event.clientX + tooltipWidth > (screenWidth - 300)) {
                     // Move tooltip to the LEFT of printer
                     tooltipLeft = printerPosition.x - tooltipWidth + 20;
-            
+
                     // NEW: Check if moving to left would go off LEFT edge of screen
                     if (tooltipLeft < 10) {
                         // If left positioning would go off screen, force it to stay on right
@@ -555,7 +614,7 @@
                         }
                     }
                 }
-        
+
                 this.tooltipStyle.top = `${printerPosition.y + 20}px`;
                 this.tooltipStyle.left = `${tooltipLeft - 20}px`;
             });
@@ -627,4 +686,59 @@
         white-space: nowrap;
         z-index: 10;
     }
+
+    /* Status counter styles */
+    .printer-stats {
+        font-size: 14px;
+    }
+
+    .status-counters {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .status-counter {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+        .status-counter.printing {
+            color: #1976d2;
+        }
+
+        .status-counter.ready {
+            color: hsl(90, 100%, 32%);
+        }
+
+        .status-counter.complete {
+            color: #1976d2;
+        }
+
+        .status-counter.error {
+            color: #d32f2f;
+        }
+
+        .status-counter.disconnected {
+            color: #757575;
+        }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.4;
+        }
+    }
+
+    .pulsing-text {
+        animation: pulse 1.5s infinite;
+    }
+
 </style>
