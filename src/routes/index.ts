@@ -4,6 +4,7 @@ import Farm from '../pages/Farm.vue'
 import Console from '../pages/Console.vue'
 import Files from '../pages/Files.vue'
 import History from '../pages/History.vue'
+import Job from '../pages/Job.vue'
 import Timelapse from '../pages/Timelapse.vue'
 import Machine from '../pages/Machine.vue'
 import { AsyncComponent, Component } from 'vue'
@@ -16,6 +17,7 @@ import {
     mdiFileDocumentMultipleOutline,
     mdiVideo3d,
     mdiHistory,
+    mdiBriefcaseOutline,
     mdiTimelapse,
     mdiWrench,
 } from '@mdi/js'
@@ -95,6 +97,16 @@ const routes: AppRoute[] = [
         showInNavi: true,
         position: 60,
         fullscreen: true,
+    },
+    {
+        name: 'jobs',
+        title: 'Jobs',
+        path: '/jobs',
+        icon: mdiBriefcaseOutline,
+        component: Job,
+        alwaysShow: true,
+        showInNavi: true,
+        position: 65,
     },
     {
         name: 'history',

@@ -156,6 +156,11 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
                 name: 'remote-printers',
                 title: this.$t('Settings.RemotePrintersTab.RemotePrinters'),
             },
+            {
+                icon: mdiMenu,
+                name: 'navigation',
+                title: this.$t('Settings.NavigationTab.Navigation'),
+            },
         ]
 
         if (this.moonrakerComponents.includes('timelapse')) {

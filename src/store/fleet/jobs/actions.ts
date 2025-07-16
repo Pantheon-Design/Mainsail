@@ -1,0 +1,104 @@
+import Vue from 'vue'
+import { ActionTree } from 'vuex'
+import { FleetJobsState, FleetJob, FleetCustomer, FleetJobGcode } from './types'
+import { RootState } from '@/store/types'
+import axios from 'axios'
+
+const FLEET_API_URL = 'http://localhost:8090'
+
+export const actions: ActionTree<FleetJobsState, RootState> = {
+    reset({ commit }) {
+        commit('reset')
+    },
+
+    async loadJobs({ commit }) {
+        commit('setLoading', true)
+        try {
+            const response = await axios.get(`${FLEET_API_URL}/jobs`)
+            commit('setJobs', response.data)
+        } catch (error) {
+            console.error('Failed to load jobs:', error)
+            throw error
+        } finally {
+            commit('setLoading', false)
+        }
+    },
+
+    async loadCustomers({ commit }) {
+        try {
+            const response = await axios.get(`${FLEET_API_URL}/customers`)
+            commit('setCustomers', response.data)
+        } catch (error) {
+            console.error('Failed to load customers:', error)
+            throw error
+        }
+    },
+
+    async createJob({ commit }, jobData) {
+        try {
+            const response = await axios.post(`${FLEET_API_URL}/jobs`, jobData)
+            commit('addJob', response.data)
+            return response.data
+        } catch (error) {
+            console.error('Failed to create job:', error)
+            throw error
+        }
+    },
+
+    async createCustomer({ commit }, customerData) {
+        try {
+            const response = await axios.post(`${FLEET_API_URL}/customers`, customerData)
+            commit('addCustomer', response.data)
+            return response.data
+        } catch (error) {
+            console.error('Failed to create customer:', error)
+            throw error
+        }
+    },
+
+    async updateJobStatus({ commit, state }, { jobId, status }) {
+        try {
+            await axios.put(`${FLEET_API_URL}/jobs/${jobId}/status?status=${status}`)
+            
+            // Update local state
+            const job = state.jobs.find(j => j.id === jobId)
+            if (job) {
+                const updatedJob = { ...job, status, updated_at: new Date().toISOString() }
+                commit('updateJob', updatedJob)
+            }
+        } catch (error) {
+            console.error('Failed to update job status:', error)
+            throw error
+        }
+    },
+
+    async deleteJob({ commit }, jobId: string) {
+        try {
+            await axios.delete(`${FLEET_API_URL}/jobs/${jobId}`)
+            commit('removeJob', jobId)
+        } catch (error) {
+            console.error('Failed to delete job:', error)
+            throw error
+        }
+    },
+
+    async loadJobGcodes({ }, jobId: string): Promise<FleetJobGcode[]> {
+        try {
+            const response = await axios.get(`${FLEET_API_URL}/jobs/${jobId}/gcode`)
+            return response.data
+        } catch (error) {
+            console.error('Failed to load job gcodes:', error)
+            throw error
+        }
+    },
+
+    async createJobGcode({ }, { jobId, gcode }) {
+        try {
+            const response = await axios.post(`${FLEET_API_URL}/jobs/${jobId}/gcode`, gcode)
+            return response.data
+        } catch (error) {
+            console.error('Failed to create job gcode:', error)
+            throw error
+        }
+    },
+}

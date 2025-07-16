@@ -1,55 +1,51 @@
 <template>
     <div>
         <v-app-bar app elevate-on-scroll :height="topbarHeight" class="topbar pa-0" clipped-left>
+            <v-app-bar-nav-icon tile @click.stop="naviDrawer = !naviDrawer" />
             <router-link to="/">
                 <template v-if="sidebarLogo">
-                    <img
-                        :src="sidebarLogo"
-                        style="height: 32px"
-                        class="nav-logo ml-4 mr-1 d-none d-sm-flex"
-                        alt="Logo" />
+                    <img :src="sidebarLogo"
+                         style="height: 32px"
+                         class="nav-logo ml-4 mr-1 d-none d-sm-flex"
+                         alt="Logo" />
                 </template>
                 <template v-else>
-                    <pantheon-logo
-                        :color="logoColor"
-                        style="height: 32px"
-                        class="nav-logo ml-4 mr-1 d-none d-sm-flex"
-                        router
-                        to="/"
-                        :ripple="false" />
+                    <pantheon-logo :color="logoColor"
+                                   style="height: 32px"
+                                   class="nav-logo ml-4 mr-1 d-none d-sm-flex"
+                                   router
+                                   to="/"
+                                   :ripple="false" />
                 </template>
             </router-link>
             <v-toolbar-title class="text-no-wrap ml-0 pl-2 mr-2">{{ printerName }}</v-toolbar-title>
             <printer-selector v-if="countPrinters" />
             <v-spacer />
-            <input
-                ref="fileUploadAndStart"
-                type="file"
-                :accept="gcodeInputFileAccept.join(', ')"
-                style="display: none"
-                @change="uploadAndStart" />
-            <v-btn
-                v-if="showSaveConfigButton"
-                tile
-                :icon="$vuetify.breakpoint.smAndDown"
-                :text="$vuetify.breakpoint.mdAndUp"
-                color="primary"
-                class="button-min-width-auto px-3 d-none d-sm-flex save-config-button"
-                :disabled="printerIsPrinting"
-                :loading="loadings.includes('topbarSaveConfig')"
-                @click="saveConfig">
+            <input ref="fileUploadAndStart"
+                   type="file"
+                   :accept="gcodeInputFileAccept.join(', ')"
+                   style="display: none"
+                   @change="uploadAndStart" />
+            <v-btn v-if="showSaveConfigButton"
+                   tile
+                   :icon="$vuetify.breakpoint.smAndDown"
+                   :text="$vuetify.breakpoint.mdAndUp"
+                   color="primary"
+                   class="button-min-width-auto px-3 d-none d-sm-flex save-config-button"
+                   :disabled="printerIsPrinting"
+                   :loading="loadings.includes('topbarSaveConfig')"
+                   @click="saveConfig">
                 <v-icon class="d-md-none">{{ mdiContentSave }}</v-icon>
                 <span class="d-none d-md-inline">{{ $t('App.TopBar.SAVE_CONFIG') }}</span>
             </v-btn>
-            <v-btn
-                v-if="boolShowUploadAndPrint"
-                tile
-                :icon="$vuetify.breakpoint.smAndDown"
-                :text="$vuetify.breakpoint.mdAndUp"
-                color="primary"
-                class="button-min-width-auto px-3 d-none d-sm-flex upload-and-start-button"
-                :loading="loadings.includes('btnUploadAndStart')"
-                @click="btnUploadAndStart">
+            <v-btn v-if="boolShowUploadAndPrint"
+                   tile
+                   :icon="$vuetify.breakpoint.smAndDown"
+                   :text="$vuetify.breakpoint.mdAndUp"
+                   color="primary"
+                   class="button-min-width-auto px-3 d-none d-sm-flex upload-and-start-button"
+                   :loading="loadings.includes('btnUploadAndStart')"
+                   @click="btnUploadAndStart">
                 <v-icon class="mr-md-2">{{ mdiFileUpload }}</v-icon>
                 <span class="d-none d-md-inline">{{ $t('App.TopBar.UploadPrint') }}</span>
             </v-btn>
@@ -148,7 +144,7 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     }
 
     set naviDrawer(newVal) {
-        this.$store.dispatch('setNaviDrawer', false)
+        this.$store.dispatch('setNaviDrawer', newVal)
     }
 
     get currentPage() {
@@ -213,7 +209,18 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     }
 
     mounted() {
-        this.naviDrawer = false
+        switch (this.defaultNavigationStateSetting) {
+            case 'alwaysClosed':
+                this.naviDrawer = false
+                break
+
+            case 'lastState':
+                this.naviDrawer = (localStorage.getItem('naviDrawer') ?? 'true') === 'true'
+                break
+
+            default:
+                this.naviDrawer = this.$vuetify.breakpoint.lgAndUp
+        }
     }
 
     btnEmergencyStop() {
