@@ -39,3 +39,31 @@ export interface FleetJobGcode {
     filament_type: string
     created_at: string
 }
+
+
+export interface FleetJobGcodeRun {
+    id: string
+    job_gcode_id: string
+    printer_hostname: string
+    started_at: string
+    completed_at?: string
+    status: string  // 'in_progress', 'success', 'fail', 'cancelled'
+    moonraker_job_id?: string
+    notes?: string
+    qc?: string  // 'pass', 'fail', or null
+}
+
+export interface FleetJobGcodeRunCreate {
+    printer_hostname: string
+    moonraker_job_id?: string
+    notes?: string
+}
+
+export interface FleetJobGcodeRunUpdate {
+    printer_hostname?: string
+    status?: string
+    moonraker_job_id?: string
+    notes?: string
+    qc?: string
+    completed_at?: string
+}

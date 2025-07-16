@@ -1,6 +1,7 @@
 import Vue from 'vue'
 import { ActionTree } from 'vuex'
 import { FleetJobsState, FleetJob, FleetCustomer, FleetJobGcode } from './types'
+import { FleetJobGcodeRun, FleetJobGcodeRunCreate, FleetJobGcodeRunUpdate } from './types'
 import { RootState } from '@/store/types'
 import axios from 'axios'
 
@@ -109,6 +110,64 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
             return response.data
         } catch (error) {
             console.error('Failed to create job gcode:', error)
+            throw error
+        }
+    },
+
+    async loadJobGcodeRuns({ }, jobGcodeId: string): Promise<FleetJobGcodeRun[]> {
+        try {
+            const response = await axios.get(`${FLEET_API_URL}/gcode/${jobGcodeId}/runs`)
+            return response.data
+        } catch (error) {
+            console.error('Failed to load job gcode runs:', error)
+            throw error
+        }
+    },
+
+    async createJobGcodeRun({ }, { jobGcodeId, run }: { jobGcodeId: string, run: FleetJobGcodeRunCreate }) {
+        try {
+            const response = await axios.post(`${FLEET_API_URL}/gcode/${jobGcodeId}/runs`, run)
+            return response.data
+        } catch (error) {
+            console.error('Failed to create job gcode run:', error)
+            throw error
+        }
+    },
+
+    async getJobGcodeRun({ }, runId: string): Promise<FleetJobGcodeRun> {
+        try {
+            const response = await axios.get(`${FLEET_API_URL}/runs/${runId}`)
+            return response.data
+        } catch (error) {
+            console.error('Failed to get job gcode run:', error)
+            throw error
+        }
+    },
+
+    async updateJobGcodeRun({ }, { runId, updateData }: { runId: string, updateData: FleetJobGcodeRunUpdate }) {
+        try {
+            const response = await axios.put(`${FLEET_API_URL}/runs/${runId}`, updateData)
+            return response.data
+        } catch (error) {
+            console.error('Failed to update job gcode run:', error)
+            throw error
+        }
+    },
+
+    async updateJobGcodeRunQC({ }, { runId, qc }: { runId: string, qc: string | null }) {
+        try {
+            await axios.put(`${FLEET_API_URL}/runs/${runId}/qc?qc=${qc || ''}`)
+        } catch (error) {
+            console.error('Failed to update job gcode run QC:', error)
+            throw error
+        }
+    },
+
+    async deleteJobGcodeRun({ }, runId: string) {
+        try {
+            await axios.delete(`${FLEET_API_URL}/runs/${runId}`)
+        } catch (error) {
+            console.error('Failed to delete job gcode run:', error)
             throw error
         }
     },

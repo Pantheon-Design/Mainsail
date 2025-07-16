@@ -1,63 +1,56 @@
 <template>
     <div>
-        <panel
-            :icon="mdiBriefcaseOutline"
-            title="Job Management"
-            card-class="job-list-panel">
+        <panel :icon="mdiBriefcaseOutline"
+               title="Job Management"
+               card-class="job-list-panel">
             <v-card-text>
                 <v-row>
                     <v-col class="col-4 d-flex align-center">
-                        <v-text-field
-                            v-model="search"
-                            :append-icon="mdiMagnify"
-                            label="Search Jobs"
-                            single-line
-                            outlined
-                            clearable
-                            hide-details
-                            dense />
+                        <v-text-field v-model="search"
+                                      :append-icon="mdiMagnify"
+                                      label="Search Jobs"
+                                      single-line
+                                      outlined
+                                      clearable
+                                      hide-details
+                                      dense />
                     </v-col>
                     <v-col class="col-3 d-flex align-center">
-                        <v-select
-                            v-model="statusFilter"
-                            :items="statusOptions"
-                            label="Filter by Status"
-                            outlined
-                            dense
-                            clearable
-                            hide-details
-                            multiple
-                            chips
-                            small-chips />
+                        <v-select v-model="statusFilter"
+                                  :items="statusOptions"
+                                  label="Filter by Status"
+                                  outlined
+                                  dense
+                                  clearable
+                                  hide-details
+                                  multiple
+                                  chips
+                                  small-chips />
                     </v-col>
                     <v-col class="col-5 d-flex align-center justify-end">
                         <template v-if="selectedJobs.length">
-                            <v-btn
-                                title="Delete Selected"
-                                color="error"
-                                class="px-2 minwidth-0 ml-3"
-                                @click="deleteSelectedDialog = true">
+                            <v-btn title="Delete Selected"
+                                   color="error"
+                                   class="px-2 minwidth-0 ml-3"
+                                   @click="deleteSelectedDialog = true">
                                 <v-icon>{{ mdiDelete }}</v-icon>
                             </v-btn>
                         </template>
-                        <v-btn
-                            color="success"
-                            class="ml-3"
-                            @click="openCreateCustomerDialog">
+                        <v-btn color="success"
+                               class="ml-3"
+                               @click="openCreateCustomerDialog">
                             <v-icon left>{{ mdiAccountPlus }}</v-icon>
                             Customer
                         </v-btn>
-                        <v-btn
-                            color="primary"
-                            class="ml-3"
-                            @click="openCreateJobDialog">
+                        <v-btn color="primary"
+                               class="ml-3"
+                               @click="openCreateJobDialog">
                             <v-icon left>{{ mdiPlus }}</v-icon>
                             New Job
                         </v-btn>
-                        <v-btn
-                            :loading="loadings.includes('jobsRefresh')"
-                            class="px-2 minwidth-0 ml-3"
-                            @click="refreshJobs">
+                        <v-btn :loading="loadings.includes('jobsRefresh')"
+                               class="px-2 minwidth-0 ml-3"
+                               @click="refreshJobs">
                             <v-icon>{{ mdiRefresh }}</v-icon>
                         </v-btn>
                         <v-menu :offset-y="true" :close-on-content-click="false">
@@ -68,12 +61,11 @@
                             </template>
                             <v-list>
                                 <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
-                                    <v-checkbox
-                                        v-model="header.visible"
-                                        class="mt-0"
-                                        hide-details
-                                        :label="header.text"
-                                        @change="changeColumnVisible(header.value)" />
+                                    <v-checkbox v-model="header.visible"
+                                                class="mt-0"
+                                                hide-details
+                                                :label="header.text"
+                                                @change="changeColumnVisible(header.value)" />
                                 </v-list-item>
                             </v-list>
                         </v-menu>
@@ -81,43 +73,40 @@
                 </v-row>
             </v-card-text>
             <v-divider class="mb-3" />
-            <v-data-table
-                v-model="selectedJobs"
-                :items="filteredJobs"
-                class="job-list-table"
-                :headers="filteredHeaders"
-                :options="options"
-                :custom-sort="sortJobs"
-                :sort-by.sync="sortBy"
-                :sort-desc.sync="sortDesc"
-                :items-per-page.sync="countPerPage"
-                :footer-props="{
+            <v-data-table v-model="selectedJobs"
+                          :items="filteredJobs"
+                          class="job-list-table"
+                          :headers="filteredHeaders"
+                          :options="options"
+                          :custom-sort="sortJobs"
+                          :sort-by.sync="sortBy"
+                          :sort-desc.sync="sortDesc"
+                          :items-per-page.sync="countPerPage"
+                          :footer-props="{
                     itemsPerPageText: 'Jobs',
                     itemsPerPageAllText: 'All Jobs',
                     itemsPerPageOptions: [10, 25, 50, 100, -1],
                 }"
-                item-key="id"
-                :search="search"
-                :custom-filter="advancedSearch"
-                mobile-breakpoint="0"
-                show-select>
+                          item-key="id"
+                          :search="search"
+                          :custom-filter="advancedSearch"
+                          mobile-breakpoint="0"
+                          show-select>
                 <template slot="no-data">
                     <div class="text-center">No jobs found</div>
                 </template>
 
                 <template #item="{ index, item, isSelected, select }">
-                    <tr
-                        :key="`${index} ${item.name}`"
+                    <tr :key="`${index} ${item.name}`"
                         v-longpress:600="(e) => showContextMenu(e, item)"
                         :class="'file-list-cursor user-select-none ' + getJobRowClass(item)"
                         @contextmenu="showContextMenu($event, item)"
                         @click="clickRow(item, $event)">
                         <td class="pr-0">
-                            <v-simple-checkbox
-                                v-ripple
-                                :value="isSelected"
-                                class="pa-0 mr-0"
-                                @click.stop="select(!isSelected)" />
+                            <v-simple-checkbox v-ripple
+                                               :value="isSelected"
+                                               class="pa-0 mr-0"
+                                               @click.stop="select(!isSelected)" />
                         </td>
                         <td class="px-2 text-center" style="width: 120px">
                             <v-menu offset-y>
@@ -209,19 +198,17 @@
                         <td class="">{{ item.name }}</td>
                         <td class="">{{ getCustomerName(item.customer_id) }}</td>
                         <td class="text-center">
-                            <v-chip
-                                :color="item.job_type === 'production' ? 'orange' : 'blue'"
-                                text-color="white"
-                                x-small
-                                label>
+                            <v-chip :color="item.job_type === 'production' ? 'orange' : 'blue'"
+                                    text-color="white"
+                                    x-small
+                                    label>
                                 {{ item.job_type }}
                             </v-chip>
                         </td>
                         <td class="text-center">
-                            <v-chip
-                                :color="getPriorityColor(item.priority)"
-                                text-color="white"
-                                x-small>
+                            <v-chip :color="getPriorityColor(item.priority)"
+                                    text-color="white"
+                                    x-small>
                                 {{ item.priority }}
                             </v-chip>
                         </td>
@@ -256,21 +243,18 @@
                     Edit Job
                 </v-list-item>
                 <v-divider />
-                <v-list-item 
-                    @click="updateJobStatus(contextMenu.item, 'in_progress')" 
-                    v-if="contextMenu.item.status === 'pending'">
+                <v-list-item @click="updateJobStatus(contextMenu.item, 'in_progress')"
+                             v-if="contextMenu.item.status === 'pending'">
                     <v-icon class="mr-1">{{ mdiPlay }}</v-icon>
                     Start Job
                 </v-list-item>
-                <v-list-item 
-                    @click="updateJobStatus(contextMenu.item, 'complete')" 
-                    v-if="contextMenu.item.status === 'in_progress'">
+                <v-list-item @click="updateJobStatus(contextMenu.item, 'complete')"
+                             v-if="contextMenu.item.status === 'in_progress'">
                     <v-icon class="mr-1">{{ mdiCheck }}</v-icon>
                     Mark Complete
                 </v-list-item>
-                <v-list-item 
-                    @click="updateJobStatus(contextMenu.item, 'cancelled')" 
-                    v-if="['pending', 'in_progress'].includes(contextMenu.item.status)">
+                <v-list-item @click="updateJobStatus(contextMenu.item, 'cancelled')"
+                             v-if="['pending', 'in_progress'].includes(contextMenu.item.status)">
                     <v-icon class="mr-1">{{ mdiCancel }}</v-icon>
                     Cancel Job
                 </v-list-item>
@@ -283,16 +267,14 @@
         </v-menu>
 
         <!-- Job Details Dialog -->
-        <v-dialog
-            v-model="detailsDialog.show"
-            :max-width="1000"
-            persistent
-            @keydown.esc="detailsDialog.show = false">
-            <panel
-                title="Job Details"
-                :icon="mdiBriefcaseOutline"
-                card-class="job-details-dialog"
-                :margin-bottom="false">
+        <v-dialog v-model="detailsDialog.show"
+                  :max-width="1000"
+                  persistent
+                  @keydown.esc="detailsDialog.show = false">
+            <panel title="Job Details"
+                   :icon="mdiBriefcaseOutline"
+                   card-class="job-details-dialog"
+                   :margin-bottom="false">
                 <template #buttons>
                     <v-btn icon tile @click="detailsDialog.show = false">
                         <v-icon>{{ mdiCloseThick }}</v-icon>
@@ -448,43 +430,146 @@
                             <v-col cols="6">
                                 <div class="d-flex justify-space-between align-center mb-3">
                                     <h3>GCode Files</h3>
-                                    <v-btn
-                                        color="primary"
-                                        small
-                                        @click="openAddGcodeDialog">
-                                        <v-icon left small>{{ mdiPlus }}</v-icon>
-                                        Add GCode
-                                    </v-btn>
+                                    <div class="d-flex align-center">
+                                        <!-- Progress bar legend -->
+                                        <v-menu offset-y>
+                                            <template #activator="{ on, attrs }">
+                                                <v-btn icon
+                                                       small
+                                                       v-bind="attrs"
+                                                       v-on="on"
+                                                       title="Progress bar legend">
+                                                    <v-icon small>{{ mdiInformationOutline }}</v-icon>
+                                                </v-btn>
+                                            </template>
+                                            <v-card class="pa-3" style="max-width: 280px;">
+                                                <div class="text-subtitle2 mb-2">Progress Bar Legend</div>
+                                                <div class="legend-item mb-1">
+                                                    <div class="legend-color" style="background-color: #bdbdbd;"></div>
+                                                    <span class="text-caption">Gray: Runs still needed</span>
+                                                </div>
+                                                <div class="legend-item mb-1">
+                                                    <div class="legend-color breathing-blue" style="background-color: #2196f3;"></div>
+                                                    <span class="text-caption">Rolling blue: In progress</span>
+                                                </div>
+                                                <div class="legend-item mb-1">
+                                                    <div class="legend-color" style="background-color: #2196f3;"></div>
+                                                    <span class="text-caption">Blue: Completed, awaiting QC</span>
+                                                </div>
+                                                <div class="legend-item mb-1">
+                                                    <div class="legend-color" style="background-color: #4caf50;"></div>
+                                                    <span class="text-caption">Green: Passed QC</span>
+                                                </div>
+                                                <div class="legend-item">
+                                                    <div class="legend-color" style="background-color: #f44336;"></div>
+                                                    <span class="text-caption">Red: Failed runs</span>
+                                                </div>
+                                            </v-card>
+                                        </v-menu>
+
+                                        <v-btn color="primary"
+                                               small
+                                               class="ml-2"
+                                               @click="openAddGcodeDialog">
+                                            <v-icon left small>{{ mdiPlus }}</v-icon>
+                                            Add GCode
+                                        </v-btn>
+                                    </div>
                                 </div>
                                 <v-divider class="mb-3" />
                                 <div v-if="jobGcodes.length === 0" class="text-center text--secondary">
                                     No GCode files added yet
                                 </div>
-                                <v-list v-else dense>
-                                    <v-list-item v-for="gcode in jobGcodes" :key="gcode.id" class="px-0">
-                                        <v-list-item-content>
-                                            <v-list-item-title class="font-weight-bold">
+                                <div v-else>
+                                    <div v-for="gcode in jobGcodes" :key="gcode.id" class="gcode-file-item mb-4 pa-3" style="border: 1px solid #e0e0e0; border-radius: 8px; background-color: #2a2a2a; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                        <!-- File header -->
+                                        <div class="d-flex justify-space-between align-center mb-2">
+                                            <div class="font-weight-bold text--primary" style="color: #1976d2 !important; font-size: 14px;">
                                                 {{ gcode.gcode_filename }}
-                                            </v-list-item-title>
-                                            <v-list-item-subtitle>
-                                                <v-chip x-small color="blue" text-color="white" class="mr-1">
-                                                    {{ gcode.filament_type }}
-                                                </v-chip>
-                                                <v-chip x-small color="orange" text-color="white" class="mr-1">
-                                                    {{ gcode.required_runs }} runs
-                                                </v-chip>
-                                                <v-chip x-small color="green" text-color="white">
-                                                    {{ gcode.preferred_printer }}
-                                                </v-chip>
-                                            </v-list-item-subtitle>
-                                        </v-list-item-content>
-                                        <v-list-item-action>
-                                            <v-btn icon small @click="viewGcodeRuns(gcode)">
-                                                <v-icon small>{{ mdiPlay }}</v-icon>
+                                            </div>
+                                            <v-btn icon
+                                                   small
+                                                   color="primary"
+                                                   class="elevation-1"
+                                                   style="background-color: #1976d2 !important;"
+                                                   @click="viewGcodeRuns(gcode)">
+                                                <v-icon small color="white">{{ mdiPlay }}</v-icon>
                                             </v-btn>
-                                        </v-list-item-action>
-                                    </v-list-item>
-                                </v-list>
+                                        </div>
+
+                                        <!-- File info chips -->
+                                        <div class="mb-3">
+                                            <v-chip x-small color="blue" text-color="white" class="mr-1">
+                                                {{ gcode.filament_type }}
+                                            </v-chip>
+                                            <v-chip x-small color="orange" text-color="white" class="mr-1">
+                                                {{ gcode.required_runs }} runs
+                                            </v-chip>
+                                            <v-chip x-small color="green" text-color="white">
+                                                {{ gcode.preferred_printer }}
+                                            </v-chip>
+                                        </div>
+
+                                        <!-- Progress bar -->
+                                        <div class="gcode-progress-container mb-2">
+                                            <div class="d-flex align-center">
+                                                <!-- Main progress bar -->
+                                                <div class="gcode-progress-bar" style="height: 22px; border-radius: 11px; overflow: hidden; flex: 1; position: relative; background-color: #e8e8e8; border: 1px solid #ccc; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                                                    <!-- Gray portion (remaining needed) -->
+                                                    <div v-if="getRunStatistics(gcode).percentages.remaining > 0"
+                                                         class="progress-segment remaining"
+                                                         :style="`width: ${getRunStatistics(gcode).percentages.remaining}%; background-color: #9e9e9e; height: 100%; float: left;`">
+                                                    </div>
+
+                                                    <!-- Breathing blue portion (in progress) -->
+                                                    <div v-if="getRunStatistics(gcode).percentages.inProgress > 0"
+                                                         class="progress-segment in-progress breathing-blue"
+                                                         :style="`width: ${getRunStatistics(gcode).percentages.inProgress}%; height: 100%; float: left;`">
+                                                    </div>
+
+                                                    <!-- Blue portion (completed, no QC) -->
+                                                    <div v-if="getRunStatistics(gcode).percentages.completed > 0"
+                                                         class="progress-segment completed"
+                                                         :style="`width: ${getRunStatistics(gcode).percentages.completed}%; background-color: #2196f3; height: 100%; float: left;`">
+                                                    </div>
+
+                                                    <!-- Green portion (passed QC) -->
+                                                    <div v-if="getRunStatistics(gcode).percentages.passed > 0"
+                                                         class="progress-segment passed"
+                                                         :style="`width: ${getRunStatistics(gcode).percentages.passed}%; background-color: #4caf50; height: 100%; float: left;`">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Red bar for failures (separate, attached to the right) -->
+                                                <div v-if="getRunStatistics(gcode).totalFailed > 0"
+                                                     class="failure-bar ml-2"
+                                                     :style="`width: ${Math.min(getRunStatistics(gcode).totalFailed * 8 + 20, 60)}px; height: 22px; background-color: #f44336; border-radius: 11px; position: relative; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.2);`"
+                                                     :title="`${getRunStatistics(gcode).totalFailed} failed runs (${getRunStatistics(gcode).technicalFailures} technical + ${getRunStatistics(gcode).qcFailures} QC failures)`">
+                                                    <span style="color: white; font-size: 11px; font-weight: bold;">
+                                                        {{ getRunStatistics(gcode).totalFailed }}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Statistics text below the bar -->
+                                            <div class="gcode-progress-stats mt-2" style="font-size: 12px; color: #424242; font-weight: 500;">
+                                                <span class="font-weight-bold" style="color: #1976d2;">{{ getRunStatistics(gcode).goodRuns }}/{{ getRunStatistics(gcode).requiredRuns }}</span>
+                                                <span v-if="getRunStatistics(gcode).totalFailed > 0" class="ml-2" style="color: #d32f2f;">
+                                                    {{ getRunStatistics(gcode).totalFailed }} failed
+                                                </span>
+                                                <span v-if="getRunStatistics(gcode).inProgress > 0" class="ml-2" style="color: #1976d2;">
+                                                    {{ getRunStatistics(gcode).inProgress }} in progress
+                                                </span>
+                                                <span v-if="getRunStatistics(gcode).passedQC > 0" class="ml-2" style="color: #388e3c;">
+                                                    {{ getRunStatistics(gcode).passedQC }} passed QC
+                                                </span>
+                                                <span v-if="getRunStatistics(gcode).completedNoQC > 0" class="ml-2" style="color: #1976d2;">
+                                                    {{ getRunStatistics(gcode).completedNoQC }} awaiting QC
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </v-col>
                         </v-row>
                     </overlay-scrollbars>
@@ -493,16 +578,14 @@
         </v-dialog>
 
         <!-- Create/Edit Job Dialog -->
-        <v-dialog
-            v-model="createJobDialog.show"
-            :max-width="700"
-            persistent
-            @keydown.esc="closeCreateJobDialog">
-            <panel
-                :title="createJobDialog.isEdit ? 'Edit Job' : 'Create New Job'"
-                :icon="createJobDialog.isEdit ? mdiPencil : mdiPlus"
-                card-class="create-job-dialog"
-                :margin-bottom="false">
+        <v-dialog v-model="createJobDialog.show"
+                  :max-width="700"
+                  persistent
+                  @keydown.esc="closeCreateJobDialog">
+            <panel :title="createJobDialog.isEdit ? 'Edit Job' : 'Create New Job'"
+                   :icon="createJobDialog.isEdit ? mdiPencil : mdiPlus"
+                   card-class="create-job-dialog"
+                   :margin-bottom="false">
                 <template #buttons>
                     <v-btn icon tile @click="closeCreateJobDialog">
                         <v-icon>{{ mdiCloseThick }}</v-icon>
@@ -512,58 +595,52 @@
                     <v-form ref="jobForm" v-model="createJobDialog.valid">
                         <v-row>
                             <v-col cols="12">
-                                <v-text-field
-                                    v-model="createJobDialog.form.name"
-                                    label="Job Name*"
-                                    :rules="[v => !!v || 'Job name is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-text-field v-model="createJobDialog.form.name"
+                                              label="Job Name"
+                                              :rules="[v => !!v || 'Job name is required']"
+                                              outlined
+                                              dense
+                                              required />
                             </v-col>
                             <v-col cols="12">
-                                <v-select
-                                    v-model="createJobDialog.form.customer_id"
-                                    :items="customerOptions"
-                                    item-text="name"
-                                    item-value="id"
-                                    label="Customer*"
-                                    :rules="[v => !!v || 'Customer is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-select v-model="createJobDialog.form.customer_id"
+                                          :items="customerOptions"
+                                          item-text="name"
+                                          item-value="id"
+                                          label="Customer"
+                                          :rules="[v => !!v || 'Customer is required']"
+                                          outlined
+                                          dense
+                                          required />
                             </v-col>
                             <v-col cols="6">
-                                <v-select
-                                    v-model="createJobDialog.form.job_type"
-                                    :items="jobTypeOptions"
-                                    label="Job Type"
-                                    :rules="[v => !!v || 'Job type is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-select v-model="createJobDialog.form.job_type"
+                                          :items="jobTypeOptions"
+                                          label="Job Type"
+                                          :rules="[v => !!v || 'Job type is required']"
+                                          outlined
+                                          dense
+                                          required />
                             </v-col>
                             <v-col cols="6">
-                                <v-text-field
-                                    v-model.number="createJobDialog.form.priority"
-                                    label="Priority"
-                                    type="number"
-                                    outlined
-                                    dense />
+                                <v-text-field v-model.number="createJobDialog.form.priority"
+                                              label="Priority"
+                                              type="number"
+                                              outlined
+                                              dense />
                             </v-col>
                             <v-col cols="12">
-                                <v-text-field
-                                    v-model="createJobDialog.form.operator_name"
-                                    label="Operator"
-                                    outlined
-                                    dense />
+                                <v-text-field v-model="createJobDialog.form.operator_name"
+                                              label="Operator"
+                                              outlined
+                                              dense />
                             </v-col>
                             <v-col cols="12">
-                                <v-textarea
-                                    v-model="createJobDialog.form.description"
-                                    label="Description"
-                                    outlined
-                                    dense
-                                    rows="3" />
+                                <v-textarea v-model="createJobDialog.form.description"
+                                            label="Description"
+                                            outlined
+                                            dense
+                                            rows="3" />
                             </v-col>
                             <v-col cols="12">
                                 <v-menu v-model="dueDateMenu"
@@ -574,7 +651,7 @@
                                         min-width="auto">
                                     <template v-slot:activator="{ on, attrs }">
                                         <v-text-field v-model="createJobDialog.form.due_date"
-                                                      label="Due Date*"
+                                                      label="Due Date"
                                                       :prepend-icon="mdiCalendar"
                                                       :rules="[v => !!v || 'Due date is required']"
                                                       readonly
@@ -595,11 +672,10 @@
                 <v-card-actions>
                     <v-spacer />
                     <v-btn color="" text @click="closeCreateJobDialog">Cancel</v-btn>
-                    <v-btn 
-                        color="primary" 
-                        :loading="createJobDialog.loading"
-                        :disabled="!createJobDialog.valid"
-                        @click="saveJob">
+                    <v-btn color="primary"
+                           :loading="createJobDialog.loading"
+                           :disabled="!createJobDialog.valid"
+                           @click="saveJob">
                         {{ createJobDialog.isEdit ? 'Update' : 'Create' }}
                     </v-btn>
                 </v-card-actions>
@@ -607,16 +683,14 @@
         </v-dialog>
 
         <!-- Create Customer Dialog -->
-        <v-dialog
-            v-model="createCustomerDialog.show"
-            :max-width="500"
-            persistent
-            @keydown.esc="closeCreateCustomerDialog">
-            <panel
-                title="Create Customer"
-                :icon="mdiAccountPlus"
-                card-class="create-customer-dialog"
-                :margin-bottom="false">
+        <v-dialog v-model="createCustomerDialog.show"
+                  :max-width="500"
+                  persistent
+                  @keydown.esc="closeCreateCustomerDialog">
+            <panel title="Create Customer"
+                   :icon="mdiAccountPlus"
+                   card-class="create-customer-dialog"
+                   :margin-bottom="false">
                 <template #buttons>
                     <v-btn icon tile @click="closeCreateCustomerDialog">
                         <v-icon>{{ mdiCloseThick }}</v-icon>
@@ -626,21 +700,19 @@
                     <v-form ref="customerForm" v-model="createCustomerDialog.valid">
                         <v-row>
                             <v-col cols="12">
-                                <v-text-field
-                                    v-model="createCustomerDialog.form.name"
-                                    label="Customer Name"
-                                    :rules="[v => !!v || 'Customer name is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-text-field v-model="createCustomerDialog.form.name"
+                                              label="Customer Name"
+                                              :rules="[v => !!v || 'Customer name is required']"
+                                              outlined
+                                              dense
+                                              required />
                             </v-col>
                             <v-col cols="12">
-                                <v-textarea
-                                    v-model="createCustomerDialog.form.notes"
-                                    label="Notes"
-                                    outlined
-                                    dense
-                                    rows="3" />
+                                <v-textarea v-model="createCustomerDialog.form.notes"
+                                            label="Notes"
+                                            outlined
+                                            dense
+                                            rows="3" />
                             </v-col>
                         </v-row>
                     </v-form>
@@ -648,11 +720,10 @@
                 <v-card-actions>
                     <v-spacer />
                     <v-btn color="" text @click="closeCreateCustomerDialog">Cancel</v-btn>
-                    <v-btn 
-                        color="success" 
-                        :loading="createCustomerDialog.loading"
-                        :disabled="!createCustomerDialog.valid"
-                        @click="saveCustomer">
+                    <v-btn color="success"
+                           :loading="createCustomerDialog.loading"
+                           :disabled="!createCustomerDialog.valid"
+                           @click="saveCustomer">
                         Create
                     </v-btn>
                 </v-card-actions>
@@ -660,16 +731,14 @@
         </v-dialog>
 
         <!-- Add GCode Dialog -->
-        <v-dialog
-            v-model="addGcodeDialog.show"
-            :max-width="500"
-            persistent
-            @keydown.esc="closeAddGcodeDialog">
-            <panel
-                title="Add GCode File"
-                :icon="mdiCodeBraces"
-                card-class="add-gcode-dialog"
-                :margin-bottom="false">
+        <v-dialog v-model="addGcodeDialog.show"
+                  :max-width="500"
+                  persistent
+                  @keydown.esc="closeAddGcodeDialog">
+            <panel title="Add GCode File"
+                   :icon="mdiCodeBraces"
+                   card-class="add-gcode-dialog"
+                   :margin-bottom="false">
                 <template #buttons>
                     <v-btn icon tile @click="closeAddGcodeDialog">
                         <v-icon>{{ mdiCloseThick }}</v-icon>
@@ -679,42 +748,38 @@
                     <v-form ref="gcodeForm" v-model="addGcodeDialog.valid">
                         <v-row>
                             <v-col cols="12">
-                                <v-text-field
-                                    v-model="addGcodeDialog.form.gcode_filename"
-                                    label="GCode Filename"
-                                    :rules="[v => !!v || 'Filename is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-text-field v-model="addGcodeDialog.form.gcode_filename"
+                                              label="GCode Filename"
+                                              :rules="[v => !!v || 'Filename is required']"
+                                              outlined
+                                              dense
+                                              required />
                             </v-col>
                             <v-col cols="6">
-                                <v-text-field
-                                    v-model.number="addGcodeDialog.form.required_runs"
-                                    label="Required Runs"
-                                    type="number"
-                                    :rules="[v => v > 0 || 'Must be greater than 0']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-text-field v-model.number="addGcodeDialog.form.required_runs"
+                                              label="Required Runs"
+                                              type="number"
+                                              :rules="[v => v > 0 || 'Must be greater than 0']"
+                                              outlined
+                                              dense
+                                              required />
                             </v-col>
                             <v-col cols="6">
-                                <v-select
-                                    v-model="addGcodeDialog.form.preferred_printer"
-                                    :items="printerOptions"
-                                    label="Preferred Printer"
-                                    :rules="[v => !!v || 'Printer preference is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-select v-model="addGcodeDialog.form.preferred_printer"
+                                          :items="printerOptions"
+                                          label="Preferred Printer"
+                                          :rules="[v => !!v || 'Printer preference is required']"
+                                          outlined
+                                          dense
+                                          required />
                             </v-col>
                             <v-col cols="12">
-                                <v-text-field
-                                    v-model="addGcodeDialog.form.filament_type"
-                                    label="Filament Type (e.g., PLA, PETG, ABS)"
-                                    :rules="[v => !!v || 'Filament type is required']"
-                                    outlined
-                                    dense
-                                    required />
+                                <v-text-field v-model="addGcodeDialog.form.filament_type"
+                                              label="Filament Type (e.g., PLA, PETG, ABS)"
+                                              :rules="[v => !!v || 'Filament type is required']"
+                                              outlined
+                                              dense
+                                              required />
                             </v-col>
                         </v-row>
                     </v-form>
@@ -722,11 +787,10 @@
                 <v-card-actions>
                     <v-spacer />
                     <v-btn color="" text @click="closeAddGcodeDialog">Cancel</v-btn>
-                    <v-btn 
-                        color="primary" 
-                        :loading="addGcodeDialog.loading"
-                        :disabled="!addGcodeDialog.valid"
-                        @click="saveGcode">
+                    <v-btn color="primary"
+                           :loading="addGcodeDialog.loading"
+                           :disabled="!addGcodeDialog.valid"
+                           @click="saveGcode">
                         Add GCode
                     </v-btn>
                 </v-card-actions>
@@ -769,8 +833,260 @@
                 </v-card-actions>
             </panel>
         </v-dialog>
+
+        <!-- GCode Runs Dialog -->
+        <v-dialog v-model="gcodeRunsDialog.show"
+                  :max-width="1200"
+                  persistent
+                  @keydown.esc="closeGcodeRunsDialog">
+            <panel :title="`Print Runs: ${gcodeRunsDialog.gcodeFile?.gcode_filename || ''}`"
+                   :icon="mdiPlay"
+                   card-class="gcode-runs-dialog"
+                   :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="closeGcodeRunsDialog">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text class="px-0">
+                    <div class="px-6 pb-3">
+                        <v-row>
+                            <v-col cols="8">
+                                <div class="text-h6 mb-2">{{ gcodeRunsDialog.gcodeFile?.gcode_filename }}</div>
+                                <div class="d-flex align-center">
+                                    <v-chip small color="blue" text-color="white" class="mr-2">
+                                        {{ gcodeRunsDialog.gcodeFile?.filament_type }}
+                                    </v-chip>
+                                    <v-chip small color="orange" text-color="white" class="mr-2">
+                                        {{ gcodeRunsDialog.gcodeFile?.required_runs }} required
+                                    </v-chip>
+                                    <v-chip small color="green" text-color="white">
+                                        {{ gcodeRunsDialog.gcodeFile?.preferred_printer }}
+                                    </v-chip>
+                                </div>
+                            </v-col>
+                            <v-col cols="4" class="d-flex justify-end align-center">
+                                <v-btn color="success"
+                                       @click="openCreateRunDialog">
+                                    <v-icon left>{{ mdiPlus }}</v-icon>
+                                    Add Run
+                                </v-btn>
+                                <v-btn :loading="gcodeRunsDialog.loading"
+                                       class="ml-2"
+                                       @click="refreshGcodeRuns">
+                                    <v-icon>{{ mdiRefresh }}</v-icon>
+                                </v-btn>
+                            </v-col>
+                        </v-row>
+                    </div>
+                    <v-divider />
+                    <overlay-scrollbars style="height: 500px">
+                        <v-data-table :items="gcodeRuns"
+                                      :headers="gcodeRunHeaders"
+                                      :items-per-page="25"
+                                      :loading="gcodeRunsDialog.loading"
+                                      class="gcode-runs-table"
+                                      item-key="id"
+                                      :sort-by="['started_at']"
+                                      :sort-desc="[true]">
+
+                            <template v-slot:item.status="{ item }">
+                                <v-menu offset-y>
+                                    <template #activator="{ on, attrs }">
+                                        <v-chip :color="getRunStatusColor(item.status)"
+                                                :text-color="getRunStatusTextColor(item.status)"
+                                                small
+                                                style="cursor: pointer;"
+                                                v-bind="attrs"
+                                                v-on="on">
+                                            <v-icon left x-small>{{ getRunStatusIcon(item.status) }}</v-icon>
+                                            {{ item.status.replace('_', ' ') }}
+                                            <v-icon right x-small>{{ mdiChevronDown }}</v-icon>
+                                        </v-chip>
+                                    </template>
+                                    <v-list dense>
+                                        <v-list-item @click="updateRunStatus(item, 'in_progress')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="blue">{{ mdiProgressClock }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>In Progress</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-list-item @click="updateRunStatus(item, 'success')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="green">{{ mdiCheck }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Success</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-list-item @click="updateRunStatus(item, 'fail')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="red">{{ mdiAlertOutline }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Failed</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-list-item @click="updateRunStatus(item, 'cancelled')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="grey">{{ mdiCancel }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Cancelled</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+                            </template>
+
+                            <template v-slot:item.qc="{ item }">
+                                <v-menu offset-y>
+                                    <template #activator="{ on, attrs }">
+                                        <v-chip :color="getQCColor(item.qc)"
+                                                :text-color="getQCTextColor(item.qc)"
+                                                small
+                                                style="cursor: pointer;"
+                                                v-bind="attrs"
+                                                v-on="on">
+                                            <v-icon left x-small>{{ getQCIcon(item.qc) }}</v-icon>
+                                            {{ getQCDisplay(item.qc) }}
+                                            <v-icon right x-small>{{ mdiChevronDown }}</v-icon>
+                                        </v-chip>
+                                    </template>
+                                    <v-list dense>
+                                        <v-list-item @click="updateRunQC(item, 'pass')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="green">{{ mdiCheckboxMarkedCircleOutline }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Pass</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-list-item @click="updateRunQC(item, 'fail')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="red">{{ mdiCloseCircleOutline }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Fail</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-list-item @click="updateRunQC(item, null)">
+                                            <v-list-item-icon>
+                                                <v-icon small color="grey">{{ mdiHelpCircleOutline }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Not Set</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+                            </template>
+
+                            <template v-slot:item.started_at="{ item }">
+                                {{ formatDateTime(item.started_at) }}
+                            </template>
+
+                            <template v-slot:item.completed_at="{ item }">
+                                {{ item.completed_at ? formatDateTime(item.completed_at) : '--' }}
+                            </template>
+
+                            <template v-slot:item.actions="{ item }">
+                                <v-btn icon small @click="editRun(item)">
+                                    <v-icon small>{{ mdiPencil }}</v-icon>
+                                </v-btn>
+                                <v-btn icon small color="error" @click="deleteRun(item)">
+                                    <v-icon small>{{ mdiDelete }}</v-icon>
+                                </v-btn>
+                            </template>
+
+                            <template slot="no-data">
+                                <div class="text-center pa-4">
+                                    <div class="text--secondary mb-2">No print runs found</div>
+                                    <v-btn color="primary" @click="openCreateRunDialog">
+                                        <v-icon left>{{ mdiPlus }}</v-icon>
+                                        Add First Run
+                                    </v-btn>
+                                </div>
+                            </template>
+                        </v-data-table>
+                    </overlay-scrollbars>
+                </v-card-text>
+            </panel>
+        </v-dialog>
+
+        <!-- Create/Edit Run Dialog -->
+        <v-dialog v-model="createRunDialog.show"
+                  :max-width="600"
+                  persistent
+                  @keydown.esc="closeCreateRunDialog">
+            <panel :title="createRunDialog.isEdit ? 'Edit Print Run' : 'Add Print Run'"
+                   :icon="createRunDialog.isEdit ? mdiPencil : mdiPlus"
+                   card-class="create-run-dialog"
+                   :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="closeCreateRunDialog">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text>
+                    <v-form ref="runForm" v-model="createRunDialog.valid">
+                        <v-row>
+                            <v-col cols="12">
+                                <v-text-field v-model="createRunDialog.form.printer_hostname"
+                                              label="Printer Hostname"
+                                              :rules="[v => !!v || 'Printer hostname is required']"
+                                              outlined
+                                              dense
+                                              required />
+                            </v-col>
+                            <v-col cols="6" v-if="createRunDialog.isEdit">
+                                <v-select v-model="createRunDialog.form.status"
+                                          :items="runStatusOptions"
+                                          label="Status"
+                                          outlined
+                                          dense />
+                            </v-col>
+                            <v-col :cols="createRunDialog.isEdit ? 6 : 12" v-if="createRunDialog.isEdit">
+                                <v-select v-model="createRunDialog.form.qc"
+                                          :items="qcOptions"
+                                          label="Quality Control"
+                                          outlined
+                                          dense />
+                            </v-col>
+                            <v-col cols="12">
+                                <v-text-field v-model="createRunDialog.form.moonraker_job_id"
+                                              label="Moonraker Job ID (Optional)"
+                                              outlined
+                                              dense />
+                            </v-col>
+                            <v-col cols="12">
+                                <v-textarea v-model="createRunDialog.form.notes"
+                                            label="Notes (Optional)"
+                                            outlined
+                                            dense
+                                            rows="3" />
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="closeCreateRunDialog">Cancel</v-btn>
+                    <v-btn color="primary"
+                           :loading="createRunDialog.loading"
+                           :disabled="!createRunDialog.valid"
+                           @click="saveRun">
+                        {{ createRunDialog.isEdit ? 'Update' : 'Add' }}
+                    </v-btn>
+                </v-card-actions>
+            </panel>
+        </v-dialog>
     </div>
 </template>
+
+
 
 <script lang="ts">
 import { Component, Mixins } from 'vue-property-decorator'
@@ -799,6 +1115,9 @@ import {
     mdiAlertOutline,
     mdiDotsVertical,
     mdiChevronDown,
+    mdiHelpCircleOutline,
+    mdiInformationOutline,
+
 } from '@mdi/js'
 
 interface FleetJob {
@@ -862,6 +1181,8 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     mdiAlertOutline = mdiAlertOutline
     mdiDotsVertical = mdiDotsVertical
     mdiChevronDown = mdiChevronDown
+    mdiHelpCircleOutline = mdiHelpCircleOutline
+    mdiInformationOutline = mdiInformationOutline
 
     private search = ''
     private sortBy = 'created_at'
@@ -872,6 +1193,29 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     private selectedJobs: FleetJob[] = []
     private jobGcodes: FleetJobGcode[] = []
+    private gcodeRuns: FleetJobGcodeRun[] = []
+    private allJobRuns: { [gcodeId: string]: FleetJobGcodeRun[] } = {}
+
+    private gcodeRunsDialog = {
+        show: false,
+        loading: false,
+        gcodeFile: null as FleetJobGcode | null,
+    }
+
+    private createRunDialog = {
+        show: false,
+        isEdit: false,
+        valid: false,
+        loading: false,
+        form: {
+            id: '',
+            printer_hostname: '',
+            status: 'in_progress',
+            moonraker_job_id: '',
+            notes: '',
+            qc: null as string | null,
+        }
+    }
 
     private contextMenu = {
         shown: false,
@@ -1020,6 +1364,36 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         return this.$store.state.socket?.loadings ?? []
     }
 
+    get gcodeRunHeaders() {
+        return [
+            { text: 'Printer', value: 'printer_hostname', align: 'left' },
+            { text: 'Status', value: 'status', align: 'center', sortable: false },
+            { text: 'QC', value: 'qc', align: 'center', sortable: false },
+            { text: 'Started', value: 'started_at', align: 'left' },
+            { text: 'Completed', value: 'completed_at', align: 'left' },
+            { text: 'Moonraker ID', value: 'moonraker_job_id', align: 'left' },
+            { text: 'Notes', value: 'notes', align: 'left' },
+            { text: 'Actions', value: 'actions', align: 'center', sortable: false },
+        ]
+    }
+
+    get runStatusOptions() {
+        return [
+            { text: 'In Progress', value: 'in_progress' },
+            { text: 'Success', value: 'success' },
+            { text: 'Failed', value: 'fail' },
+            { text: 'Cancelled', value: 'cancelled' },
+        ]
+    }
+
+    get qcOptions() {
+        return [
+            { text: 'Not Set', value: null },
+            { text: 'Pass', value: 'pass' },
+            { text: 'Fail', value: 'fail' },
+        ]
+    }
+
     async mounted() {
         await this.refreshJobs()
         await this.loadCustomers()
@@ -1045,11 +1419,57 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
-    async loadJobGcodes(jobId: string) {
+    async loadJobGcodesAndRuns(jobId: string) {
         try {
+            // First load the gcode files
             this.jobGcodes = await this.$store.dispatch('fleet/jobs/loadJobGcodes', jobId)
+        
+            // Then load runs for all gcode files
+            if (this.jobGcodes && this.jobGcodes.length > 0) {
+                await this.loadAllJobRuns()
+            }
         } catch (error) {
-            console.error('Failed to load job gcodes:', error)
+            console.error('Failed to load job gcodes and runs:', error)
+        }
+    }
+
+    async loadAllJobRuns() {
+        if (!this.jobGcodes || this.jobGcodes.length === 0) {
+            console.log('No gcode files to load runs for')
+            return
+        }
+    
+        // Clear existing data using Vue.set to maintain reactivity
+        this.$set(this, 'allJobRuns', {})
+    
+        try {
+            // Load runs for each gcode file SEQUENTIALLY to avoid DB concurrency issues
+            for (const gcode of this.jobGcodes) {
+                try {
+                    console.log(`Loading runs for gcode: ${gcode.gcode_filename} (ID: ${gcode.id})`)
+                    const runs = await this.$store.dispatch('fleet/jobs/loadJobGcodeRuns', gcode.id)
+                
+                    // Use Vue.set to ensure reactivity
+                    this.$set(this.allJobRuns, gcode.id, runs || [])
+                    console.log(`Loaded ${runs?.length || 0} runs for gcode ${gcode.gcode_filename}`)
+                
+                } catch (error) {
+                    console.error(`Failed to load runs for gcode ${gcode.gcode_filename} (${gcode.id}):`, error)
+                
+                    // Set empty array on error using Vue.set
+                    this.$set(this.allJobRuns, gcode.id, [])
+                }
+            }
+        
+            console.log('All job runs loaded:', this.allJobRuns)
+        
+            // Force a re-render to make sure progress bars update
+            this.$nextTick(() => {
+                this.$forceUpdate()
+            })
+        
+        } catch (error) {
+            console.error('Failed to load job runs:', error)
         }
     }
 
@@ -1147,7 +1567,8 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     async viewJobDetails(item: FleetJob) {
         this.detailsDialog.item = item
         this.detailsDialog.show = true
-        await this.loadJobGcodes(item.id)
+        await this.loadJobGcodesAndRuns(item.id)
+
     }
 
     showContextMenu(e: any, item: FleetJob) {
@@ -1370,13 +1791,312 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 gcode: this.addGcodeDialog.form
             })
             this.$toast.success('GCode file added successfully')
-            await this.loadJobGcodes(this.detailsDialog.item.id)
+            await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
             this.closeAddGcodeDialog()
         } catch (error) {
             console.error('Failed to add gcode:', error)
             this.$toast.error('Failed to add GCode file')
         } finally {
             this.addGcodeDialog.loading = false
+        }
+    }
+
+    async viewGcodeRuns(gcode: FleetJobGcode) {
+        this.gcodeRunsDialog.gcodeFile = gcode
+        this.gcodeRunsDialog.show = true
+        await this.refreshGcodeRuns()
+    }
+
+    async refreshGcodeRuns() {
+        if (!this.gcodeRunsDialog.gcodeFile) return
+    
+        this.gcodeRunsDialog.loading = true
+        try {
+            const runs = await this.$store.dispatch('fleet/jobs/loadJobGcodeRuns', this.gcodeRunsDialog.gcodeFile.id)
+            this.gcodeRuns = runs || []
+        
+            // Use Vue.set to update allJobRuns for reactivity
+            this.$set(this.allJobRuns, this.gcodeRunsDialog.gcodeFile.id, runs || [])
+        
+            // Force Vue to re-render the progress bars
+            this.$nextTick(() => {
+                this.$forceUpdate()
+            })
+        
+        } catch (error) {
+            console.error('Failed to load gcode runs:', error)
+            this.$toast.error('Failed to load print runs')
+        } finally {
+            this.gcodeRunsDialog.loading = false
+        }
+    }
+
+    closeGcodeRunsDialog() {
+        this.gcodeRunsDialog.show = false
+        this.gcodeRunsDialog.gcodeFile = null
+        this.gcodeRuns = []
+    }
+
+    openCreateRunDialog() {
+        this.createRunDialog.isEdit = false
+        this.createRunDialog.show = true
+    }
+
+    editRun(run: FleetJobGcodeRun) {
+        this.createRunDialog.isEdit = true
+        this.createRunDialog.form = {
+            id: run.id,
+            printer_hostname: run.printer_hostname,
+            status: run.status,
+            moonraker_job_id: run.moonraker_job_id || '',
+            notes: run.notes || '',
+            qc: run.qc,
+        }
+        this.createRunDialog.show = true
+    }
+
+    async saveRun() {
+        if (!this.createRunDialog.valid || !this.gcodeRunsDialog.gcodeFile) return
+
+        this.createRunDialog.loading = true
+        try {
+            const formData = { ...this.createRunDialog.form }
+        
+            if (this.createRunDialog.isEdit) {
+                const runId = formData.id
+                delete formData.id
+            
+                await this.$store.dispatch('fleet/jobs/updateJobGcodeRun', {
+                    runId: runId,
+                    updateData: formData
+                })
+                this.$toast.success('Print run updated successfully')
+            } else {
+                delete formData.id
+                delete formData.status
+                delete formData.qc
+            
+                await this.$store.dispatch('fleet/jobs/createJobGcodeRun', {
+                    jobGcodeId: this.gcodeRunsDialog.gcodeFile.id,
+                    run: formData
+                })
+                this.$toast.success('Print run added successfully')
+            }
+        
+            // Refresh the runs data which will also update progress bars
+            await this.refreshGcodeRuns()
+            this.closeCreateRunDialog()
+        
+        } catch (error) {
+            console.error('Failed to save run:', error)
+            this.$toast.error(`Failed to ${this.createRunDialog.isEdit ? 'update' : 'add'} print run`)
+        } finally {
+            this.createRunDialog.loading = false
+        }
+    }
+
+    closeCreateRunDialog() {
+        this.createRunDialog.show = false
+        this.createRunDialog.isEdit = false
+        this.createRunDialog.form = {
+            id: '',
+            printer_hostname: '',
+            status: 'in_progress',
+            moonraker_job_id: '',
+            notes: '',
+            qc: null,
+        }
+    }
+
+    async updateRunStatus(run: FleetJobGcodeRun, status: string) {
+        try {
+            await this.$store.dispatch('fleet/jobs/updateJobGcodeRun', {
+                runId: run.id,
+                updateData: { status }
+            })
+            this.$toast.success(`Run status updated to ${status.replace('_', ' ')}`)
+        
+            // Refresh both the current runs view AND the job details progress bars
+            await this.refreshGcodeRuns()
+        
+        } catch (error) {
+            console.error('Failed to update run status:', error)
+            this.$toast.error('Failed to update run status')
+        }
+    }
+
+    async updateRunQC(run: FleetJobGcodeRun, qc: string | null) {
+        try {
+            await this.$store.dispatch('fleet/jobs/updateJobGcodeRunQC', {
+                runId: run.id,
+                qc: qc
+            })
+            this.$toast.success(`QC updated to ${qc || 'not set'}`)
+        
+            // Refresh both the current runs view AND the job details progress bars
+            await this.refreshGcodeRuns()
+        
+        } catch (error) {
+            console.error('Failed to update run QC:', error)
+            this.$toast.error('Failed to update QC')
+        }
+    }
+
+    async deleteRun(run: FleetJobGcodeRun) {
+        if (!confirm(`Are you sure you want to delete this print run from ${run.printer_hostname}?`)) {
+            return
+        }
+    
+        try {
+            await this.$store.dispatch('fleet/jobs/deleteJobGcodeRun', run.id)
+            this.$toast.success('Print run deleted successfully')
+        
+            // Refresh the runs data which will also update progress bars
+            await this.refreshGcodeRuns()
+        
+        } catch (error) {
+            console.error('Failed to delete run:', error)
+            this.$toast.error('Failed to delete print run')
+        }
+    }
+
+    // Helper methods for status/QC display
+
+    getRunStatusColor(status: string) {
+        const colors = {
+            in_progress: 'blue',
+            success: 'green',
+            fail: 'red',
+            cancelled: 'grey',
+        }
+        return colors[status] || 'grey'
+    }
+
+    getRunStatusTextColor(status: string) {
+        return 'white'
+    }
+
+    getRunStatusIcon(status: string) {
+        switch (status) {
+            case 'in_progress':
+                return this.mdiProgressClock
+            case 'success':
+                return this.mdiCheck
+            case 'fail':
+                return this.mdiAlertOutline
+            case 'cancelled':
+                return this.mdiCancel
+            default:
+                return this.mdiHelpCircleOutline
+        }
+    }
+
+    getQCColor(qc: string | null) {
+        switch (qc) {
+            case 'pass':
+                return 'green'
+            case 'fail':
+                return 'red'
+            default:
+                return 'grey'
+        }
+    }
+
+    getQCTextColor(qc: string | null) {
+        return 'white'
+    }
+
+    getQCIcon(qc: string | null) {
+        switch (qc) {
+            case 'pass':
+                return this.mdiCheckboxMarkedCircleOutline
+            case 'fail':
+                return this.mdiCloseCircleOutline
+            default:
+                return this.mdiHelpCircleOutline
+        }
+    }
+
+    getQCDisplay(qc: string | null) {
+        switch (qc) {
+            case 'pass':
+                return 'Pass'
+            case 'fail':
+                return 'Fail'
+            default:
+                return 'Not Set'
+        }
+    }
+
+    getRunStatistics(gcode: FleetJobGcode) {
+        // Handle case where runs data isn't loaded yet
+        const runs = this.allJobRuns[gcode.id] || []
+        const requiredRuns = gcode.required_runs || 0
+    
+        if (!runs || runs.length === 0) {
+            // No runs data yet - show empty progress bar
+            return {
+                requiredRuns,
+                inProgress: 0,
+                completedNoQC: 0,
+                passedQC: 0,
+                totalFailed: 0,
+                technicalFailures: 0,
+                qcFailures: 0,
+                goodRuns: 0,
+                remainingNeeded: requiredRuns,
+                totalRuns: 0,
+            
+                percentages: {
+                    remaining: 100, // Show full gray bar when no data
+                    inProgress: 0,
+                    completed: 0,
+                    passed: 0,
+                    failed: 0
+                }
+            }
+        }
+    
+        // Categorize runs
+        const inProgress = runs.filter(r => r.status === 'in_progress').length
+        const completedNoQC = runs.filter(r => r.status === 'success' && (!r.qc || r.qc === null)).length
+        const passedQC = runs.filter(r => r.status === 'success' && r.qc === 'pass').length
+    
+        // Failed runs include: technical failures OR successful prints that failed QC
+        const technicalFailures = runs.filter(r => r.status === 'fail' || r.status === 'cancelled').length
+        const qcFailures = runs.filter(r => r.status === 'success' && r.qc === 'fail').length
+        const totalFailed = technicalFailures + qcFailures
+    
+        // Good runs are those that haven't failed (in progress, completed, or passed QC)
+        const goodRuns = inProgress + completedNoQC + passedQC
+        const remainingNeeded = Math.max(0, requiredRuns - goodRuns)
+    
+        // Calculate percentages for the progress bar
+        const total = Math.max(requiredRuns, goodRuns) // Use larger value for bar width
+    
+        // Prevent division by zero
+        const safeTotal = total > 0 ? total : 1
+    
+        return {
+            requiredRuns,
+            inProgress,
+            completedNoQC,
+            passedQC,
+            totalFailed,
+            technicalFailures,
+            qcFailures,
+            goodRuns,
+            remainingNeeded,
+            totalRuns: runs.length,
+        
+            // Percentages for visual display
+            percentages: {
+                remaining: Math.max(0, (remainingNeeded / safeTotal) * 100),
+                inProgress: (inProgress / safeTotal) * 100,
+                completed: (completedNoQC / safeTotal) * 100,
+                passed: (passedQC / safeTotal) * 100,
+                failed: totalFailed > 0 ? Math.min(100, (totalFailed / Math.max(safeTotal, totalFailed)) * 100) : 0
+            }
         }
     }
 
@@ -1413,8 +2133,10 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
-    viewGcodeRuns(gcode: FleetJobGcode) {
-        this.$toast.info('GCode runs view will be implemented in phase 2')
+    async viewGcodeRuns(gcode: FleetJobGcode) {
+        this.gcodeRunsDialog.gcodeFile = gcode
+        this.gcodeRunsDialog.show = true
+        await this.refreshGcodeRuns()
     }
 
     async deleteJob() {
@@ -1477,5 +2199,68 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
 ::v-deep .job-list-table th.text-start {
     padding-right: 0 !important;
+}
+
+.breathing-blue {
+    background: linear-gradient(90deg, #1976d2 0%, #2196f3 25%, #64b5f6 50%, #2196f3 75%, #1976d2 100% );
+    background-size: 200% 100%;
+    animation: roll 2s linear infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes roll {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Progress bar styling */
+.gcode-progress-bar {
+    transition: all 0.3s ease;
+}
+
+.progress-segment {
+    transition: width 0.3s ease;
+}
+
+.gcode-file-item {
+    transition: box-shadow 0.2s ease;
+}
+
+    .gcode-file-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+/* Failure bar styling */
+.failure-bar {
+    transition: all 0.3s ease;
+}
+
+    .failure-bar:hover {
+        transform: scale(1.05);
+    }
+
+/* Statistics text styling */
+.gcode-progress-stats {
+    font-family: 'Roboto Mono', monospace;
+}
+
+/* Legend styling */
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+.legend-color {
+    width: 16px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 8px;
+    display: inline-block;
 }
 </style>
