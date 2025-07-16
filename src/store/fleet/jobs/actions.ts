@@ -45,6 +45,17 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
         }
     },
 
+    async updateJob({ commit }, { jobId, jobData }) {
+        try {
+            const response = await axios.put(`${FLEET_API_URL}/jobs/${jobId}`, jobData)
+            commit('updateJob', response.data)
+            return response.data
+        } catch (error) {
+            console.error('Failed to update job:', error)
+            throw error
+        }
+    },
+
     async createCustomer({ commit }, customerData) {
         try {
             const response = await axios.post(`${FLEET_API_URL}/customers`, customerData)
