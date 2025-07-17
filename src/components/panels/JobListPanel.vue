@@ -209,7 +209,7 @@
                             <v-chip :color="getPriorityColor(item.priority)"
                                     text-color="white"
                                     x-small>
-                                {{ item.priority }}
+                                {{ getPriorityDisplay(item.priority) }}
                             </v-chip>
                         </td>
                         <td class="">{{ item.operator_name || '--' }}</td>
@@ -318,7 +318,7 @@
                                         <v-chip :color="getPriorityColor(detailsDialog.item.priority)"
                                                 text-color="white"
                                                 small>
-                                            {{ detailsDialog.item.priority }}
+                                            {{ getPriorityDisplay(detailsDialog.item.priority) }}
                                         </v-chip>
                                     </v-col>
                                 </v-row>
@@ -623,13 +623,13 @@
                                           required />
                             </v-col>
                             <v-col cols="6">
-                                <v-text-field v-model.number="createJobDialog.form.priority"
-                                              label="Priority"
-                                              type="number"
-                                              outlined
-                                              dense />
+                                <v-select v-model="createJobDialog.form.priority"
+                                          :items="priorityOptions"
+                                          label="Priority"
+                                          outlined
+                                          dense />
                             </v-col>
-                            <v-col cols="12">
+                            <v-col cols="6">
                                 <v-text-field v-model="createJobDialog.form.operator_name"
                                               label="Operator"
                                               outlined
@@ -1127,7 +1127,7 @@ interface FleetJob {
     operator_name?: string
     description?: string
     job_type: string
-    priority: number
+    priority: string
     status: string
     ready_to_ship: boolean
     shipped: boolean
@@ -1239,7 +1239,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             name: '',
             customer_id: '',
             job_type: 'sample',
-            priority: 0,
+            priority: 'low',
             operator_name: '',
             description: '',
             due_date: '',
@@ -1334,6 +1334,14 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         return [
             { text: 'Sample', value: 'sample' },
             { text: 'Production', value: 'production' },
+        ]
+    }
+
+    get priorityOptions() {
+        return [
+            { text: 'Low', value: 'low' },
+            { text: 'Medium', value: 'medium' },
+            { text: 'High', value: 'high' },
         ]
     }
 
@@ -1507,11 +1515,30 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
-    getPriorityColor(priority: number) {
-        if (priority >= 5) return 'red'
-        if (priority >= 3) return 'orange'
-        if (priority >= 1) return 'blue'
-        return 'grey'
+    getPriorityColor(priority: string) {
+        switch (priority) {
+            case 'high':
+                return 'red'
+            case 'medium':
+                return 'orange'
+            case 'low':
+                return 'blue'
+            default:
+                return 'grey'
+        }
+    }
+
+    getPriorityDisplay(priority: string) {
+        switch (priority) {
+            case 'high':
+                return 'High'
+            case 'medium':
+                return 'Medium'
+            case 'low':
+                return 'Low'
+            default:
+                return 'Unknown'
+        }
     }
 
     getJobRowClass(item: FleetJob) {
@@ -2108,11 +2135,23 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             name: '',
             customer_id: '',
             job_type: 'sample',
-            priority: 0,
+            priority: 'low',
             operator_name: '',
             description: '',
             due_date: '',
         }
+    }
+
+    getHighPriorityJobsCount(state): number {
+        return state.jobs.filter((job: FleetJob) => job.priority === 'high').length
+    }
+
+    getMediumPriorityJobsCount(state): number {
+        return state.jobs.filter((job: FleetJob) => job.priority === 'medium').length
+    }
+
+    getLowPriorityJobsCount(state): number {
+        return state.jobs.filter((job: FleetJob) => job.priority === 'low').length
     }
 
     closeCreateCustomerDialog() {

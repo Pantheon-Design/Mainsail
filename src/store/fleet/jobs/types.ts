@@ -11,7 +11,7 @@ export interface FleetJob {
     operator_name?: string
     description?: string
     job_type: string
-    priority: number
+    priority: string
     status: string
     ready_to_ship: boolean
     shipped: boolean
