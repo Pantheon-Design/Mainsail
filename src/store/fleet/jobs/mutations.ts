@@ -45,4 +45,18 @@ export const mutations: MutationTree<FleetJobsState> = {
         customers.push(customer)
         Vue.set(state, 'customers', customers)
     },
+
+    updateCustomer(state, updatedCustomer: FleetCustomer) {
+        const index = state.customers.findIndex((customer) => customer.id === updatedCustomer.id)
+        if (index !== -1) {
+            Vue.set(state.customers, index, updatedCustomer)
+        }
+    },
+
+    removeCustomer(state, customerId: string) {
+        const index = state.customers.findIndex((customer) => customer.id === customerId)
+        if (index !== -1) {
+            state.customers.splice(index, 1)
+        }
+    },
 }

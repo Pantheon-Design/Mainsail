@@ -171,4 +171,25 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
             throw error
         }
     },
+
+    async updateCustomer({ commit }, { customerId, customerData }) {
+        try {
+            const response = await axios.put(`${FLEET_API_URL}/customers/${customerId}`, customerData)
+            commit('updateCustomer', response.data)
+            return response.data
+        } catch (error) {
+            console.error('Failed to update customer:', error)
+            throw error
+        }
+    },
+
+    async deleteCustomer({ commit }, customerId: string) {
+        try {
+            await axios.delete(`${FLEET_API_URL}/customers/${customerId}`)
+            commit('removeCustomer', customerId)
+        } catch (error) {
+            console.error('Failed to delete customer:', error)
+            throw error
+        }
+    },
 }

@@ -10,6 +10,11 @@
                 <job-list-panel />
             </v-col>
         </v-row>
+        <v-row>
+            <v-col>
+                <customer-panel />
+            </v-col>
+        </v-row>
     </div>
 </template>
 
@@ -18,11 +23,13 @@ import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import JobListPanel from '@/components/panels/JobListPanel.vue'
 import JobStatisticsPanel from '@/components/panels/JobStatisticsPanel.vue'
+import CustomerPanel from '@/components/panels/CustomerPanel.vue'
 
 @Component({
     components: {
         JobStatisticsPanel,
         JobListPanel,
+        CustomerPanel,
     },
 })
 export default class PageJob extends Mixins(BaseMixin) {

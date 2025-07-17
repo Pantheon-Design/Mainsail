@@ -36,12 +36,6 @@
                                 <v-icon>{{ mdiDelete }}</v-icon>
                             </v-btn>
                         </template>
-                        <v-btn color="success"
-                               class="ml-3"
-                               @click="openCreateCustomerDialog">
-                            <v-icon left>{{ mdiAccountPlus }}</v-icon>
-                            Customer
-                        </v-btn>
                         <v-btn color="primary"
                                class="ml-3"
                                @click="openCreateJobDialog">
@@ -54,11 +48,13 @@
                             <v-icon>{{ mdiRefresh }}</v-icon>
                         </v-btn>
                         <v-menu :offset-y="true" :close-on-content-click="false">
+                            <!--
                             <template #activator="{ on, attrs }">
                                 <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
                                     <v-icon>{{ mdiCog }}</v-icon>
                                 </v-btn>
                             </template>
+                            -->
                             <v-list>
                                 <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
                                     <v-checkbox v-model="header.visible"
@@ -604,14 +600,27 @@
                             </v-col>
                             <v-col cols="12">
                                 <v-select v-model="createJobDialog.form.customer_id"
-                                          :items="customerOptions"
+                                          :items="customerDropdownOptions"
                                           item-text="name"
                                           item-value="id"
                                           label="Customer"
                                           :rules="[v => !!v || 'Customer is required']"
                                           outlined
                                           dense
-                                          required />
+                                          required
+                                          @change="handleCustomerSelection">
+                                    <template v-slot:prepend-item>
+                                        <v-list-item @click="openAddCustomerFromJob">
+                                            <v-list-item-icon>
+                                                <v-icon color="success">{{ mdiAccountPlus }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title class="success--text">Add New Customer...</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-divider></v-divider>
+                                    </template>
+                                </v-select>
                             </v-col>
                             <v-col cols="6">
                                 <v-select v-model="createJobDialog.form.job_type"
@@ -625,11 +634,13 @@
                             <v-col cols="6">
                                 <v-select v-model="createJobDialog.form.priority"
                                           :items="priorityOptions"
+                                          item-text="text"
+                                          item-value="value"
                                           label="Priority"
                                           outlined
                                           dense />
                             </v-col>
-                            <v-col cols="6">
+                            <v-col cols="12">
                                 <v-text-field v-model="createJobDialog.form.operator_name"
                                               label="Operator"
                                               outlined
@@ -677,54 +688,6 @@
                            :disabled="!createJobDialog.valid"
                            @click="saveJob">
                         {{ createJobDialog.isEdit ? 'Update' : 'Create' }}
-                    </v-btn>
-                </v-card-actions>
-            </panel>
-        </v-dialog>
-
-        <!-- Create Customer Dialog -->
-        <v-dialog v-model="createCustomerDialog.show"
-                  :max-width="500"
-                  persistent
-                  @keydown.esc="closeCreateCustomerDialog">
-            <panel title="Create Customer"
-                   :icon="mdiAccountPlus"
-                   card-class="create-customer-dialog"
-                   :margin-bottom="false">
-                <template #buttons>
-                    <v-btn icon tile @click="closeCreateCustomerDialog">
-                        <v-icon>{{ mdiCloseThick }}</v-icon>
-                    </v-btn>
-                </template>
-                <v-card-text>
-                    <v-form ref="customerForm" v-model="createCustomerDialog.valid">
-                        <v-row>
-                            <v-col cols="12">
-                                <v-text-field v-model="createCustomerDialog.form.name"
-                                              label="Customer Name"
-                                              :rules="[v => !!v || 'Customer name is required']"
-                                              outlined
-                                              dense
-                                              required />
-                            </v-col>
-                            <v-col cols="12">
-                                <v-textarea v-model="createCustomerDialog.form.notes"
-                                            label="Notes"
-                                            outlined
-                                            dense
-                                            rows="3" />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-card-text>
-                <v-card-actions>
-                    <v-spacer />
-                    <v-btn color="" text @click="closeCreateCustomerDialog">Cancel</v-btn>
-                    <v-btn color="success"
-                           :loading="createCustomerDialog.loading"
-                           :disabled="!createCustomerDialog.valid"
-                           @click="saveCustomer">
-                        Create
                     </v-btn>
                 </v-card-actions>
             </panel>
@@ -1083,6 +1046,58 @@
                 </v-card-actions>
             </panel>
         </v-dialog>
+
+        <!-- Quick Add Customer Dialog (for job creation workflow) -->
+        <v-dialog v-model="quickAddCustomerDialog.show"
+                  :max-width="400"
+                  persistent
+                  @keydown.esc="closeQuickAddCustomerDialog">
+            <panel title="Add New Customer"
+                   :icon="mdiAccountPlus"
+                   card-class="quick-add-customer-dialog"
+                   :margin-bottom="false">
+                <template #buttons>
+                    <v-btn icon tile @click="closeQuickAddCustomerDialog">
+                        <v-icon>{{ mdiCloseThick }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card-text>
+                    <p class="text-caption text--secondary mb-3">
+                        Quickly add a customer to continue creating your job.
+                    </p>
+                    <v-form ref="quickCustomerForm" v-model="quickAddCustomerDialog.valid">
+                        <v-row>
+                            <v-col cols="12">
+                                <v-text-field v-model="quickAddCustomerDialog.form.name"
+                                              label="Customer Name"
+                                              :rules="[v => !!v || 'Customer name is required']"
+                                              outlined
+                                              dense
+                                              required
+                                              autofocus />
+                            </v-col>
+                            <v-col cols="12">
+                                <v-textarea v-model="quickAddCustomerDialog.form.notes"
+                                            label="Notes (Optional)"
+                                            outlined
+                                            dense
+                                            rows="2" />
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn color="" text @click="closeQuickAddCustomerDialog">Cancel</v-btn>
+                    <v-btn color="success"
+                           :loading="quickAddCustomerDialog.loading"
+                           :disabled="!quickAddCustomerDialog.valid"
+                           @click="saveQuickCustomer">
+                        Add Customer
+                    </v-btn>
+                </v-card-actions>
+            </panel>
+        </v-dialog>
     </div>
 </template>
 
@@ -1154,6 +1169,18 @@ interface FleetJobGcode {
     preferred_printer: string
     filament_type: string
     created_at: string
+}
+
+interface FleetJobGcodeRun {
+    id: string
+    job_gcode_id: string
+    printer_hostname: string
+    started_at: string
+    completed_at?: string
+    status: string
+    moonraker_job_id?: string
+    notes?: string
+    qc?: string | null
 }
 
 @Component({
@@ -1246,16 +1273,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
-    private createCustomerDialog = {
-        show: false,
-        valid: false,
-        loading: false,
-        form: {
-            name: '',
-            notes: '',
-        }
-    }
-
     private addGcodeDialog = {
         show: false,
         valid: false,
@@ -1271,6 +1288,15 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     private deleteDialog = false
     private deleteSelectedDialog = false
 
+    private quickAddCustomerDialog = {
+        show: false,
+        valid: false,
+        loading: false,
+        form: {
+            name: '',
+            notes: '',
+        }
+    }
     get jobs() {
         return this.$store.state.fleet?.jobs?.jobs ?? []
     }
@@ -1402,6 +1428,14 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         ]
     }
 
+    get customerDropdownOptions() {
+        // Return customers with the "Add New Customer" option
+        return this.customers.map(customer => ({
+            id: customer.id,
+            name: customer.name
+        }))
+    }
+
     async mounted() {
         await this.refreshJobs()
         await this.loadCustomers()
@@ -1424,6 +1458,54 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             await this.$store.dispatch('fleet/jobs/loadCustomers')
         } catch (error) {
             console.error('Failed to load customers:', error)
+        }
+    }
+
+    handleCustomerSelection(customerId: string) {
+        // This handles regular customer selection
+        // The "Add New Customer" option is handled by the @click in the template
+    }
+
+    openAddCustomerFromJob() {
+        // Open the quick add customer dialog
+        this.quickAddCustomerDialog.show = true
+    }
+
+    async saveQuickCustomer() {
+        if (!this.quickAddCustomerDialog.valid) return
+
+        this.quickAddCustomerDialog.loading = true
+        try {
+            const newCustomer = await this.$store.dispatch('fleet/jobs/createCustomer', this.quickAddCustomerDialog.form)
+            this.$toast.success('Customer added successfully')
+        
+            // Reload customers to update the dropdown
+            await this.loadCustomers()
+        
+            // Auto-select the newly created customer in the job form
+            this.createJobDialog.form.customer_id = newCustomer.id
+        
+            // Close the quick add dialog
+            this.closeQuickAddCustomerDialog()
+        
+        } catch (error) {
+            console.error('Failed to create customer:', error)
+            this.$toast.error('Failed to create customer')
+        } finally {
+            this.quickAddCustomerDialog.loading = false
+        }
+    }
+    
+    closeQuickAddCustomerDialog() {
+        this.quickAddCustomerDialog.show = false
+        this.quickAddCustomerDialog.form = {
+            name: '',
+            notes: '',
+        }
+    
+        // Reset form validation
+        if (this.$refs.quickCustomerForm) {
+            (this.$refs.quickCustomerForm as any).resetValidation()
         }
     }
 
@@ -1658,10 +1740,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.createJobDialog.show = true
     }
 
-    openCreateCustomerDialog() {
-        this.createCustomerDialog.show = true
-    }
-
     openAddGcodeDialog() {
         this.addGcodeDialog.show = true
     }
@@ -1788,23 +1866,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         } catch (error) {
             console.error('Failed to update job status from table:', error)
             this.$toast.error('Failed to update job status')
-        }
-    }
-
-    async saveCustomer() {
-        if (!this.createCustomerDialog.valid) return
-
-        this.createCustomerDialog.loading = true
-        try {
-            await this.$store.dispatch('fleet/jobs/createCustomer', this.createCustomerDialog.form)
-            this.$toast.success('Customer created successfully')
-            await this.loadCustomers()
-            this.closeCreateCustomerDialog()
-        } catch (error) {
-            console.error('Failed to create customer:', error)
-            this.$toast.error('Failed to create customer')
-        } finally {
-            this.createCustomerDialog.loading = false
         }
     }
 
@@ -2152,14 +2213,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     getLowPriorityJobsCount(state): number {
         return state.jobs.filter((job: FleetJob) => job.priority === 'low').length
-    }
-
-    closeCreateCustomerDialog() {
-        this.createCustomerDialog.show = false
-        this.createCustomerDialog.form = {
-            name: '',
-            notes: '',
-        }
     }
 
     closeAddGcodeDialog() {

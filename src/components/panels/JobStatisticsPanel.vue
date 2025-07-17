@@ -140,7 +140,7 @@
                                         <v-progress-linear
                                             :value="completionRate"
                                             color="success"
-                                            height="6"
+                                            height="15"
                                             class="mt-1">
                                             <template v-slot:default>
                                                 <strong>{{ Math.round(completionRate) }}%</strong>
