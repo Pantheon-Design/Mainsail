@@ -1103,13 +1103,147 @@
                 <v-card-text>
                     <v-form ref="runForm" v-model="createRunDialog.valid">
                         <v-row>
+
                             <v-col cols="12">
-                                <v-text-field v-model="createRunDialog.form.printer_hostname"
-                                              label="Printer Hostname"
-                                              :rules="[v => !!v || 'Printer hostname is required']"
-                                              outlined
-                                              dense
-                                              required />
+                                <v-select v-model="createRunDialog.form.printer_hostname"
+                                          :items="sortedPrinterOptions"
+                                          item-text="text"
+                                          item-value="value"
+                                          label="Select Printer"
+                                          :rules="[v => !!v || 'Printer selection is required']"
+                                          outlined
+                                          dense
+                                          required
+                                          :hint="getPrinterSelectionHint()"
+                                          persistent-hint>
+                                    <template v-slot:item="{ item }">
+                                        <v-list-item-content>
+                                            <v-list-item-title>
+                                                <div class="d-flex align-center">
+                                                    <span :class="{ 'text--disabled': item.disabled }">
+                                                        {{ item.printer.socket?.hostname || 'Unknown' }}
+                                                    </span>
+
+                                                    <!-- Status Chip -->
+                                                    <v-chip :color="getPrinterChipColor(item.printer)"
+                                                            :text-color="getPrinterChipTextColor(item.printer)"
+                                                            x-small
+                                                            class="ml-2">
+                                                        {{ getPrinterDisplayStatus(item.printer) }}
+                                                    </v-chip>
+
+                                                    <!-- Model Chip -->
+                                                    <v-chip color="blue-grey"
+                                                            text-color="white"
+                                                            x-small
+                                                            class="ml-1">
+                                                        {{ getPrinterModel(item.printer.socket?.hostname) || 'Unknown' }}
+                                                    </v-chip>
+
+                                                    <!-- Filament Warning Icon -->
+                                                    <v-icon v-if="item.hasFilamentMismatch"
+                                                            color="orange"
+                                                            small
+                                                            class="ml-2"
+                                                            :title="`Filament mismatch: GCode needs ${item.requiredFilament}, printer has ${item.printerFilament}`">
+                                                        mdi-alert-outline
+                                                    </v-icon>
+                                                </div>
+                                            </v-list-item-title>
+                                            <v-list-item-subtitle>
+                                                <div class="d-flex align-center">
+                                                    <span v-if="item.printerFilament">
+                                                        Current: {{ item.printerFilament }}
+                                                    </span>
+                                                    <span v-else class="text--disabled">
+                                                        No filament detected
+                                                    </span>
+
+                                                    <!-- Filament Mismatch Warning -->
+                                                    <v-chip v-if="item.hasFilamentMismatch"
+                                                            color="orange"
+                                                            text-color="white"
+                                                            x-small
+                                                            class="ml-2">
+                                                        <v-icon left x-small>mdi-alert</v-icon>
+                                                        Needs {{ item.requiredFilament }}
+                                                    </v-chip>
+
+                                                    <!-- Perfect Match Indicator -->
+                                                    <v-chip v-else-if="item.requiredFilament && item.printerFilament &&
+                                          item.requiredFilament.toLowerCase() === item.printerFilament.toLowerCase()"
+                                                            color="green"
+                                                            text-color="white"
+                                                            x-small
+                                                            class="ml-2">
+                                                        <v-icon left x-small>mdi-check</v-icon>
+                                                        Perfect Match
+                                                    </v-chip>
+                                                </div>
+                                            </v-list-item-subtitle>
+                                        </v-list-item-content>
+                                        <v-list-item-action v-if="item.disabled">
+                                            <v-icon small color="grey">mdi-lock</v-icon>
+                                        </v-list-item-action>
+                                    </template>
+
+                                    <template v-slot:selection="{ item }">
+                                        <div class="d-flex align-center">
+                                            <span>{{ item.printer.socket?.hostname || 'Unknown' }}</span>
+
+                                            <!-- Status Chip -->
+                                            <v-chip :color="getPrinterChipColor(item.printer)"
+                                                    :text-color="getPrinterChipTextColor(item.printer)"
+                                                    x-small
+                                                    class="ml-2">
+                                                {{ getPrinterDisplayStatus(item.printer) }}
+                                            </v-chip>
+
+                                            <!-- Filament Warning in Selection -->
+                                            <v-icon v-if="item.hasFilamentMismatch"
+                                                    color="orange"
+                                                    small
+                                                    class="ml-1"
+                                                    :title="`Filament mismatch: needs ${item.requiredFilament}`">
+                                                mdi-alert-outline
+                                            </v-icon>
+                                        </div>
+                                    </template>
+
+                                    <template v-slot:prepend-item>
+                                        <v-list-item class="px-3 py-2" style="background-color: rgba(0,0,0,0.05);">
+                                            <v-list-item-content>
+                                                <v-list-item-subtitle class="text-caption">
+                                                    <strong>GCode Requirements:</strong>
+                                                    {{ currentGcodeFile?.preferred_printer || 'Any' }} printer,
+                                                    {{ currentGcodeFile?.filament_type || 'No filament specified' }}
+                                                </v-list-item-subtitle>
+                                                <v-list-item-subtitle class="text-caption mt-1">
+                                                    Showing {{ sortedPrinterOptions.length }} compatible printer(s)
+                                                </v-list-item-subtitle>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                        <v-divider></v-divider>
+                                    </template>
+                                </v-select>
+
+                                <!-- Filament Mismatch Warning Alert -->
+                                <v-alert v-if="getSelectedPrinterMismatch()"
+                                         type="warning"
+                                         outlined
+                                         dense
+                                         class="mt-2 mb-0">
+                                    <div class="d-flex align-center">
+                                        <v-icon left small>mdi-alert-outline</v-icon>
+                                        <div>
+                                            <strong>Filament Mismatch:</strong>
+                                            This GCode file requires <strong>{{ currentGcodeFile?.filament_type }}</strong>,
+                                            but the selected printer currently has <strong>{{ getSelectedPrinterFilament() }}</strong> loaded.
+                                            <br>
+                                            <span class="text-caption">Please verify filament compatibility or change filament before printing.</span>
+                                        </div>
+                                    </div>
+                                </v-alert>
                             </v-col>
                             <v-col cols="6" v-if="createRunDialog.isEdit">
                                 <v-select v-model="createRunDialog.form.status"
@@ -1558,6 +1692,83 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }))
     }
 
+    get fleetDaemonPrinters() {
+        return this.$store.state.farm.fleetDaemonPrinters || {}
+    }
+
+    get sortedPrinterOptions() {
+        const printers = Object.values(this.fleetDaemonPrinters)
+        const requiredPrinterModel = this.currentGcodeFile?.preferred_printer
+        const requiredFilament = this.currentGcodeFile?.filament_type
+    
+        // Filter printers by model compatibility first
+        const compatiblePrinters = printers.filter((printer: any) => {
+            const hostname = printer.socket?.hostname || ''
+            const printerModel = this.getPrinterModel(hostname)
+        
+            // If GCode specifies 'any', all printers are compatible
+            if (requiredPrinterModel === 'any') {
+                return true
+            }
+        
+            // If GCode specifies a specific model, only show matching printers
+            if (requiredPrinterModel === 'HS-Pro') {
+                return printerModel === 'HS-Pro'
+            }
+        
+            if (requiredPrinterModel === 'HS3') {
+                return printerModel === 'HS-3' || printerModel === 'HS3'
+            }
+        
+            // Default: show all if we can't determine requirements
+            return true
+        })
+    
+        // Sort compatible printers by status priority
+        const sortedPrinters = compatiblePrinters.sort((a: any, b: any) => {
+            const statusA = this.getPrinterStatusPriority(a)
+            const statusB = this.getPrinterStatusPriority(b)
+        
+            // First sort by status priority, then by hostname alphabetically
+            if (statusA !== statusB) {
+                return statusA - statusB
+            }
+            return (a.socket?.hostname || '').localeCompare(b.socket?.hostname || '')
+        })
+    
+        return sortedPrinters.map((printer: any) => {
+            const hostname = printer.socket?.hostname || 'Unknown'
+            const status = this.getPrinterDisplayStatus(printer)
+            const isConnected = printer.socket?.isConnected && printer.fleet_to_printer_ws !== false
+            const printerFilament = printer.toolhead?.filament_type
+            const hasFilamentMismatch = requiredFilament && printerFilament && 
+                                       requiredFilament.toLowerCase() !== printerFilament.toLowerCase()
+        
+            return {
+                text: `${hostname} - ${status}`,
+                value: hostname,
+                disabled: !isConnected || this.isPrinterBusy(printer),
+                printer: printer,
+                hasFilamentMismatch: hasFilamentMismatch,
+                requiredFilament: requiredFilament,
+                printerFilament: printerFilament
+            }
+        })
+    }
+
+    getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
+        for (const printer of Object.values(remotePrinters)) {
+            if ((printer as any).hostname === hostname) {
+                return (printer as any).printerModel ?? null
+            }
+        }
+        return null
+    }
+
+    get currentGcodeFile() {
+        return this.gcodeRunsDialog.gcodeFile
+    }
     async mounted() {
         await this.refreshJobs()
         await this.loadCustomers()
@@ -2545,6 +2756,191 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             console.error('Failed to delete gcode file:', error)
             this.$toast.error('Failed to delete GCode file')
         }
+    }
+
+    getPrinterStatusPriority(printer: any): number {
+        const fleetDisconnected = printer.fleet_to_printer_ws === false
+        const isConnected = printer.socket?.isConnected
+        const state = printer.print_stats?.state
+    
+        // Disconnected printers get lower priority
+        if (fleetDisconnected || !isConnected) {
+            return 4 // Disconnected
+        }
+    
+        // Webhook shutdown
+        if (printer.webhooks?.state === 'shutdown') {
+            return 5 // Error state
+        }
+    
+        // Sort by print state
+        switch (state) {
+            case 'standby':
+            case 'ready':
+                return 1 // Best - ready to print
+            case 'complete':
+                return 2 // Good - just finished
+            case 'printing':
+                return 3 // Busy - currently printing
+            case 'paused':
+            case 'error':
+            case 'cancelled':
+                return 5 // Problems
+            default:
+                return 4 // Unknown state
+        }
+    }
+
+    getPrinterDisplayStatus(printer: any): string {
+        const fleetDisconnected = printer.fleet_to_printer_ws === false
+        const isConnected = printer.socket?.isConnected
+        const state = printer.print_stats?.state
+    
+        if (fleetDisconnected || !isConnected) {
+            return 'Disconnected'
+        }
+    
+        if (printer.webhooks?.state === 'shutdown') {
+            return 'Shutdown'
+        }
+    
+        switch (state) {
+            case 'standby':
+                return 'Ready'
+            case 'ready':
+                return 'Ready'
+            case 'printing':
+                return 'Printing'
+            case 'complete':
+                return 'Complete'
+            case 'paused':
+                return 'Paused'
+            case 'error':
+                return 'Error'
+            case 'cancelled':
+                return 'Cancelled'
+            default:
+                return state || 'Unknown'
+        }
+    }
+
+    isPrinterBusy(printer: any): boolean {
+        const state = printer.print_stats?.state
+        return state === 'printing'
+    }
+
+    // Update the existing openCreateRunDialog method:
+    openCreateRunDialog() {
+        this.createRunDialog.isEdit = false
+        this.createRunDialog.show = true
+    
+        // Auto-select the first available printer if any
+        const availablePrinters = this.sortedPrinterOptions.filter(p => !p.disabled)
+        if (availablePrinters.length > 0) {
+            this.createRunDialog.form.printer_hostname = availablePrinters[0].value
+        }
+    }
+
+    getPrinterChipColor(printer: any): string {
+        const fleetDisconnected = printer.fleet_to_printer_ws === false
+        const isConnected = printer.socket?.isConnected
+        const state = printer.print_stats?.state
+    
+        if (fleetDisconnected || !isConnected) {
+            return 'grey'
+        }
+    
+        if (printer.webhooks?.state === 'shutdown') {
+            return 'red'
+        }
+    
+        switch (state) {
+            case 'standby':
+            case 'ready':
+                return 'green'
+            case 'printing':
+                return 'blue'
+            case 'complete':
+                return 'teal'
+            case 'paused':
+                return 'orange'
+            case 'error':
+            case 'cancelled':
+                return 'red'
+            default:
+                return 'grey'
+        }
+    }
+
+    getPrinterChipTextColor(printer: any): string {
+        return 'white'
+    }
+
+    // Optional: Add a method to get additional printer info for tooltips
+    getPrinterInfo(printer: any): string {
+        const info = []
+    
+        if (printer.toolhead?.filament_type) {
+            info.push(`Filament: ${printer.toolhead.filament_type}`)
+        }
+    
+        if (printer.current_file?.filename) {
+            info.push(`Current File: ${printer.current_file.filename}`)
+        }
+    
+        if (printer.print_stats?.state === 'printing' && printer.virtual_sdcard?.progress) {
+            const progress = Math.round(printer.virtual_sdcard.progress * 100)
+            info.push(`Progress: ${progress}%`)
+        }
+    
+        return info.join(' • ')
+    }
+
+    getPrinterSelectionHint(): string {
+        const gcodeFile = this.currentGcodeFile
+        if (!gcodeFile) {
+            return 'Choose an available printer'
+        }
+    
+        const hints = []
+    
+        // Model requirement
+        if (gcodeFile.preferred_printer && gcodeFile.preferred_printer !== 'any') {
+            hints.push(`${gcodeFile.preferred_printer} printers only`)
+        }
+    
+        // Available count
+        const availableCount = this.sortedPrinterOptions.filter(p => !p.disabled).length
+        hints.push(`${availableCount} available`)
+    
+        // Filament info
+        if (gcodeFile.filament_type) {
+            hints.push(`requires ${gcodeFile.filament_type}`)
+        }
+    
+        return hints.join(' • ')
+    }
+
+    // Check if selected printer has filament mismatch
+    getSelectedPrinterMismatch(): boolean {
+        const selectedHostname = this.createRunDialog.form.printer_hostname
+        if (!selectedHostname || !this.currentGcodeFile?.filament_type) {
+            return false
+        }
+    
+        const selectedOption = this.sortedPrinterOptions.find(p => p.value === selectedHostname)
+        return selectedOption?.hasFilamentMismatch || false
+    }
+
+    // Get selected printer's current filament
+    getSelectedPrinterFilament(): string {
+        const selectedHostname = this.createRunDialog.form.printer_hostname
+        if (!selectedHostname) {
+            return 'Unknown'
+        }
+    
+        const selectedOption = this.sortedPrinterOptions.find(p => p.value === selectedHostname)
+        return selectedOption?.printerFilament || 'None detected'
     }
 
 }

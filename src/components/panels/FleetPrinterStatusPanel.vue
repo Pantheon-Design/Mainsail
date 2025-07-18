@@ -57,7 +57,7 @@
                 </div>
             </div>
         </v-card-text>
-        </div>
+    </div>
 </template>
 
 <script lang="ts">
@@ -446,6 +446,11 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     }
 
     clickPrinter(printer: any) {
+
+        //this.$toast.success(JSON.stringify(printer, null, 2));
+        //this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
+        console.log(this.$store.state)
+        /*
         if (printer.socket.isConnected) {
             const thisUrl = window.location.href.split('/')
             const protocol = thisUrl[0]
@@ -455,6 +460,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
 
             window.open(url)
         }
+        */
     }
 
     reconnectAllFleetPrinters() {

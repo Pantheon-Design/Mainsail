@@ -126,6 +126,10 @@ export default class PageJob extends Mixins(BaseMixin) {
     mdiChevronDown = mdiChevronDown
     mdiUnfoldMoreHorizontal = mdiUnfoldMoreHorizontal
     mdiUnfoldLessHorizontal = mdiUnfoldLessHorizontal
+    // Fleet WebSocket management
+    private fleetSocket: WebSocket | null = null
+    private reconnectTimer: any = null
+    private positions: { [id: string]: { x: number, y: number } } = {}
 
     // Panel collapse/expand states
     private panelStates: PanelStates = {
@@ -141,6 +145,111 @@ export default class PageJob extends Mixins(BaseMixin) {
 
     get allPanelsCollapsed(): boolean {
         return Object.values(this.panelStates).every(state => state === false)
+    }
+
+    async mounted() {
+        // Load saved panel states from localStorage
+        this.loadPanelStates()
+        
+        // Initialize fleet WebSocket connection
+        this.connectFleetWebSocket()
+        this.loadPrinterPositions()
+        
+        // Initialize job data when page loads
+        await this.loadJobs()
+        await this.loadCustomers()
+    }
+
+    beforeDestroy() {
+        this.cleanupFleetConnection()
+    }
+
+    // Fleet WebSocket methods
+    connectFleetWebSocket() {
+        if (this.fleetSocket) {
+            this.fleetSocket.close()
+        }
+
+        try {
+            this.fleetSocket = new WebSocket('ws://pantheonfleet2.local:8090/ws')
+
+            this.fleetSocket.onopen = () => {
+                console.log('Fleet Daemon connected from Jobs page')
+                if (this.reconnectTimer) {
+                    clearTimeout(this.reconnectTimer)
+                    this.reconnectTimer = null
+                }
+            }
+
+            this.fleetSocket.onmessage = (event: MessageEvent) => {
+                try {
+                    const message = JSON.parse(event.data)
+                    if (message.removed && message.hostname) {
+                        this.$store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname)
+                    } else if (message.hostname && message.update) {
+                        const printerData = {
+                            socket: {
+                                hostname: message.hostname,
+                                isConnected: true,
+                                webPort: 80,
+                                position: this.positions[message.hostname] || { x: 400, y: 400 }
+                            },
+                            ...message.update,
+                            current_file: {
+                                filename: message.update?.print_stats?.filename ?? '',
+                            },
+                            _namespace: message.hostname
+                        }
+
+                        this.$store.commit('farm/SET_FLEET_DAEMON_PRINTER', {
+                            hostname: message.hostname,
+                            data: printerData
+                        })
+                    }
+                } catch (e) {
+                    console.warn('Fleet daemon WS error:', e)
+                }
+            }
+
+            this.fleetSocket.onclose = () => {
+                console.warn('Fleet daemon WebSocket closed')
+                this.fleetSocket = null
+
+                this.reconnectTimer = setTimeout(() => {
+                    this.connectFleetWebSocket()
+                }, 5000)
+            }
+
+            this.fleetSocket.onerror = (error) => {
+                console.error('Fleet daemon WebSocket error:', error)
+            }
+
+        } catch (e) {
+            console.error('Failed to create WebSocket:', e)
+            this.reconnectTimer = setTimeout(() => {
+                this.connectFleetWebSocket()
+            }, 5000)
+        }
+    }
+
+    loadPrinterPositions() {
+        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
+        Object.entries(remotePrinters).forEach(([id, printer]: [string, any]) => {
+            if (printer.hostname && printer.position) {
+                this.positions[printer.hostname] = printer.position
+            }
+        })
+    }
+
+    cleanupFleetConnection() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer)
+            this.reconnectTimer = null
+        }
+        if (this.fleetSocket) {
+            this.fleetSocket.close()
+            this.fleetSocket = null
+        }
     }
 
     async mounted() {
