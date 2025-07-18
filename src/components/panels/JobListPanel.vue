@@ -299,15 +299,88 @@
                                     <v-col cols="8">{{ getCustomerName(detailsDialog.item.customer_id) }}</v-col>
                                 </v-row>
 
-                                <v-row class="mb-2">
+                                <v-row>
                                     <v-col cols="4"><strong>Status:</strong></v-col>
                                     <v-col cols="8">
-                                        <v-chip :color="getStatusColor(detailsDialog.item.status)"
-                                                :text-color="getStatusTextColor(detailsDialog.item.status)"
-                                                small>
-                                            <v-icon left x-small>{{ getStatusIcon(detailsDialog.item.status) }}</v-icon>
-                                            {{ formatStatusDisplay(detailsDialog.item.status) }}
-                                        </v-chip>
+                                        <v-menu offset-y>
+                                            <template v-slot:activator="{ on, attrs }">
+                                                <v-chip :color="getStatusColor(detailsDialog.item.status)"
+                                                        :text-color="getStatusTextColor(detailsDialog.item.status)"
+                                                        small
+                                                        v-bind="attrs"
+                                                        v-on="on"
+                                                        style="cursor: pointer;"
+                                                        title="Click to change status">
+                                                    <v-icon left small>{{ getStatusIcon(detailsDialog.item.status) }}</v-icon>
+                                                    {{ detailsDialog.item.status.replace('_', ' ') }}
+                                                    <v-icon right small>{{ mdiChevronDown }}</v-icon>
+                                                </v-chip>
+                                            </template>
+                                            <v-list dense>
+                                                <v-list-item v-if="detailsDialog.item.status === 'pending'"
+                                                             @click="updateJobStatusFromDetails('in_progress')">
+                                                    <v-list-item-icon>
+                                                        <v-icon small color="blue">{{ mdiPlay }}</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>Start Job</v-list-item-title>
+                                                    </v-list-item-content>
+                                                </v-list-item>
+
+                                                <v-list-item v-if="detailsDialog.item.status === 'in_progress'"
+                                                             @click="updateJobStatusFromDetails('complete')">
+                                                    <v-list-item-icon>
+                                                        <v-icon small color="green">{{ mdiCheck }}</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>Mark Complete</v-list-item-title>
+                                                    </v-list-item-content>
+                                                </v-list-item>
+
+                                                <v-list-item v-if="['pending', 'in_progress'].includes(detailsDialog.item.status)"
+                                                             @click="updateJobStatusFromDetails('cancelled')">
+                                                    <v-list-item-icon>
+                                                        <v-icon small color="red">{{ mdiCancel }}</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>Cancel Job</v-list-item-title>
+                                                    </v-list-item-content>
+                                                </v-list-item>
+
+                                                <!-- Options to revert status -->
+                                                <v-divider v-if="detailsDialog.item.status !== 'pending'" />
+
+                                                <v-list-item v-if="detailsDialog.item.status === 'in_progress'"
+                                                             @click="updateJobStatusFromDetails('pending')">
+                                                    <v-list-item-icon>
+                                                        <v-icon small color="orange">{{ mdiAlertOutline }}</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>Back to Pending</v-list-item-title>
+                                                    </v-list-item-content>
+                                                </v-list-item>
+
+                                                <v-list-item v-if="detailsDialog.item.status === 'complete'"
+                                                             @click="updateJobStatusFromDetails('in_progress')">
+                                                    <v-list-item-icon>
+                                                        <v-icon small color="blue">{{ mdiProgressClock }}</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>Reopen Job</v-list-item-title>
+                                                    </v-list-item-content>
+                                                </v-list-item>
+
+                                                <v-list-item v-if="detailsDialog.item.status === 'cancelled'"
+                                                             @click="updateJobStatusFromDetails('pending')">
+                                                    <v-list-item-icon>
+                                                        <v-icon small color="orange">{{ mdiAlertOutline }}</v-icon>
+                                                    </v-list-item-icon>
+                                                    <v-list-item-content>
+                                                        <v-list-item-title>Restore Job</v-list-item-title>
+                                                    </v-list-item-content>
+                                                </v-list-item>
+                                            </v-list>
+                                        </v-menu>
                                     </v-col>
                                 </v-row>
 
@@ -354,65 +427,6 @@
                                     <v-col cols="8">{{ detailsDialog.item.description }}</v-col>
                                 </v-row>
 
-                                <!-- Status Management Section -->
-                                <v-divider class="my-4" />
-                                <div class="mb-3">
-                                    <h4>Status Management</h4>
-                                </div>
-
-                                <div class="d-flex flex-wrap gap-2">
-                                    <v-btn v-if="detailsDialog.item.status === 'pending'"
-                                           color="blue"
-                                           small
-                                           @click="updateJobStatusFromDetails('in_progress')">
-                                        <v-icon left small>{{ mdiPlay }}</v-icon>
-                                        Start Job
-                                    </v-btn>
-
-                                    <v-btn v-if="detailsDialog.item.status === 'in_progress'"
-                                           color="green"
-                                           small
-                                           @click="updateJobStatusFromDetails('complete')">
-                                        <v-icon left small>{{ mdiCheck }}</v-icon>
-                                        Mark Complete
-                                    </v-btn>
-
-                                    <v-btn v-if="['pending', 'in_progress'].includes(detailsDialog.item.status)"
-                                           color="red"
-                                           small
-                                           @click="updateJobStatusFromDetails('cancelled')">
-                                        <v-icon left small>{{ mdiCancel }}</v-icon>
-                                        Cancel Job
-                                    </v-btn>
-
-                                    <!-- Revert options -->
-                                    <v-btn v-if="detailsDialog.item.status === 'in_progress'"
-                                           color="orange"
-                                           small
-                                           outlined
-                                           @click="updateJobStatusFromDetails('pending')">
-                                        <v-icon left small>{{ mdiAlertOutline }}</v-icon>
-                                        Back to Pending
-                                    </v-btn>
-
-                                    <v-btn v-if="detailsDialog.item.status === 'complete'"
-                                           color="blue"
-                                           small
-                                           outlined
-                                           @click="updateJobStatusFromDetails('in_progress')">
-                                        <v-icon left small>{{ mdiProgressClock }}</v-icon>
-                                        Reopen Job
-                                    </v-btn>
-
-                                    <v-btn v-if="detailsDialog.item.status === 'cancelled'"
-                                           color="orange"
-                                           small
-                                           outlined
-                                           @click="updateJobStatusFromDetails('pending')">
-                                        <v-icon left small>{{ mdiAlertOutline }}</v-icon>
-                                        Restore Job
-                                    </v-btn>
-                                </div>
                             </v-col>
 
                             <v-col cols="6">
