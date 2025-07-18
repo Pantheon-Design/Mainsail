@@ -2175,33 +2175,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.addGcodeDialog.isEdit = false
     }
 
-    async saveJob() {
-        if (!this.createJobDialog.valid) return
-
-        this.createJobDialog.loading = true
-        try {
-            const formData = { ...this.createJobDialog.form }
-            if (formData.due_date) {
-                formData.due_date = new Date(formData.due_date).toISOString()
-            }
-            delete formData.id
-
-            if (this.createJobDialog.isEdit) {
-                this.$toast.info('Edit functionality not yet implemented')
-            } else {
-                await this.$store.dispatch('fleet/jobs/createJob', formData)
-                this.$toast.success('Job created successfully')
-                await this.refreshJobs()
-                this.closeCreateJobDialog()
-            }
-        } catch (error) {
-            console.error('Failed to save job:', error)
-            this.$toast.error('Failed to save job')
-        } finally {
-            this.createJobDialog.loading = false
-        }
-    }
-
     editJobFromDetails() {
         if (this.detailsDialog.item) {
             this.editJob(this.detailsDialog.item)
@@ -2365,11 +2338,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.gcodeRunsDialog.show = false
         this.gcodeRunsDialog.gcodeFile = null
         this.gcodeRuns = []
-    }
-
-    openCreateRunDialog() {
-        this.createRunDialog.isEdit = false
-        this.createRunDialog.show = true
     }
 
     editRun(run: FleetJobGcodeRun) {
@@ -2677,12 +2645,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             preferred_printer: 'any',
             filament_type: '',
         }
-    }
-
-    async viewGcodeRuns(gcode: FleetJobGcode) {
-        this.gcodeRunsDialog.gcodeFile = gcode
-        this.gcodeRunsDialog.show = true
-        await this.refreshGcodeRuns()
     }
 
     async deleteJob() {
@@ -3052,10 +3014,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.runStatisticsCache = {}
     }
 
-    // Add the loading state computed property:
-    get isLoadingJobDetails(): boolean {
-        return this.detailsDialog.loadingGcodes || this.detailsDialog.loadingRuns
-    }
 }
 </script>
 

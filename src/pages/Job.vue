@@ -252,15 +252,6 @@ export default class PageJob extends Mixins(BaseMixin) {
         }
     }
 
-    async mounted() {
-        // Load saved panel states from localStorage
-        this.loadPanelStates()
-
-        // Initialize job data when page loads
-        await this.loadJobs()
-        await this.loadCustomers()
-    }
-
     async loadJobs() {
         try {
             await this.$store.dispatch('fleet/jobs/loadJobs')
