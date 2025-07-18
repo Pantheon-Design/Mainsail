@@ -49,12 +49,12 @@
                         </v-btn>
                         <v-menu :offset-y="true" :close-on-content-click="false">
                             <!--
-                            <template #activator="{ on, attrs }">
-                                <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
-                                    <v-icon>{{ mdiCog }}</v-icon>
-                                </v-btn>
-                            </template>
-                            -->
+                        <template #activator="{ on, attrs }">
+                            <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
+                                <v-icon>{{ mdiCog }}</v-icon>
+                            </v-btn>
+                        </template>
+                        -->
                             <v-list>
                                 <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
                                     <v-checkbox v-model="header.visible"
@@ -193,14 +193,7 @@
                         </td>
                         <td class="">{{ item.name }}</td>
                         <td class="">{{ getCustomerName(item.customer_id) }}</td>
-                        <td class="text-center">
-                            <v-chip :color="item.job_type === 'production' ? 'orange' : 'blue'"
-                                    text-color="white"
-                                    x-small
-                                    label>
-                                {{ item.job_type }}
-                            </v-chip>
-                        </td>
+                        <td class="text-center">{{ item.job_type }}</td>
                         <td class="text-center">
                             <v-chip :color="getPriorityColor(item.priority)"
                                     text-color="white"
@@ -300,13 +293,7 @@
                                 </v-row>
                                 <v-row>
                                     <v-col cols="4"><strong>Type:</strong></v-col>
-                                    <v-col cols="8">
-                                        <v-chip :color="detailsDialog.item.job_type === 'production' ? 'orange' : 'blue'"
-                                                text-color="white"
-                                                small>
-                                            {{ detailsDialog.item.job_type }}
-                                        </v-chip>
-                                    </v-col>
+                                    <v-col cols="8">{{ detailsDialog.item.job_type }}</v-col>
                                 </v-row>
                                 <v-row>
                                     <v-col cols="4"><strong>Priority:</strong></v-col>
@@ -483,14 +470,35 @@
                                             <div class="font-weight-bold text--primary" style="color: #1976d2 !important; font-size: 14px;">
                                                 {{ gcode.gcode_filename }}
                                             </div>
-                                            <v-btn icon
-                                                   small
-                                                   color="primary"
-                                                   class="elevation-1"
-                                                   style="background-color: #1976d2 !important;"
-                                                   @click="viewGcodeRuns(gcode)">
-                                                <v-icon small color="white">{{ mdiPlay }}</v-icon>
-                                            </v-btn>
+                                            <div class="d-flex align-center">
+                                                <v-btn icon
+                                                       small
+                                                       color="primary"
+                                                       class="elevation-1 mr-1"
+                                                       style="background-color: #1976d2 !important;"
+                                                       @click="editGcodeFile(gcode)"
+                                                       title="Edit GCode file">
+                                                    <v-icon small color="white">{{ mdiPencil }}</v-icon>
+                                                </v-btn>
+                                                <v-btn icon
+                                                       small
+                                                       :color="getRunStatistics(gcode).totalRuns > 0 ? 'grey' : 'error'"
+                                                       :disabled="getRunStatistics(gcode).totalRuns > 0"
+                                                       class="elevation-1 mr-1"
+                                                       @click="deleteGcodeFile(gcode)"
+                                                       :title="getRunStatistics(gcode).totalRuns > 0 ? 'Cannot delete - has associated runs' : 'Delete GCode file'">
+                                                    <v-icon small :color="getRunStatistics(gcode).totalRuns > 0 ? 'grey' : 'white'">{{ mdiDelete }}</v-icon>
+                                                </v-btn>
+                                                <v-btn icon
+                                                       small
+                                                       color="primary"
+                                                       class="elevation-1"
+                                                       style="background-color: #1976d2 !important;"
+                                                       @click="viewGcodeRuns(gcode)"
+                                                       title="View print runs">
+                                                    <v-icon small color="white">{{ mdiPlay }}</v-icon>
+                                                </v-btn>
+                                            </div>
                                         </div>
 
                                         <!-- File info chips -->
@@ -695,11 +703,11 @@
 
         <!-- Add GCode Dialog -->
         <v-dialog v-model="addGcodeDialog.show"
-                  :max-width="500"
+                  :max-width="600"
                   persistent
                   @keydown.esc="closeAddGcodeDialog">
-            <panel title="Add GCode File"
-                   :icon="mdiCodeBraces"
+            <panel :title="addGcodeDialog.isEdit ? 'Edit GCode File' : 'Add GCode File'"
+                   :icon="addGcodeDialog.isEdit ? mdiPencil : mdiCodeBraces"
                    card-class="add-gcode-dialog"
                    :margin-bottom="false">
                 <template #buttons>
@@ -708,6 +716,107 @@
                     </v-btn>
                 </template>
                 <v-card-text>
+                    <!-- File Upload Section on creation -->
+                    <div class="mb-4" v-if="!addGcodeDialog.isEdit">
+                        <div class="text-subtitle-2 mb-2">Upload GCode File</div>
+                        <div class="gcode-upload-zone pa-4">
+
+                            <!-- Upload Area -->
+                            <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
+                                <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                <div class="text-body-1 mb-3">Choose a GCode file to upload</div>
+                                <v-btn color="primary"
+                                       large
+                                       @click="$refs.fileInput.click()">
+                                    <v-icon left>{{ mdiFileUpload }}</v-icon>
+                                    Choose File
+                                </v-btn>
+                                <input ref="fileInput"
+                                       type="file"
+                                       accept=".gcode,.g,.gco"
+                                       style="display: none"
+                                       @change="onFileSelect" />
+                                <div class="text-caption text--secondary mt-3">
+                                    Supported formats: .gcode, .g, .gco
+                                </div>
+                            </div>
+
+                            <!-- Upload Progress -->
+                            <div v-if="addGcodeDialog.uploading" class="text-center">
+                                <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                <div class="text-body-1 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
+                                <v-progress-linear v-model="addGcodeDialog.uploadProgress"
+                                                   height="8"
+                                                   rounded
+                                                   color="primary"
+                                                   class="mb-2" />
+                                <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
+                            </div>
+
+                            <!-- Upload Success -->
+                            <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
+                                <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
+                                <div class="flex-grow-1">
+                                    <div class="text-body-1">{{ addGcodeDialog.uploadedFile.name }}</div>
+                                    <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
+                                </div>
+                                <v-btn icon small @click="clearUploadedFile">
+                                    <v-icon>{{ mdiClose }}</v-icon>
+                                </v-btn>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Upload Section on edit -->
+                    <div class="mb-4" v-if="addGcodeDialog.isEdit">
+                        <div class="text-subtitle-2 mb-2">Replace GCode File (Optional)</div>
+                        <div class="gcode-upload-zone pa-4">
+                            <!-- Upload Area -->
+                            <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
+                                <v-icon size="32" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                <div class="text-body-2 mb-2">Upload a new file to replace the existing one</div>
+                                <v-btn color="primary"
+                                       @click="$refs.editFileInput.click()">
+                                    <v-icon left>{{ mdiFileUpload }}</v-icon>
+                                    Choose New File
+                                </v-btn>
+                                <input ref="editFileInput"
+                                       type="file"
+                                       accept=".gcode,.g,.gco"
+                                       style="display: none"
+                                       @change="onFileSelect" />
+                                <div class="text-caption text--secondary mt-2">
+                                    Leave empty to keep the current file
+                                </div>
+                            </div>
+
+                            <!-- Upload Progress -->
+                            <div v-if="addGcodeDialog.uploading" class="text-center">
+                                <v-icon size="32" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                <div class="text-body-2 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
+                                <v-progress-linear v-model="addGcodeDialog.uploadProgress"
+                                                   height="6"
+                                                   rounded
+                                                   color="primary"
+                                                   class="mb-2" />
+                                <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
+                            </div>
+
+                            <!-- Upload Success -->
+                            <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
+                                <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
+                                <div class="flex-grow-1">
+                                    <div class="text-body-2">{{ addGcodeDialog.uploadedFile.name }}</div>
+                                    <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
+                                </div>
+                                <v-btn icon small @click="clearUploadedFile">
+                                    <v-icon>{{ mdiClose }}</v-icon>
+                                </v-btn>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Fields -->
                     <v-form ref="gcodeForm" v-model="addGcodeDialog.valid">
                         <v-row>
                             <v-col cols="12">
@@ -716,7 +825,10 @@
                                               :rules="[v => !!v || 'Filename is required']"
                                               outlined
                                               dense
-                                              required />
+                                              required
+                                              :readonly="!!addGcodeDialog.uploadedFile"
+                                              :hint="addGcodeDialog.uploadedFile ? 'Auto-filled from uploaded file' : (addGcodeDialog.isEdit ? 'Edit filename or upload new file to replace' : 'Or enter filename manually')"
+                                              persistent-hint />
                             </v-col>
                             <v-col cols="6">
                                 <v-text-field v-model.number="addGcodeDialog.form.required_runs"
@@ -752,9 +864,9 @@
                     <v-btn color="" text @click="closeAddGcodeDialog">Cancel</v-btn>
                     <v-btn color="primary"
                            :loading="addGcodeDialog.loading"
-                           :disabled="!addGcodeDialog.valid"
+                           :disabled="!addGcodeDialog.valid || addGcodeDialog.uploading"
                            @click="saveGcode">
-                        Add GCode
+                        {{ addGcodeDialog.isEdit ? 'Update' : 'Add' }} GCode
                     </v-btn>
                 </v-card-actions>
             </panel>
@@ -1132,6 +1244,10 @@ import {
     mdiChevronDown,
     mdiHelpCircleOutline,
     mdiInformationOutline,
+    mdiCloudUpload,
+    mdiFileUpload,
+    mdiCheckCircle,
+    mdiClose,
 
 } from '@mdi/js'
 
@@ -1210,6 +1326,10 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     mdiChevronDown = mdiChevronDown
     mdiHelpCircleOutline = mdiHelpCircleOutline
     mdiInformationOutline = mdiInformationOutline
+    mdiCloudUpload = mdiCloudUpload
+    mdiFileUpload = mdiFileUpload
+    mdiCheckCircle = mdiCheckCircle
+    mdiClose = mdiClose
 
     private search = ''
     private sortBy = 'created_at'
@@ -1277,6 +1397,12 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         show: false,
         valid: false,
         loading: false,
+        isEdit: false,
+        uploading: false,
+        uploadProgress: 0,
+        uploadingFileName: '',
+        uploadedFile: null as File | null,
+        currentGcodeId: '',
         form: {
             gcode_filename: '',
             required_runs: 1,
@@ -1374,6 +1500,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     get printerOptions() {
         return [
             { text: 'Any Printer', value: 'any' },
+            { text: 'HS3', value: 'HS3' },
             { text: 'HS-Pro Only', value: 'HS-Pro' },
         ]
     }
@@ -1742,6 +1869,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     openAddGcodeDialog() {
         this.addGcodeDialog.show = true
+        this.addGcodeDialog.isEdit = false
     }
 
     async saveJob() {
@@ -1874,16 +2002,27 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
         this.addGcodeDialog.loading = true
         try {
-            await this.$store.dispatch('fleet/jobs/createJobGcode', {
-                jobId: this.detailsDialog.item.id,
-                gcode: this.addGcodeDialog.form
-            })
-            this.$toast.success('GCode file added successfully')
+            if (this.addGcodeDialog.isEdit) {
+                // Update existing gcode
+                await this.$store.dispatch('fleet/jobs/updateJobGcode', {
+                    gcodeId: this.addGcodeDialog.currentGcodeId,
+                    gcode: this.addGcodeDialog.form
+                })
+                this.$toast.success('GCode file updated successfully')
+            } else {
+                // Create new gcode
+                await this.$store.dispatch('fleet/jobs/createJobGcode', {
+                    jobId: this.detailsDialog.item.id,
+                    gcode: this.addGcodeDialog.form
+                })
+                this.$toast.success('GCode file added successfully')
+            }
+        
             await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
             this.closeAddGcodeDialog()
         } catch (error) {
-            console.error('Failed to add gcode:', error)
-            this.$toast.error('Failed to add GCode file')
+            console.error('Failed to save gcode:', error)
+            this.$toast.error(`Failed to ${this.addGcodeDialog.isEdit ? 'update' : 'add'} GCode file`)
         } finally {
             this.addGcodeDialog.loading = false
         }
@@ -2217,6 +2356,12 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     closeAddGcodeDialog() {
         this.addGcodeDialog.show = false
+        this.addGcodeDialog.isEdit = false
+        this.addGcodeDialog.uploading = false
+        this.addGcodeDialog.uploadProgress = 0
+        this.addGcodeDialog.uploadingFileName = ''
+        this.addGcodeDialog.uploadedFile = null
+        this.addGcodeDialog.currentGcodeId = ''
         this.addGcodeDialog.form = {
             gcode_filename: '',
             required_runs: 1,
@@ -2281,6 +2426,132 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             // Implement column visibility toggle if needed
         }
     }
+
+    formatFileSize(bytes: number): string {
+        if (bytes === 0) return '0 Bytes'
+        const k = 1024
+        const sizes = ['Bytes', 'KB', 'MB', 'GB']
+        const i = Math.floor(Math.log(bytes) / Math.log(k))
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    }
+
+    async onFileSelect(e: Event) {
+        const target = e.target as HTMLInputElement
+        const files = target.files
+        if (files && files.length > 0) {
+            await this.handleFileUpload(files[0])
+        }
+    }
+
+    async handleFileUpload(file: File) {
+        // Validate file type
+        const validExtensions = ['.gcode', '.g', '.gco']
+        const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+    
+        if (!validExtensions.includes(fileExtension)) {
+            this.$toast.error('Please select a valid GCode file (.gcode, .g, .gco)')
+            return
+        }
+
+        // Start upload
+        this.addGcodeDialog.uploading = true
+        this.addGcodeDialog.uploadProgress = 0
+        this.addGcodeDialog.uploadingFileName = file.name
+
+        // Simulate progress for user feedback
+        const progressInterval = setInterval(() => {
+            if (this.addGcodeDialog.uploadProgress < 90) {
+                this.addGcodeDialog.uploadProgress += Math.random() * 20
+            }
+        }, 200)
+
+        try {
+            // Use the files store action to upload
+            const uploadedFilename = await this.$store.dispatch('files/uploadFile', {
+                file: file,
+                path: '', // Upload to root of gcodes directory
+                root: 'gcodes'
+            })
+
+            clearInterval(progressInterval)
+            this.addGcodeDialog.uploadProgress = 100
+
+            if (uploadedFilename) {
+                // Success - store the file info and auto-fill filename
+                this.addGcodeDialog.uploadedFile = file
+                this.addGcodeDialog.form.gcode_filename = uploadedFilename
+                this.$toast.success(`File uploaded successfully: ${uploadedFilename}`)
+
+                const filenameLower = uploadedFilename.toLowerCase()
+
+                // Set printer model
+                this.addGcodeDialog.form.preferred_printer = filenameLower.includes('hs-pro') ? 'HS-Pro' : 'HS3'
+
+                // Set filament type
+                if (filenameLower.includes('pa-cf')) {
+                    this.addGcodeDialog.form.filament_type = 'PA-CF'
+                } else if (filenameLower.includes('petg-cf')) {
+                    this.addGcodeDialog.form.filament_type = 'PETG-CF'
+                } else if (filenameLower.includes('pa-gf')) {
+                    this.addGcodeDialog.form.filament_type = 'PA-GF'
+                }
+            } else {
+                throw new Error('Upload failed')
+            }
+        } catch (error) {
+            clearInterval(progressInterval)
+            console.error('Upload failed:', error)
+            this.$toast.error('Failed to upload file')
+        } finally {
+            this.addGcodeDialog.uploading = false
+            this.addGcodeDialog.uploadProgress = 0
+            this.addGcodeDialog.uploadingFileName = ''
+        }
+    }
+
+    clearUploadedFile() {
+        this.addGcodeDialog.uploadedFile = null
+        this.addGcodeDialog.form.gcode_filename = ''
+    }
+
+    editGcodeFile(gcode: FleetJobGcode) {
+        this.addGcodeDialog.isEdit = true
+        this.addGcodeDialog.currentGcodeId = gcode.id
+        this.addGcodeDialog.form = {
+            gcode_filename: gcode.gcode_filename,
+            required_runs: gcode.required_runs,
+            preferred_printer: gcode.preferred_printer,
+            filament_type: gcode.filament_type,
+        }
+        this.addGcodeDialog.show = true
+    }
+
+    async deleteGcodeFile(gcode: FleetJobGcode) {
+        // Check if there are runs associated
+        const stats = this.getRunStatistics(gcode)
+        if (stats.totalRuns > 0) {
+            this.$toast.error(`Cannot delete GCode file. It has ${stats.totalRuns} associated print runs.`)
+            return
+        }
+
+        if (!confirm(`Are you sure you want to delete "${gcode.gcode_filename}"?`)) {
+            return
+        }
+
+        try {
+            await this.$store.dispatch('fleet/jobs/deleteJobGcode', gcode.id)
+            this.$toast.success('GCode file deleted successfully')
+        
+            // Reload the job's gcode files
+            if (this.detailsDialog.item) {
+                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+            }
+        } catch (error) {
+            console.error('Failed to delete gcode file:', error)
+            this.$toast.error('Failed to delete GCode file')
+        }
+    }
+
 }
 </script>
 
@@ -2354,5 +2625,19 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     border-radius: 2px;
     margin-right: 8px;
     display: inline-block;
+}
+
+/* GCode Upload Zone Styles */
+.gcode-upload-zone {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #fafafa;
+    transition: all 0.3s ease;
+}
+
+/* Dark theme support */
+.theme--dark .gcode-upload-zone {
+    border-color: #424242;
+    background-color: #303030;
 }
 </style>

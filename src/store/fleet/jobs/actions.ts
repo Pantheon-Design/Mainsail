@@ -114,6 +114,27 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
         }
     },
 
+    // NEW: Update job gcode
+    async updateJobGcode({ }, { gcodeId, gcode }) {
+        try {
+            const response = await axios.put(`${FLEET_API_URL}/gcode/${gcodeId}`, gcode)
+            return response.data
+        } catch (error) {
+            console.error('Failed to update job gcode:', error)
+            throw error
+        }
+    },
+
+    // NEW: Delete job gcode
+    async deleteJobGcode({ }, gcodeId: string) {
+        try {
+            await axios.delete(`${FLEET_API_URL}/gcode/${gcodeId}`)
+        } catch (error) {
+            console.error('Failed to delete job gcode:', error)
+            throw error
+        }
+    },
+
     async loadJobGcodeRuns({ }, jobGcodeId: string): Promise<FleetJobGcodeRun[]> {
         try {
             const response = await axios.get(`${FLEET_API_URL}/gcode/${jobGcodeId}/runs`)
