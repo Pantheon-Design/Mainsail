@@ -1,114 +1,112 @@
 <template>
     <div>
-        <panel :icon="mdiAccountMultiple"
-               title="Customer Management"
-               card-class="customer-list-panel">
-            <v-card-text>
-                <v-row>
-                    <v-col class="col-4 d-flex align-center">
-                        <v-text-field v-model="search"
-                                      :append-icon="mdiMagnify"
-                                      label="Search Customers"
-                                      single-line
-                                      outlined
-                                      clearable
-                                      hide-details
-                                      dense />
-                    </v-col>
-                    <v-col class="col-8 d-flex align-center justify-end">
-                        <template v-if="selectedCustomers.length">
-                            <v-btn title="Delete Selected"
-                                   color="error"
-                                   class="px-2 minwidth-0 ml-3"
-                                   @click="deleteSelectedDialog = true">
-                                <v-icon>{{ mdiDelete }}</v-icon>
-                            </v-btn>
-                        </template>
-                        <v-btn color="success"
-                               class="ml-3"
-                               @click="openCreateCustomerDialog">
-                            <v-icon left>{{ mdiAccountPlus }}</v-icon>
-                            New Customer
-                        </v-btn>
-                        <v-btn :loading="loadings.includes('customersRefresh')"
-                               class="px-2 minwidth-0 ml-3"
-                               @click="refreshCustomers">
-                            <v-icon>{{ mdiRefresh }}</v-icon>
-                        </v-btn>
-                        <v-menu :offset-y="true" :close-on-content-click="false">
-                            <!--
-                            <template #activator="{ on, attrs }">
-                                <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
-                                    <v-icon>{{ mdiCog }}</v-icon>
+        <div class="customer-list-panel">
+                <v-card-text>
+                    <v-row>
+                        <v-col class="col-4 d-flex align-center">
+                            <v-text-field v-model="search"
+                                          :append-icon="mdiMagnify"
+                                          label="Search Customers"
+                                          single-line
+                                          outlined
+                                          clearable
+                                          hide-details
+                                          dense />
+                        </v-col>
+                        <v-col class="col-8 d-flex align-center justify-end">
+                            <template v-if="selectedCustomers.length">
+                                <v-btn title="Delete Selected"
+                                       color="error"
+                                       class="px-2 minwidth-0 ml-3"
+                                       @click="deleteSelectedDialog = true">
+                                    <v-icon>{{ mdiDelete }}</v-icon>
                                 </v-btn>
                             </template>
-                            -->
-                            <v-list>
-                                <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
-                                    <v-checkbox v-model="header.visible"
-                                                class="mt-0"
-                                                hide-details
-                                                :label="header.text"
-                                                @change="changeColumnVisible(header.value)" />
-                                </v-list-item>
-                            </v-list>
-                        </v-menu>
-                    </v-col>
-                </v-row>
-            </v-card-text>
-            <v-divider class="mb-3" />
-            <v-data-table v-model="selectedCustomers"
-                          :items="customers"
-                          class="customer-list-table"
-                          :headers="filteredHeaders"
-                          :options="options"
-                          :custom-sort="sortCustomers"
-                          :sort-by.sync="sortBy"
-                          :sort-desc.sync="sortDesc"
-                          :items-per-page.sync="countPerPage"
-                          :footer-props="{
+                            <v-btn color="success"
+                                   class="ml-3"
+                                   @click="openCreateCustomerDialog">
+                                <v-icon left>{{ mdiAccountPlus }}</v-icon>
+                                New Customer
+                            </v-btn>
+                            <v-btn :loading="loadings.includes('customersRefresh')"
+                                   class="px-2 minwidth-0 ml-3"
+                                   @click="refreshCustomers">
+                                <v-icon>{{ mdiRefresh }}</v-icon>
+                            </v-btn>
+                            <v-menu :offset-y="true" :close-on-content-click="false">
+                                <!--
+                        <template #activator="{ on, attrs }">
+                            <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
+                                <v-icon>{{ mdiCog }}</v-icon>
+                            </v-btn>
+                        </template>
+                        -->
+                                <v-list>
+                                    <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
+                                        <v-checkbox v-model="header.visible"
+                                                    class="mt-0"
+                                                    hide-details
+                                                    :label="header.text"
+                                                    @change="changeColumnVisible(header.value)" />
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+                <v-divider class="mb-3" />
+                <v-data-table v-model="selectedCustomers"
+                              :items="customers"
+                              class="customer-list-table"
+                              :headers="filteredHeaders"
+                              :options="options"
+                              :custom-sort="sortCustomers"
+                              :sort-by.sync="sortBy"
+                              :sort-desc.sync="sortDesc"
+                              :items-per-page.sync="countPerPage"
+                              :footer-props="{
                     itemsPerPageText: 'Customers',
                     itemsPerPageAllText: 'All Customers',
                     itemsPerPageOptions: [10, 25, 50, 100, -1],
                 }"
-                          item-key="id"
-                          :search="search"
-                          :custom-filter="advancedSearch"
-                          mobile-breakpoint="0"
-                          show-select>
-                <template slot="no-data">
-                    <div class="text-center">No customers found</div>
-                </template>
+                              item-key="id"
+                              :search="search"
+                              :custom-filter="advancedSearch"
+                              mobile-breakpoint="0"
+                              show-select>
+                    <template slot="no-data">
+                        <div class="text-center">No customers found</div>
+                    </template>
 
-                <template #item="{ index, item, isSelected, select }">
-                    <tr :key="`${index} ${item.name}`"
-                        v-longpress:600="(e) => showContextMenu(e, item)"
-                        class="file-list-cursor user-select-none"
-                        @contextmenu="showContextMenu($event, item)"
-                        @click="clickRow(item, $event)">
-                        <td class="pr-0">
-                            <v-simple-checkbox v-ripple
-                                               :value="isSelected"
-                                               class="pa-0 mr-0"
-                                               @click.stop="select(!isSelected)" />
-                        </td>
-                        <td class="font-weight-bold">{{ item.name }}</td>
-                        <td class="">{{ item.notes || '--' }}</td>
-                        <td class="">{{ getJobCount(item.id) }}</td>
-                        <td class="">{{ formatDateTime(item.created_at) }}</td>
-                        <td class="">{{ formatDateTime(item.updated_at) }}</td>
-                        <td class="text-center">
-                            <v-btn icon
-                                   small
-                                   color="primary"
-                                   @click.stop="openActionsMenu($event, item)">
-                                <v-icon small>{{ mdiDotsVertical }}</v-icon>
-                            </v-btn>
-                        </td>
-                    </tr>
-                </template>
-            </v-data-table>
-        </panel>
+                    <template #item="{ index, item, isSelected, select }">
+                        <tr :key="`${index} ${item.name}`"
+                            v-longpress:600="(e) => showContextMenu(e, item)"
+                            class="file-list-cursor user-select-none"
+                            @contextmenu="showContextMenu($event, item)"
+                            @click="clickRow(item, $event)">
+                            <td class="pr-0">
+                                <v-simple-checkbox v-ripple
+                                                   :value="isSelected"
+                                                   class="pa-0 mr-0"
+                                                   @click.stop="select(!isSelected)" />
+                            </td>
+                            <td class="font-weight-bold">{{ item.name }}</td>
+                            <td class="">{{ item.notes || '--' }}</td>
+                            <td class="">{{ getJobCount(item.id) }}</td>
+                            <td class="">{{ formatDateTime(item.created_at) }}</td>
+                            <td class="">{{ formatDateTime(item.updated_at) }}</td>
+                            <td class="text-center">
+                                <v-btn icon
+                                       small
+                                       color="primary"
+                                       @click.stop="openActionsMenu($event, item)">
+                                    <v-icon small>{{ mdiDotsVertical }}</v-icon>
+                                </v-btn>
+                            </td>
+                        </tr>
+                    </template>
+                </v-data-table>
+        </div>
 
         <!-- Context Menu -->
         <v-menu v-model="contextMenu.shown" :position-x="contextMenu.x" :position-y="contextMenu.y" absolute offset-y>

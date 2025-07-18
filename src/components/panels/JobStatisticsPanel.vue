@@ -1,8 +1,5 @@
 <template>
-    <panel
-        :icon="mdiChartLine"
-        title="Job Statistics"
-        card-class="job-statistics-panel">
+    <div class="job-statistics-panel">
         <v-card-text>
             <v-row>
                 <v-col cols="12" sm="6" md="3">
@@ -38,7 +35,7 @@
                     </v-card>
                 </v-col>
             </v-row>
-            
+
             <v-row class="mt-4">
                 <v-col cols="12" md="4">
                     <v-card outlined>
@@ -49,29 +46,27 @@
                                     <div class="text-center">
                                         <div class="text-h5 blue--text">{{ sampleJobs }}</div>
                                         <div class="text-caption">Sample</div>
-                                        <v-progress-linear
-                                            :value="samplePercentage"
-                                            color="blue"
-                                            height="4"
-                                            class="mt-1" />
+                                        <v-progress-linear :value="samplePercentage"
+                                                           color="blue"
+                                                           height="4"
+                                                           class="mt-1" />
                                     </div>
                                 </v-col>
                                 <v-col cols="6">
                                     <div class="text-center">
                                         <div class="text-h5 orange--text">{{ productionJobs }}</div>
                                         <div class="text-caption">Production</div>
-                                        <v-progress-linear
-                                            :value="productionPercentage"
-                                            color="orange"
-                                            height="4"
-                                            class="mt-1" />
+                                        <v-progress-linear :value="productionPercentage"
+                                                           color="orange"
+                                                           height="4"
+                                                           class="mt-1" />
                                     </div>
                                 </v-col>
                             </v-row>
                         </v-card-text>
                     </v-card>
                 </v-col>
-                
+
                 <v-col cols="12" md="4">
                     <v-card outlined>
                         <v-card-title class="text-h6">Priority Breakdown</v-card-title>
@@ -81,40 +76,37 @@
                                     <div class="text-center">
                                         <div class="text-h6 red--text">{{ highPriorityJobs }}</div>
                                         <div class="text-caption">High (5+)</div>
-                                        <v-progress-linear
-                                            :value="highPriorityPercentage"
-                                            color="red"
-                                            height="3"
-                                            class="mt-1" />
+                                        <v-progress-linear :value="highPriorityPercentage"
+                                                           color="red"
+                                                           height="3"
+                                                           class="mt-1" />
                                     </div>
                                 </v-col>
                                 <v-col cols="4">
                                     <div class="text-center">
                                         <div class="text-h6 orange--text">{{ mediumPriorityJobs }}</div>
                                         <div class="text-caption">Medium (3-4)</div>
-                                        <v-progress-linear
-                                            :value="mediumPriorityPercentage"
-                                            color="orange"
-                                            height="3"
-                                            class="mt-1" />
+                                        <v-progress-linear :value="mediumPriorityPercentage"
+                                                           color="orange"
+                                                           height="3"
+                                                           class="mt-1" />
                                     </div>
                                 </v-col>
                                 <v-col cols="4">
                                     <div class="text-center">
                                         <div class="text-h6 grey--text">{{ lowPriorityJobs }}</div>
                                         <div class="text-caption">Low (0-2)</div>
-                                        <v-progress-linear
-                                            :value="lowPriorityPercentage"
-                                            color="grey"
-                                            height="3"
-                                            class="mt-1" />
+                                        <v-progress-linear :value="lowPriorityPercentage"
+                                                           color="grey"
+                                                           height="3"
+                                                           class="mt-1" />
                                     </div>
                                 </v-col>
                             </v-row>
                         </v-card-text>
                     </v-card>
                 </v-col>
-                
+
                 <v-col cols="12" md="4">
                     <v-card outlined>
                         <v-card-title class="text-h6">Fleet Overview</v-card-title>
@@ -137,11 +129,10 @@
                                 <v-col cols="12">
                                     <div class="text-center">
                                         <div class="text-body-2">Completion Rate</div>
-                                        <v-progress-linear
-                                            :value="completionRate"
-                                            color="success"
-                                            height="15"
-                                            class="mt-1">
+                                        <v-progress-linear :value="completionRate"
+                                                           color="success"
+                                                           height="15"
+                                                           class="mt-1">
                                             <template v-slot:default>
                                                 <strong>{{ Math.round(completionRate) }}%</strong>
                                             </template>
@@ -153,7 +144,7 @@
                     </v-card>
                 </v-col>
             </v-row>
-            
+
             <v-row class="mt-4" v-if="overdueJobs > 0">
                 <v-col cols="12">
                     <v-alert type="warning" outlined prominent border="left">
@@ -173,7 +164,7 @@
                     </v-alert>
                 </v-col>
             </v-row>
-            
+
             <v-row class="mt-4" v-if="highPriorityActiveJobs > 0">
                 <v-col cols="12">
                     <v-alert type="info" outlined>
@@ -183,7 +174,7 @@
                 </v-col>
             </v-row>
         </v-card-text>
-    </panel>
+        </div>
 </template>
 
 <script lang="ts">

@@ -1,225 +1,220 @@
 <template>
-    <div>
-        <panel :icon="mdiBriefcaseOutline"
-               title="Job Management"
-               card-class="job-list-panel">
-            <v-card-text>
-                <v-row>
-                    <v-col class="col-4 d-flex align-center">
-                        <v-text-field v-model="search"
-                                      :append-icon="mdiMagnify"
-                                      label="Search Jobs"
-                                      single-line
+        <div class="job-list-panel">
+                <v-card-text>
+                    <v-row>
+                        <v-col class="col-4 d-flex align-center">
+                            <v-text-field v-model="search"
+                                          :append-icon="mdiMagnify"
+                                          label="Search Jobs"
+                                          single-line
+                                          outlined
+                                          clearable
+                                          hide-details
+                                          dense />
+                        </v-col>
+                        <v-col class="col-3 d-flex align-center">
+                            <v-select v-model="statusFilter"
+                                      :items="statusOptions"
+                                      label="Filter by Status"
                                       outlined
+                                      dense
                                       clearable
                                       hide-details
-                                      dense />
-                    </v-col>
-                    <v-col class="col-3 d-flex align-center">
-                        <v-select v-model="statusFilter"
-                                  :items="statusOptions"
-                                  label="Filter by Status"
-                                  outlined
-                                  dense
-                                  clearable
-                                  hide-details
-                                  multiple
-                                  chips
-                                  small-chips />
-                    </v-col>
-                    <v-col class="col-5 d-flex align-center justify-end">
-                        <template v-if="selectedJobs.length">
-                            <v-btn title="Delete Selected"
-                                   color="error"
-                                   class="px-2 minwidth-0 ml-3"
-                                   @click="deleteSelectedDialog = true">
-                                <v-icon>{{ mdiDelete }}</v-icon>
+                                      multiple
+                                      chips
+                                      small-chips />
+                        </v-col>
+                        <v-col class="col-5 d-flex align-center justify-end">
+                            <template v-if="selectedJobs.length">
+                                <v-btn title="Delete Selected"
+                                       color="error"
+                                       class="px-2 minwidth-0 ml-3"
+                                       @click="deleteSelectedDialog = true">
+                                    <v-icon>{{ mdiDelete }}</v-icon>
+                                </v-btn>
+                            </template>
+                            <v-btn color="primary"
+                                   class="ml-3"
+                                   @click="openCreateJobDialog">
+                                <v-icon left>{{ mdiPlus }}</v-icon>
+                                New Job
                             </v-btn>
-                        </template>
-                        <v-btn color="primary"
-                               class="ml-3"
-                               @click="openCreateJobDialog">
-                            <v-icon left>{{ mdiPlus }}</v-icon>
-                            New Job
-                        </v-btn>
-                        <v-btn :loading="loadings.includes('jobsRefresh')"
-                               class="px-2 minwidth-0 ml-3"
-                               @click="refreshJobs">
-                            <v-icon>{{ mdiRefresh }}</v-icon>
-                        </v-btn>
-                        <v-menu :offset-y="true" :close-on-content-click="false">
-                            <!--
+                            <v-btn :loading="loadings.includes('jobsRefresh')"
+                                   class="px-2 minwidth-0 ml-3"
+                                   @click="refreshJobs">
+                                <v-icon>{{ mdiRefresh }}</v-icon>
+                            </v-btn>
+                            <v-menu :offset-y="true" :close-on-content-click="false">
+                                <!--
                         <template #activator="{ on, attrs }">
                             <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
                                 <v-icon>{{ mdiCog }}</v-icon>
                             </v-btn>
                         </template>
                         -->
-                            <v-list>
-                                <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
-                                    <v-checkbox v-model="header.visible"
-                                                class="mt-0"
-                                                hide-details
-                                                :label="header.text"
-                                                @change="changeColumnVisible(header.value)" />
-                                </v-list-item>
-                            </v-list>
-                        </v-menu>
-                    </v-col>
-                </v-row>
-            </v-card-text>
-            <v-divider class="mb-3" />
-            <v-data-table v-model="selectedJobs"
-                          :items="filteredJobs"
-                          class="job-list-table"
-                          :headers="filteredHeaders"
-                          :options="options"
-                          :custom-sort="sortJobs"
-                          :sort-by.sync="sortBy"
-                          :sort-desc.sync="sortDesc"
-                          :items-per-page.sync="countPerPage"
-                          :footer-props="{
+                                <v-list>
+                                    <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
+                                        <v-checkbox v-model="header.visible"
+                                                    class="mt-0"
+                                                    hide-details
+                                                    :label="header.text"
+                                                    @change="changeColumnVisible(header.value)" />
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+                <v-divider class="mb-3" />
+                <v-data-table v-model="selectedJobs"
+                              :items="filteredJobs"
+                              class="job-list-table"
+                              :headers="filteredHeaders"
+                              :options="options"
+                              :custom-sort="sortJobs"
+                              :sort-by.sync="sortBy"
+                              :sort-desc.sync="sortDesc"
+                              :items-per-page.sync="countPerPage"
+                              :footer-props="{
                     itemsPerPageText: 'Jobs',
                     itemsPerPageAllText: 'All Jobs',
                     itemsPerPageOptions: [10, 25, 50, 100, -1],
                 }"
-                          item-key="id"
-                          :search="search"
-                          :custom-filter="advancedSearch"
-                          mobile-breakpoint="0"
-                          show-select>
-                <template slot="no-data">
-                    <div class="text-center">No jobs found</div>
-                </template>
+                              item-key="id"
+                              :search="search"
+                              :custom-filter="advancedSearch"
+                              mobile-breakpoint="0"
+                              show-select>
+                    <template slot="no-data">
+                        <div class="text-center">No jobs found</div>
+                    </template>
 
-                <template #item="{ index, item, isSelected, select }">
-                    <tr :key="`${index} ${item.name}`"
-                        v-longpress:600="(e) => showContextMenu(e, item)"
-                        :class="'file-list-cursor user-select-none ' + getJobRowClass(item)"
-                        @contextmenu="showContextMenu($event, item)"
-                        @click="clickRow(item, $event)">
-                        <td class="pr-0">
-                            <v-simple-checkbox v-ripple
-                                               :value="isSelected"
-                                               class="pa-0 mr-0"
-                                               @click.stop="select(!isSelected)" />
-                        </td>
-                        <td class="px-2 text-center" style="width: 120px">
-                            <v-menu offset-y>
-                                <template #activator="{ on, attrs }">
-                                    <v-tooltip top>
-                                        <template #activator="{ on: tooltipOn, attrs: tooltipAttrs }">
-                                            <v-chip :color="getStatusColor(item.status)"
-                                                    :text-color="getStatusTextColor(item.status)"
-                                                    small
-                                                    label
-                                                    style="cursor: pointer;"
-                                                    v-bind="{ ...attrs, ...tooltipAttrs }"
-                                                    v-on="{ ...on, ...tooltipOn }"
-                                                    @click.stop>
-                                                <v-icon left small>{{ getStatusIcon(item.status) }}</v-icon>
-                                                {{ formatStatusDisplay(item.status) }}
-                                                <v-icon right x-small>{{ mdiChevronDown }}</v-icon>
-                                            </v-chip>
-                                        </template>
-                                        <span>Click to change status: {{ item.status.replace('_', ' ') }}</span>
-                                    </v-tooltip>
-                                </template>
-                                <v-list dense>
-                                    <v-list-item v-if="item.status === 'pending'"
-                                                 @click="updateJobStatusFromTable(item, 'in_progress')">
-                                        <v-list-item-icon>
-                                            <v-icon small color="blue">{{ mdiPlay }}</v-icon>
-                                        </v-list-item-icon>
-                                        <v-list-item-content>
-                                            <v-list-item-title>Start Job</v-list-item-title>
-                                        </v-list-item-content>
-                                    </v-list-item>
+                    <template #item="{ index, item, isSelected, select }">
+                        <tr :key="`${index} ${item.name}`"
+                            v-longpress:600="(e) => showContextMenu(e, item)"
+                            :class="'file-list-cursor user-select-none ' + getJobRowClass(item)"
+                            @contextmenu="showContextMenu($event, item)"
+                            @click="clickRow(item, $event)">
+                            <td class="pr-0">
+                                <v-simple-checkbox v-ripple
+                                                   :value="isSelected"
+                                                   class="pa-0 mr-0"
+                                                   @click.stop="select(!isSelected)" />
+                            </td>
+                            <td class="px-2 text-center" style="width: 120px">
+                                <v-menu offset-y>
+                                    <template #activator="{ on, attrs }">
+                                        <v-tooltip top>
+                                            <template #activator="{ on: tooltipOn, attrs: tooltipAttrs }">
+                                                <v-chip :color="getStatusColor(item.status)"
+                                                        :text-color="getStatusTextColor(item.status)"
+                                                        small
+                                                        label
+                                                        style="cursor: pointer;"
+                                                        v-bind="{ ...attrs, ...tooltipAttrs }"
+                                                        v-on="{ ...on, ...tooltipOn }"
+                                                        @click.stop>
+                                                    <v-icon left small>{{ getStatusIcon(item.status) }}</v-icon>
+                                                    {{ formatStatusDisplay(item.status) }}
+                                                    <v-icon right x-small>{{ mdiChevronDown }}</v-icon>
+                                                </v-chip>
+                                            </template>
+                                            <span>Click to change status: {{ item.status.replace('_', ' ') }}</span>
+                                        </v-tooltip>
+                                    </template>
+                                    <v-list dense>
+                                        <v-list-item v-if="item.status === 'pending'"
+                                                     @click="updateJobStatusFromTable(item, 'in_progress')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="blue">{{ mdiPlay }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Start Job</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
 
-                                    <v-list-item v-if="item.status === 'in_progress'"
-                                                 @click="updateJobStatusFromTable(item, 'complete')">
-                                        <v-list-item-icon>
-                                            <v-icon small color="green">{{ mdiCheck }}</v-icon>
-                                        </v-list-item-icon>
-                                        <v-list-item-content>
-                                            <v-list-item-title>Mark Complete</v-list-item-title>
-                                        </v-list-item-content>
-                                    </v-list-item>
+                                        <v-list-item v-if="item.status === 'in_progress'"
+                                                     @click="updateJobStatusFromTable(item, 'complete')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="green">{{ mdiCheck }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Mark Complete</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
 
-                                    <v-list-item v-if="['pending', 'in_progress'].includes(item.status)"
-                                                 @click="updateJobStatusFromTable(item, 'cancelled')">
-                                        <v-list-item-icon>
-                                            <v-icon small color="red">{{ mdiCancel }}</v-icon>
-                                        </v-list-item-icon>
-                                        <v-list-item-content>
-                                            <v-list-item-title>Cancel Job</v-list-item-title>
-                                        </v-list-item-content>
-                                    </v-list-item>
+                                        <v-list-item v-if="['pending', 'in_progress'].includes(item.status)"
+                                                     @click="updateJobStatusFromTable(item, 'cancelled')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="red">{{ mdiCancel }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Cancel Job</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
 
-                                    <!-- Options to revert status -->
-                                    <v-divider v-if="item.status !== 'pending'" />
+                                        <!-- Options to revert status -->
+                                        <v-divider v-if="item.status !== 'pending'" />
 
-                                    <v-list-item v-if="item.status === 'in_progress'"
-                                                 @click="updateJobStatusFromTable(item, 'pending')">
-                                        <v-list-item-icon>
-                                            <v-icon small color="orange">{{ mdiAlertOutline }}</v-icon>
-                                        </v-list-item-icon>
-                                        <v-list-item-content>
-                                            <v-list-item-title>Back to Pending</v-list-item-title>
-                                        </v-list-item-content>
-                                    </v-list-item>
+                                        <v-list-item v-if="item.status === 'in_progress'"
+                                                     @click="updateJobStatusFromTable(item, 'pending')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="orange">{{ mdiAlertOutline }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Back to Pending</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
 
-                                    <v-list-item v-if="item.status === 'complete'"
-                                                 @click="updateJobStatusFromTable(item, 'in_progress')">
-                                        <v-list-item-icon>
-                                            <v-icon small color="blue">{{ mdiProgressClock }}</v-icon>
-                                        </v-list-item-icon>
-                                        <v-list-item-content>
-                                            <v-list-item-title>Reopen Job</v-list-item-title>
-                                        </v-list-item-content>
-                                    </v-list-item>
+                                        <v-list-item v-if="item.status === 'complete'"
+                                                     @click="updateJobStatusFromTable(item, 'in_progress')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="blue">{{ mdiProgressClock }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Reopen Job</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
 
-                                    <v-list-item v-if="item.status === 'cancelled'"
-                                                 @click="updateJobStatusFromTable(item, 'pending')">
-                                        <v-list-item-icon>
-                                            <v-icon small color="orange">{{ mdiAlertOutline }}</v-icon>
-                                        </v-list-item-icon>
-                                        <v-list-item-content>
-                                            <v-list-item-title>Restore Job</v-list-item-title>
-                                        </v-list-item-content>
-                                    </v-list-item>
-                                </v-list>
-                            </v-menu>
-                        </td>
-                        <td class="">{{ item.name }}</td>
-                        <td class="">{{ getCustomerName(item.customer_id) }}</td>
-                        <td class="text-center">{{ item.job_type }}</td>
-                        <td class="text-center">
-                            <v-chip :color="getPriorityColor(item.priority)"
-                                    text-color="white"
-                                    x-small>
-                                {{ getPriorityDisplay(item.priority) }}
-                            </v-chip>
-                        </td>
-                        <td class="">{{ item.operator_name || '--' }}</td>
-                        <td class="" :class="getDueDateClass(item.due_date)">
-                            {{ formatDateTime(item.due_date) || '--' }}
-                        </td>
-                        <td class="">{{ formatDateTime(item.created_at) }}</td>
-                        <td class="">{{ truncateText(item.description, 50) || '--' }}</td>
-                        <td class="text-center">
-                            <v-btn icon
-                                   small
-                                   color="primary"
-                                   @click.stop="openActionsMenu($event, item)">
-                                <v-icon small>{{ mdiDotsVertical }}</v-icon>
-                            </v-btn>
-                        </td>
-                    </tr>
-                </template>
-            </v-data-table>
-        </panel>
-
+                                        <v-list-item v-if="item.status === 'cancelled'"
+                                                     @click="updateJobStatusFromTable(item, 'pending')">
+                                            <v-list-item-icon>
+                                                <v-icon small color="orange">{{ mdiAlertOutline }}</v-icon>
+                                            </v-list-item-icon>
+                                            <v-list-item-content>
+                                                <v-list-item-title>Restore Job</v-list-item-title>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+                            </td>
+                            <td class="">{{ item.name }}</td>
+                            <td class="">{{ getCustomerName(item.customer_id) }}</td>
+                            <td class="text-center">{{ item.job_type }}</td>
+                            <td class="text-center">
+                                <v-chip :color="getPriorityColor(item.priority)"
+                                        text-color="white"
+                                        x-small>
+                                    {{ getPriorityDisplay(item.priority) }}
+                                </v-chip>
+                            </td>
+                            <td class="">{{ item.operator_name || '--' }}</td>
+                            <td class="" :class="getDueDateClass(item.due_date)">
+                                {{ formatDateTime(item.due_date) || '--' }}
+                            </td>
+                            <td class="">{{ formatDateTime(item.created_at) }}</td>
+                            <td class="">{{ truncateText(item.description, 50) || '--' }}</td>
+                            <td class="text-center">
+                                <v-btn icon
+                                       small
+                                       color="primary"
+                                       @click.stop="openActionsMenu($event, item)">
+                                    <v-icon small>{{ mdiDotsVertical }}</v-icon>
+                                </v-btn>
+                            </td>
+                        </tr>
+                    </template>
+                </v-data-table>
         <!-- Context Menu -->
         <v-menu v-model="contextMenu.shown" :position-x="contextMenu.x" :position-y="contextMenu.y" absolute offset-y>
             <v-list>
