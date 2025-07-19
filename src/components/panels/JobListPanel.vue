@@ -1531,6 +1531,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     private jobGcodes: FleetJobGcode[] = []
     private gcodeRuns: FleetJobGcodeRun[] = []
     private allJobRuns: { [gcodeId: string]: FleetJobGcodeRun[] } = {}
+    private cacheCleanupTimeout: number | null = null
 
     private gcodeRunsDialog = {
         show: false,
@@ -1912,22 +1913,29 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     async loadJobGcodesAndRuns(jobId: string) {
+        // OPTIMIZATION: Don't reload if already loading
+        if (this.detailsDialog.loadingGcodes || this.detailsDialog.loadingRuns) {
+            return
+        }
+
         try {
-            // Set loading state for gcode files
             this.detailsDialog.loadingGcodes = true
         
-            // Load gcode files first
+            // Load gcode files
             this.jobGcodes = await this.$store.dispatch('fleet/jobs/loadJobGcodes', jobId)
-        
-            // Clear loading state for gcode files
             this.detailsDialog.loadingGcodes = false
         
-            // Start loading runs if we have gcode files
-            if (this.jobGcodes && this.jobGcodes.length > 0) {
-                this.detailsDialog.loadingRuns = true
-                await this.loadAllJobRuns()
-                this.detailsDialog.loadingRuns = false
+            // OPTIMIZATION: Early return if no gcode files to avoid unnecessary API calls
+            if (!this.jobGcodes || this.jobGcodes.length === 0) {
+                this.allJobRuns = {}
+                return
             }
+        
+            // Load runs only if we have gcode files
+            this.detailsDialog.loadingRuns = true
+            await this.loadAllJobRuns()
+            this.detailsDialog.loadingRuns = false
+        
         } catch (error) {
             console.error('Failed to load job gcodes and runs:', error)
             this.detailsDialog.loadingGcodes = false
@@ -1938,42 +1946,42 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     async loadAllJobRuns() {
         if (!this.jobGcodes || this.jobGcodes.length === 0) {
+            this.allJobRuns = {}
             return
         }
 
-        // Clear existing data using Vue.set to maintain reactivity
-        this.$set(this, 'allJobRuns', {})
+        // OPTIMIZATION: Clear cache before loading new data
+        this.runStatisticsCache = {}
 
         try {
-            // Load runs for all gcode files in parallel for better performance
+            // OPTIMIZATION: Load runs in parallel with better error isolation
             const runPromises = this.jobGcodes.map(async (gcode) => {
                 try {
                     const runs = await this.$store.dispatch('fleet/jobs/loadJobGcodeRuns', gcode.id)
-                    return { gcodeId: gcode.id, runs: runs || [] }
+                    return { gcodeId: gcode.id, runs: runs || [], error: null }
                 } catch (error) {
-                    console.error(`Failed to load runs for gcode ${gcode.gcode_filename} (${gcode.id}):`, error)
-                    return { gcodeId: gcode.id, runs: [] }
+                    console.warn(`Failed to load runs for gcode ${gcode.gcode_filename}:`, error)
+                    return { gcodeId: gcode.id, runs: [], error: error.message }
                 }
             })
 
-            // Wait for all runs to load
             const results = await Promise.all(runPromises)
         
-            // Set all runs data at once
+            // OPTIMIZATION: Build new object once instead of multiple Vue.set calls
             const newAllJobRuns = {}
-            results.forEach(({ gcodeId, runs }) => {
+            results.forEach(({ gcodeId, runs, error }) => {
                 newAllJobRuns[gcodeId] = runs
+                if (error) {
+                    console.warn(`Error loading runs for ${gcodeId}: ${error}`)
+                }
             })
         
-            this.$set(this, 'allJobRuns', newAllJobRuns)
-
-            // Force a re-render to make sure progress bars update
-            this.$nextTick(() => {
-                this.$forceUpdate()
-            })
+            // Single reactive update
+            this.allJobRuns = newAllJobRuns
 
         } catch (error) {
             console.error('Failed to load job runs:', error)
+            this.allJobRuns = {}
         }
     }
 
@@ -2116,12 +2124,25 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     async viewJobDetails(item: FleetJob) {
+        // OPTIMIZATION: Don't reload if already showing the same job
+        if (this.detailsDialog.show && this.detailsDialog.item && 
+            this.detailsDialog.item.id === item.id) {
+            return
+        }
+
+        // Clear previous data immediately to show loading state
         this.jobGcodes = []
         this.allJobRuns = {}
+        this.runStatisticsCache = {}
+    
         this.detailsDialog.item = item
         this.detailsDialog.show = true
-        await this.loadJobGcodesAndRuns(item.id)
-
+    
+        // OPTIMIZATION: Load data asynchronously without blocking UI
+        this.loadJobGcodesAndRuns(item.id).catch(error => {
+            console.error('Failed to load job details:', error)
+            this.$toast.error('Failed to load some job details')
+        })
     }
 
     showContextMenu(e: any, item: FleetJob) {
@@ -2206,26 +2227,34 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             if (formData.due_date) {
                 formData.due_date = new Date(formData.due_date).toISOString()
             }
-        
+
+            let savedJob = null
             if (this.createJobDialog.isEdit) {
-                // Remove the id from form data since it's passed separately
                 const jobId = formData.id
                 delete formData.id
             
-                await this.$store.dispatch('fleet/jobs/updateJob', { 
+                savedJob = await this.$store.dispatch('fleet/jobs/updateJob', { 
                     jobId: jobId, 
                     jobData: formData 
                 })
                 this.$toast.success('Job updated successfully')
             } else {
-                // Remove id for create operation
                 delete formData.id
             
-                await this.$store.dispatch('fleet/jobs/createJob', formData)
+                savedJob = await this.$store.dispatch('fleet/jobs/createJob', formData)
                 this.$toast.success('Job created successfully')
             }
-        
+
+            // OPTIMIZATION: Only refresh jobs list, don't load gcode data for new jobs
             await this.refreshJobs()
+        
+            // OPTIMIZATION: Only reload gcode data if details dialog is open AND it's an edit
+            if (this.detailsDialog.show && this.createJobDialog.isEdit && 
+                this.detailsDialog.item && this.detailsDialog.item.id === (savedJob?.id || formData.id)) {
+                // Only reload if we're editing the currently viewed job
+                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+            }
+        
             this.closeCreateJobDialog()
         } catch (error) {
             console.error('Failed to save job:', error)
@@ -2325,20 +2354,21 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     async refreshGcodeRuns() {
-        if (!this.gcodeRunsDialog.gcodeFile) return
-    
+        if (!this.gcodeRunsDialog.gcodeFile || this.gcodeRunsDialog.loading) return
+
         this.gcodeRunsDialog.loading = true
         try {
             const runs = await this.$store.dispatch('fleet/jobs/loadJobGcodeRuns', this.gcodeRunsDialog.gcodeFile.id)
             this.gcodeRuns = runs || []
         
-            // Use Vue.set to update allJobRuns for reactivity
-            this.$set(this.allJobRuns, this.gcodeRunsDialog.gcodeFile.id, runs || [])
+            // OPTIMIZATION: Update allJobRuns efficiently
+            this.allJobRuns = {
+                ...this.allJobRuns,
+                [this.gcodeRunsDialog.gcodeFile.id]: runs || []
+            }
         
-            // Force Vue to re-render the progress bars
-            this.$nextTick(() => {
-                this.$forceUpdate()
-            })
+            // OPTIMIZATION: Clear cache for this specific gcode
+            this.clearRunStatisticsCache(this.gcodeRunsDialog.gcodeFile.id)
         
         } catch (error) {
             console.error('Failed to load gcode runs:', error)
@@ -2348,6 +2378,20 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
+    // HELPER METHOD - Clear specific cache entries
+    clearRunStatisticsCache(gcodeId?: string) {
+        if (gcodeId) {
+            // Clear cache entries for specific gcode
+            Object.keys(this.runStatisticsCache).forEach(key => {
+                if (key.startsWith(`${gcodeId}-`)) {
+                    delete this.runStatisticsCache[key]
+                }
+            })
+        } else {
+            // Clear all cache
+            this.runStatisticsCache = {}
+        }
+    }
     closeGcodeRunsDialog() {
         this.gcodeRunsDialog.show = false
         this.gcodeRunsDialog.gcodeFile = null
@@ -2428,8 +2472,8 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             })
             this.$toast.success(`Run status updated to ${status.replace('_', ' ')}`)
         
-            // Refresh both the current runs view AND the job details progress bars
-            await this.refreshGcodeRuns()
+            // OPTIMIZATION: Update local data instead of full refresh
+            this.updateLocalRunData(run.id, { status })
         
         } catch (error) {
             console.error('Failed to update run status:', error)
@@ -2445,13 +2489,35 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             })
             this.$toast.success(`QC updated to ${qc || 'not set'}`)
         
-            // Refresh both the current runs view AND the job details progress bars
-            await this.refreshGcodeRuns()
+            // OPTIMIZATION: Update local data instead of full refresh
+            this.updateLocalRunData(run.id, { qc })
         
         } catch (error) {
             console.error('Failed to update run QC:', error)
             this.$toast.error('Failed to update QC')
         }
+    }
+
+    // HELPER METHOD - Update local run data efficiently
+    updateLocalRunData(runId: string, updates: Partial<FleetJobGcodeRun>) {
+        // Update gcodeRuns array if viewing runs dialog
+        if (this.gcodeRuns && this.gcodeRuns.length > 0) {
+            const runIndex = this.gcodeRuns.findIndex(r => r.id === runId)
+            if (runIndex !== -1) {
+                this.gcodeRuns[runIndex] = { ...this.gcodeRuns[runIndex], ...updates }
+            }
+        }
+    
+        // Update allJobRuns data
+        Object.keys(this.allJobRuns).forEach(gcodeId => {
+            const runs = this.allJobRuns[gcodeId]
+            const runIndex = runs.findIndex(r => r.id === runId)
+            if (runIndex !== -1) {
+                runs[runIndex] = { ...runs[runIndex], ...updates }
+                // Clear cache for this gcode since data changed
+                this.clearRunStatisticsCache(gcodeId)
+            }
+        })
     }
 
     async deleteRun(run: FleetJobGcodeRun) {
@@ -2541,13 +2607,17 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     getRunStatistics(gcode: FleetJobGcode) {
-        // Use cache if available and not loading
-        if (!this.detailsDialog.loadingRuns && this.runStatisticsCache[gcode.id]) {
-            return this.runStatisticsCache[gcode.id]
+        const cacheKey = `${gcode.id}-${gcode.required_runs}`
+    
+        // OPTIMIZATION: Use better cache key that includes runs data hash
+        const runs = this.allJobRuns[gcode.id] || []
+        const runsHash = runs.length ? runs.map(r => `${r.id}-${r.status}-${r.qc}`).join(',') : 'empty'
+        const fullCacheKey = `${cacheKey}-${runsHash}`
+    
+        if (this.runStatisticsCache[fullCacheKey] && !this.detailsDialog.loadingRuns) {
+            return this.runStatisticsCache[fullCacheKey]
         }
 
-        // Handle case where runs data isn't loaded yet
-        const runs = this.allJobRuns[gcode.id] || []
         const requiredRuns = gcode.required_runs || 0
 
         if (!runs || runs.length === 0) {
@@ -2562,33 +2632,39 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 goodRuns: 0,
                 remainingNeeded: requiredRuns,
                 totalRuns: 0,
-            
                 percentages: {
                     remaining: 100,
                     inProgress: 0,
                     completed: 0,
                     passed: 0,
-                    failed: 0
                 }
             }
-        
-            // Cache empty stats
-            this.runStatisticsCache[gcode.id] = emptyStats
+            this.runStatisticsCache[fullCacheKey] = emptyStats
             return emptyStats
         }
 
-        // Calculate statistics (existing logic)
-        const inProgress = runs.filter(r => r.status === 'in_progress').length
-        const completedNoQC = runs.filter(r => r.status === 'success' && (!r.qc || r.qc === null)).length
-        const passedQC = runs.filter(r => r.status === 'success' && r.qc === 'pass').length
+        // OPTIMIZATION: Calculate all stats in one pass
+        let inProgress = 0, completedNoQC = 0, passedQC = 0, technicalFailures = 0, qcFailures = 0
 
-        const technicalFailures = runs.filter(r => r.status === 'fail' || r.status === 'cancelled').length
-        const qcFailures = runs.filter(r => r.status === 'success' && r.qc === 'fail').length
+        runs.forEach(run => {
+            if (run.status === 'in_progress') {
+                inProgress++
+            } else if (run.status === 'success') {
+                if (!run.qc || run.qc === null) {
+                    completedNoQC++
+                } else if (run.qc === 'pass') {
+                    passedQC++
+                } else if (run.qc === 'fail') {
+                    qcFailures++
+                }
+            } else if (run.status === 'fail' || run.status === 'cancelled') {
+                technicalFailures++
+            }
+        })
+
         const totalFailed = technicalFailures + qcFailures
-
         const goodRuns = inProgress + completedNoQC + passedQC
         const remainingNeeded = Math.max(0, requiredRuns - goodRuns)
-
         const total = Math.max(requiredRuns, goodRuns)
         const safeTotal = total > 0 ? total : 1
 
@@ -2603,18 +2679,15 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             goodRuns,
             remainingNeeded,
             totalRuns: runs.length,
-    
             percentages: {
                 remaining: Math.max(0, (remainingNeeded / safeTotal) * 100),
                 inProgress: (inProgress / safeTotal) * 100,
                 completed: (completedNoQC / safeTotal) * 100,
                 passed: (passedQC / safeTotal) * 100,
-                failed: totalFailed > 0 ? Math.min(100, (totalFailed / Math.max(safeTotal, totalFailed)) * 100) : 0
             }
         }
 
-        // Cache the calculated stats
-        this.runStatisticsCache[gcode.id] = stats
+        this.runStatisticsCache[fullCacheKey] = stats
         return stats
     }
 
@@ -3024,8 +3097,19 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     @Watch('allJobRuns', { deep: true })
     onAllJobRunsChanged() {
-        // Clear cache when runs data changes
-        this.runStatisticsCache = {}
+        // OPTIMIZATION: Debounce cache clearing to avoid excessive computation
+        if (this.cacheCleanupTimeout) {
+            clearTimeout(this.cacheCleanupTimeout)
+        }
+        this.cacheCleanupTimeout = setTimeout(() => {
+            this.runStatisticsCache = {}
+        }, 100)
+    }
+
+    beforeDestroy() {
+        if (this.cacheCleanupTimeout) {
+            clearTimeout(this.cacheCleanupTimeout)
+        }
     }
 
 }
