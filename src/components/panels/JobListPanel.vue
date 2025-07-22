@@ -2666,17 +2666,34 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         if (!confirm(`Are you sure you want to delete this print run from ${run.printer_hostname}?`)) {
             return
         }
-    
+
         try {
+            // Optimistically remove from local state
+            const runIndex = this.gcodeRuns.findIndex(r => r.id === run.id)
+            if (runIndex >= 0) {
+                this.gcodeRuns.splice(runIndex, 1)
+            }
+
+            // Update allJobRuns data
+            Object.keys(this.allJobRuns).forEach(gcodeId => {
+                const runs = this.allJobRuns[gcodeId]
+                const runIndex = runs.findIndex(r => r.id === run.id)
+                if (runIndex >= 0) {
+                    runs.splice(runIndex, 1)
+                    this.clearRunStatisticsCache(gcodeId)
+                }
+            })
+
+            // Delete from backend
             await this.$store.dispatch('fleet/jobs/deleteJobGcodeRun', run.id)
             this.$toast.success('Print run deleted successfully')
-        
-            // Refresh the runs data which will also update progress bars
-            await this.refreshGcodeRuns()
-        
+
         } catch (error) {
             console.error('Failed to delete run:', error)
             this.$toast.error('Failed to delete print run')
+        
+            // Restore on error
+            await this.refreshGcodeRuns()
         }
     }
 
@@ -2886,14 +2903,31 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     async deleteJob() {
+        const jobToDelete = this.contextMenu.item
+    
         try {
-            await this.$store.dispatch('fleet/jobs/deleteJob', this.contextMenu.item.id)
+            // Optimistically remove from jobs list
+            const jobIndex = this.jobs.findIndex(j => j.id === jobToDelete.id)
+            if (jobIndex >= 0) {
+                this.$store.commit('fleet/jobs/removeJob', jobToDelete.id) // You'll need this mutation
+            }
+
+            // Close any open dialogs for this job
+            if (this.detailsDialog.show && this.detailsDialog.item?.id === jobToDelete.id) {
+                this.detailsDialog.show = false
+            }
+
+            // Delete from backend
+            await this.$store.dispatch('fleet/jobs/deleteJob', jobToDelete.id)
             this.$toast.success('Job deleted successfully')
-            await this.refreshJobs()
             this.deleteDialog = false
+
         } catch (error) {
             console.error('Failed to delete job:', error)
             this.$toast.error('Failed to delete job')
+        
+            // Restore on error by refreshing
+            await this.refreshJobs()
         }
     }
 
@@ -3048,16 +3082,27 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
 
         try {
+            // Optimistically remove from local state first
+            const gcodeIndex = this.jobGcodes.findIndex(g => g.id === gcode.id)
+            if (gcodeIndex >= 0) {
+                this.jobGcodes.splice(gcodeIndex, 1)
+            }
+
+            // Clear cache for this gcode
+            this.clearRunStatisticsCache(gcode.id)
+
+            // Delete from backend
             await this.$store.dispatch('fleet/jobs/deleteJobGcode', gcode.id)
             this.$toast.success('GCode file deleted successfully')
-        
-            // Reload the job's gcode files
-            if (this.detailsDialog.item) {
-                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
-            }
+
         } catch (error) {
             console.error('Failed to delete gcode file:', error)
             this.$toast.error('Failed to delete GCode file')
+        
+            // Restore on error by reloading
+            if (this.detailsDialog.item) {
+                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+            }
         }
     }
 
