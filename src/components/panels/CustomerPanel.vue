@@ -1,111 +1,114 @@
 <template>
     <div>
         <div class="customer-list-panel">
-                <v-card-text>
-                    <v-row>
-                        <v-col class="col-4 d-flex align-center">
-                            <v-text-field v-model="search"
-                                          :append-icon="mdiMagnify"
-                                          label="Search Customers"
-                                          single-line
-                                          outlined
-                                          clearable
-                                          hide-details
-                                          dense />
-                        </v-col>
-                        <v-col class="col-8 d-flex align-center justify-end">
-                            <template v-if="selectedCustomers.length">
-                                <v-btn title="Delete Selected"
-                                       color="error"
-                                       class="px-2 minwidth-0 ml-3"
-                                       @click="deleteSelectedDialog = true">
-                                    <v-icon>{{ mdiDelete }}</v-icon>
-                                </v-btn>
-                            </template>
-                            <v-btn color="success"
-                                   class="ml-3"
-                                   @click="openCreateCustomerDialog">
-                                <v-icon left>{{ mdiAccountPlus }}</v-icon>
-                                New Customer
-                            </v-btn>
-                            <v-btn :loading="loadings.includes('customersRefresh')"
+            <v-card-text>
+                <v-row>
+                    <v-col class="col-4 d-flex align-center">
+                        <v-text-field v-model="search"
+                                      :append-icon="mdiMagnify"
+                                      label="Search Customers"
+                                      single-line
+                                      outlined
+                                      clearable
+                                      hide-details
+                                      dense />
+                    </v-col>
+                    <v-col class="col-8 d-flex align-center justify-end">
+                        <template v-if="selectedCustomers.length">
+                            <v-btn title="Delete Selected"
+                                   color="error"
                                    class="px-2 minwidth-0 ml-3"
-                                   @click="refreshCustomers">
-                                <v-icon>{{ mdiRefresh }}</v-icon>
-                            </v-btn>
-                            <v-menu :offset-y="true" :close-on-content-click="false">
-                                <!--
-                        <template #activator="{ on, attrs }">
-                            <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
-                                <v-icon>{{ mdiCog }}</v-icon>
+                                   @click="deleteSelectedDialog = true">
+                                <v-icon>{{ mdiDelete }}</v-icon>
                             </v-btn>
                         </template>
-                        -->
-                                <v-list>
-                                    <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
-                                        <v-checkbox v-model="header.visible"
-                                                    class="mt-0"
-                                                    hide-details
-                                                    :label="header.text"
-                                                    @change="changeColumnVisible(header.value)" />
-                                    </v-list-item>
-                                </v-list>
-                            </v-menu>
-                        </v-col>
-                    </v-row>
-                </v-card-text>
-                <v-divider class="mb-3" />
-                <v-data-table v-model="selectedCustomers"
-                              :items="customers"
-                              class="customer-list-table"
-                              :headers="filteredHeaders"
-                              :options="options"
-                              :custom-sort="sortCustomers"
-                              :sort-by.sync="sortBy"
-                              :sort-desc.sync="sortDesc"
-                              :items-per-page.sync="countPerPage"
-                              :footer-props="{
+                        <v-btn color="success"
+                               class="ml-3"
+                               @click="openCreateCustomerDialog">
+                            <v-icon left>{{ mdiAccountPlus }}</v-icon>
+                            New Customer
+                        </v-btn>
+                        <v-btn :loading="loadings.includes('customersRefresh')"
+                               class="px-2 minwidth-0 ml-3"
+                               @click="refreshCustomers">
+                            <v-icon>{{ mdiRefresh }}</v-icon>
+                        </v-btn>
+                        <v-menu :offset-y="true" :close-on-content-click="false">
+                            <!--
+                            <template #activator="{ on, attrs }">
+                                <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
+                                    <v-icon>{{ mdiCog }}</v-icon>
+                                </v-btn>
+                            </template>
+                            -->
+                            <v-list>
+                                <v-list-item v-for="header of configHeaders" :key="header.value" class="minHeight36">
+                                    <v-checkbox v-model="header.visible"
+                                                class="mt-0"
+                                                hide-details
+                                                :label="header.text"
+                                                @change="changeColumnVisible(header.value)" />
+                                </v-list-item>
+                            </v-list>
+                        </v-menu>
+                    </v-col>
+                </v-row>
+            </v-card-text>
+            <v-divider class="mb-3" />
+            <v-data-table v-model="selectedCustomers"
+                          :items="customers"
+                          class="customer-list-table"
+                          :headers="filteredHeaders"
+                          :options="options"
+                          :custom-sort="sortCustomers"
+                          :sort-by.sync="sortBy"
+                          :sort-desc.sync="sortDesc"
+                          :items-per-page.sync="countPerPage"
+                          :footer-props="{
                     itemsPerPageText: 'Customers',
                     itemsPerPageAllText: 'All Customers',
                     itemsPerPageOptions: [10, 25, 50, 100, -1],
                 }"
-                              item-key="id"
-                              :search="search"
-                              :custom-filter="advancedSearch"
-                              mobile-breakpoint="0"
-                              show-select>
-                    <template slot="no-data">
-                        <div class="text-center">No customers found</div>
-                    </template>
+                          item-key="id"
+                          :search="search"
+                          :custom-filter="advancedSearch"
+                          mobile-breakpoint="0"
+                          show-select>
+                <template slot="no-data">
+                    <div class="text-center">No customers found</div>
+                </template>
 
-                    <template #item="{ index, item, isSelected, select }">
-                        <tr :key="`${index} ${item.name}`"
-                            v-longpress:600="(e) => showContextMenu(e, item)"
-                            class="file-list-cursor user-select-none"
-                            @contextmenu="showContextMenu($event, item)"
-                            @click="clickRow(item, $event)">
-                            <td class="pr-0">
-                                <v-simple-checkbox v-ripple
-                                                   :value="isSelected"
-                                                   class="pa-0 mr-0"
-                                                   @click.stop="select(!isSelected)" />
-                            </td>
-                            <td class="font-weight-bold">{{ item.name }}</td>
-                            <td class="">{{ item.notes || '--' }}</td>
-                            <td class="">{{ getJobCount(item.id) }}</td>
-                            <td class="">{{ formatDateTime(item.created_at) }}</td>
-                            <td class="">{{ formatDateTime(item.updated_at) }}</td>
-                            <td class="text-center">
-                                <v-btn icon
-                                       small
-                                       color="primary"
-                                       @click.stop="openActionsMenu($event, item)">
-                                    <v-icon small>{{ mdiDotsVertical }}</v-icon>
-                                </v-btn>
-                            </td>
-                        </tr>
-                    </template>
-                </v-data-table>
+                <template #item="{ index, item, isSelected, select }">
+                    <tr :key="`${index} ${item.name}`"
+                        v-longpress:600="(e) => showContextMenu(e, item)"
+                        class="file-list-cursor user-select-none"
+                        :class="{ 'deleting-item': deletingCustomerIds.includes(item.id) }"
+                        @contextmenu="showContextMenu($event, item)"
+                        @click="clickRow(item, $event)">
+                        <td class="pr-0">
+                            <v-simple-checkbox v-ripple
+                                               :value="isSelected"
+                                               class="pa-0 mr-0"
+                                               :disabled="deletingCustomerIds.includes(item.id)"
+                                               @click.stop="select(!isSelected)" />
+                        </td>
+                        <td class="font-weight-bold">{{ item.name }}</td>
+                        <td class="">{{ item.notes || '--' }}</td>
+                        <td class="">{{ getJobCount(item.id) }}</td>
+                        <td class="">{{ formatDateTime(item.created_at) }}</td>
+                        <td class="">{{ formatDateTime(item.updated_at) }}</td>
+                        <td class="text-center">
+                            <v-btn icon
+                                   small
+                                   color="primary"
+                                   :disabled="deletingCustomerIds.includes(item.id)"
+                                   @click.stop="openActionsMenu($event, item)">
+                                <v-icon small>{{ mdiDotsVertical }}</v-icon>
+                            </v-btn>
+                        </td>
+                    </tr>
+                </template>
+            </v-data-table>
         </div>
 
         <!-- Context Menu -->
@@ -272,9 +275,10 @@
                     <v-btn color="error"
                            text
                            :disabled="getJobCount(contextMenu.item.id) > 0"
-                           @click="deleteCustomer">
+                           @click="deleteCustomerOptimistic">
                         Delete
-                    </v-btn>                </v-card-actions>
+                    </v-btn>
+                </v-card-actions>
             </panel>
         </v-dialog>
 
@@ -291,7 +295,7 @@
                 <v-card-actions>
                     <v-spacer />
                     <v-btn color="" text @click="deleteSelectedDialog = false">Cancel</v-btn>
-                    <v-btn color="error" text @click="deleteSelectedCustomers">Delete</v-btn>
+                    <v-btn color="error" text @click="deleteSelectedCustomersOptimistic">Delete</v-btn>
                 </v-card-actions>
             </panel>
         </v-dialog>
@@ -356,6 +360,9 @@ export default class CustomerPanel extends Mixins(BaseMixin) {
 
     private selectedCustomers: FleetCustomer[] = []
     private customerJobs: FleetJob[] = []
+
+    // Track customers being deleted for optimistic updates
+    private deletingCustomerIds: string[] = []
 
     private contextMenu = {
         shown: false,
@@ -491,7 +498,11 @@ export default class CustomerPanel extends Mixins(BaseMixin) {
     }
 
     clickRow(item: FleetCustomer, event?: Event) {
-        // Don't open details if the click was on an interactive element
+        // Don't open details if the click was on an interactive element or if item is being deleted
+        if (this.deletingCustomerIds.includes(item.id)) {
+            return
+        }
+
         if (event && event.target) {
             const target = event.target as HTMLElement
             const isInteractiveElement = target.closest('.v-btn') ||
@@ -515,7 +526,7 @@ export default class CustomerPanel extends Mixins(BaseMixin) {
     }
 
     showContextMenu(e: any, item: FleetCustomer) {
-        if (!this.contextMenu.shown) {
+        if (!this.contextMenu.shown && !this.deletingCustomerIds.includes(item.id)) {
             e?.preventDefault()
 
             let x, y
@@ -578,28 +589,135 @@ export default class CustomerPanel extends Mixins(BaseMixin) {
                 const customerId = formData.id
                 delete formData.id
 
-                await this.$store.dispatch('fleet/jobs/updateCustomer', {
-                    customerId: customerId,
-                    customerData: formData
-                })
-                this.$toast.success('Customer updated successfully')
+                // Optimistic update for edit
+                this.optimisticUpdateCustomer(customerId, formData)
+
+                try {
+                    await this.$store.dispatch('fleet/jobs/updateCustomer', {
+                        customerId: customerId,
+                        customerData: formData
+                    })
+                    this.$toast.success('Customer updated successfully')
+                    await this.refreshCustomers() // Sync with server
+                } catch (error) {
+                    console.error('Failed to update customer:', error)
+                    this.$toast.error('Failed to update customer')
+                    await this.refreshCustomers() // Revert optimistic update
+                    throw error
+                }
             } else {
                 delete formData.id
 
                 await this.$store.dispatch('fleet/jobs/createCustomer', formData)
                 this.$toast.success('Customer created successfully')
+                await this.refreshCustomers()
             }
 
-            await this.refreshCustomers()
             this.closeCreateCustomerDialog()
         } catch (error) {
             console.error('Failed to save customer:', error)
-            this.$toast.error(`Failed to ${this.createCustomerDialog.isEdit ? 'update' : 'create'} customer`)
+            if (!this.createCustomerDialog.isEdit) {
+                this.$toast.error('Failed to create customer')
+            }
         } finally {
             this.createCustomerDialog.loading = false
         }
     }
 
+    /**
+     * Optimistic delete - removes customer from UI immediately
+     */
+    async deleteCustomerOptimistic() {
+        const customerToDelete = this.contextMenu.item
+
+        // Close dialogs immediately
+        this.deleteDialog = false
+        this.contextMenu.shown = false
+
+        // Add to deleting list to show visual feedback
+        this.deletingCustomerIds.push(customerToDelete.id)
+
+        // Remove from store immediately (optimistic update)
+        this.optimisticRemoveCustomer(customerToDelete.id)
+
+        try {
+            // Make the actual delete call
+            await this.$store.dispatch('fleet/jobs/deleteCustomer', customerToDelete.id)
+            this.$toast.success('Customer deleted successfully')
+
+            // Remove from deleting list
+            this.deletingCustomerIds = this.deletingCustomerIds.filter(id => id !== customerToDelete.id)
+
+        } catch (error) {
+            console.error('Failed to delete customer:', error)
+            this.$toast.error('Failed to delete customer')
+
+            // Revert the optimistic update by refreshing
+            await this.refreshCustomers()
+
+            // Remove from deleting list
+            this.deletingCustomerIds = this.deletingCustomerIds.filter(id => id !== customerToDelete.id)
+        }
+    }
+
+    /**
+     * Optimistic batch delete - removes customers from UI immediately
+     */
+    async deleteSelectedCustomersOptimistic() {
+        const customersToDelete = [...this.selectedCustomers]
+
+        // Close dialog immediately
+        this.deleteSelectedDialog = false
+
+        // Add all to deleting list
+        const idsToDelete = customersToDelete.map(c => c.id)
+        this.deletingCustomerIds.push(...idsToDelete)
+
+        // Remove from store immediately (optimistic update)
+        idsToDelete.forEach(id => this.optimisticRemoveCustomer(id))
+
+        // Clear selection
+        this.selectedCustomers = []
+
+        try {
+            // Make the actual delete calls (implement batch delete in your store)
+            await Promise.all(
+                idsToDelete.map(id =>
+                    this.$store.dispatch('fleet/jobs/deleteCustomer', id)
+                )
+            )
+            this.$toast.success(`${customersToDelete.length} customers deleted successfully`)
+
+            // Remove from deleting list
+            this.deletingCustomerIds = this.deletingCustomerIds.filter(id => !idsToDelete.includes(id))
+
+        } catch (error) {
+            console.error('Failed to delete customers:', error)
+            this.$toast.error('Failed to delete some customers')
+
+            // Revert the optimistic update by refreshing
+            await this.refreshCustomers()
+
+            // Remove from deleting list
+            this.deletingCustomerIds = this.deletingCustomerIds.filter(id => !idsToDelete.includes(id))
+        }
+    }
+
+    /**
+     * Helper method to optimistically remove customer from store
+     */
+    optimisticRemoveCustomer(customerId: string) {
+        this.$store.commit('fleet/jobs/removeCustomerOptimistic', customerId)
+    }
+
+    /**
+     * Helper method to optimistically update customer in store
+     */
+    optimisticUpdateCustomer(customerId: string, customerData: any) {
+        this.$store.commit('fleet/jobs/updateCustomerOptimistic', { customerId, customerData })
+    }
+
+    // Keep original method for fallback/legacy support
     async deleteCustomer() {
         try {
             await this.$store.dispatch('fleet/jobs/deleteCustomer', this.contextMenu.item.id)
@@ -678,5 +796,16 @@ export default class CustomerPanel extends Mixins(BaseMixin) {
 
         .job-item:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+    /* Visual feedback for items being deleted */
+    .deleting-item {
+        opacity: 0.6;
+        background-color: #fafafa;
+        transition: opacity 0.2s ease, background-color 0.2s ease;
+    }
+
+        .deleting-item * {
+            pointer-events: none;
         }
 </style>

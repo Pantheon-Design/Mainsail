@@ -59,4 +59,41 @@ export const mutations: MutationTree<FleetJobsState> = {
             state.customers.splice(index, 1)
         }
     },
+
+    // Optimistic update mutations for better UX
+    removeCustomerOptimistic(state, customerId: string) {
+        const index = state.customers.findIndex((customer) => customer.id === customerId)
+        if (index !== -1) {
+            state.customers.splice(index, 1)
+        }
+    },
+
+    updateCustomerOptimistic(state, { customerId, customerData }: { customerId: string, customerData: Partial<FleetCustomer> }) {
+        const index = state.customers.findIndex((customer) => customer.id === customerId)
+        if (index !== -1) {
+            const updatedCustomer = {
+                ...state.customers[index],
+                ...customerData,
+                updated_at: new Date().toISOString() // Update timestamp
+            }
+            Vue.set(state.customers, index, updatedCustomer)
+        }
+    },
+
+    addCustomerOptimistic(state, customer: FleetCustomer) {
+        const customers = [...state.customers]
+        const newCustomer = {
+            ...customer,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }
+        customers.unshift(newCustomer) // Add to beginning for better visibility
+        Vue.set(state, 'customers', customers)
+    },
+
+    // Batch operations for better performance
+    removeCustomersOptimistic(state, customerIds: string[]) {
+        const filteredCustomers = state.customers.filter(customer => !customerIds.includes(customer.id))
+        Vue.set(state, 'customers', filteredCustomers)
+    }
 }
