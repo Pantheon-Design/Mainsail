@@ -1984,6 +1984,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     async mounted() {
         await this.refreshJobs()
         await this.loadCustomers()
+        this.$root.$on('fullscreen-files-uploaded', this.handleFullscreenUpload)
     }
 
     async refreshJobs() {
@@ -3514,6 +3515,40 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
+    handleFullscreenUpload(uploadedFiles: any[]) {
+        console.log('🎯 handleFullscreenUpload called with files:', uploadedFiles)
+        console.log('🎯 createJobDialog.show:', this.createJobDialog.show)
+        console.log('🎯 createJobDialog.isEdit:', this.createJobDialog.isEdit)
+
+        // Only handle if create job dialog is open and not in edit mode
+        if (!this.createJobDialog.show || this.createJobDialog.isEdit) {
+            console.log('❌ Dialog not open or in edit mode, skipping')
+            return
+        }
+
+        // Filter for GCode files based on extension only
+        const gcodeFiles = uploadedFiles.filter(file => {
+            const ext = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+            return ['.gcode', '.g', '.gco'].includes(ext)
+        })
+
+        console.log('✅ Found gcode files:', gcodeFiles)
+
+        if (gcodeFiles.length > 0) {
+            // Convert to File objects for processing
+            const filesToProcess = gcodeFiles.map(fileInfo => {
+                return new File([''], fileInfo.name, { type: 'text/plain' })
+            })
+        
+            console.log('🔧 Processing files:', filesToProcess)
+            this.processBatchGcodeFiles(filesToProcess)
+            this.$toast.success(`Added ${gcodeFiles.length} GCode files to job creation`)
+        } else {
+            console.log('❌ No gcode files found in upload')
+        }
+    }
+
+
     @Watch('allJobRuns', { deep: true })
     onAllJobRunsChanged() {
         // OPTIMIZATION: Debounce cache clearing to avoid excessive computation
@@ -3526,6 +3561,8 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     beforeDestroy() {
+        this.$root.$off('fullscreen-files-uploaded', this.handleFullscreenUpload)
+
         if (this.cacheCleanupTimeout) {
             clearTimeout(this.cacheCleanupTimeout)
         }
