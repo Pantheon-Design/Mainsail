@@ -76,6 +76,7 @@ export default class TheFullscreenUpload extends Mixins(BaseMixin) {
 
         if (e.dataTransfer?.files?.length) {
             const files = [...e.dataTransfer.files]
+            const uploadedFiles = []
 
             await this.$store.dispatch('socket/addLoading', { name: 'gcodeUpload' })
             await this.$store.dispatch('files/uploadSetCurrentNumber', 0)
@@ -94,66 +95,75 @@ export default class TheFullscreenUpload extends Mixins(BaseMixin) {
                 await this.$store.dispatch('files/uploadIncrementCurrentNumber')
                 const result = await this.$store.dispatch('files/uploadFile', { file, path, root })
 
-                if (result !== false)
+                if (result !== false) {
                     this.$toast.success(this.$t('Files.SuccessfullyUploaded', { filename: result }).toString())
+
+                    // Track uploaded files
+                    uploadedFiles.push({
+                        name: result,
+                        originalFile: file,
+                        isGcode: isGcode,
+                        path: path,
+                        root: root
+                    })
+                }
             }
 
             await this.$store.dispatch('socket/removeLoading', { name: 'gcodeUpload' })
+
+            // Emit event for other components to listen to
+            if (uploadedFiles.length > 0) {
+                this.$root.$emit('fullscreen-files-uploaded', uploadedFiles)
+            }
         }
     }
 }
 </script>
 
 <style>
-.fullscreen-upload__dragzone {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 99999;
-    visibility: hidden;
-    opacity: 0;
-    transition:
-        visibility 200ms,
-        opacity 200ms;
-    font:
-        bold 42px Oswald,
-        DejaVu Sans,
-        Tahoma,
-        sans-serif;
-}
+    .fullscreen-upload__dragzone {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 99999;
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 200ms, opacity 200ms;
+        font: bold 42px Oswald, DejaVu Sans, Tahoma, sans-serif;
+    }
 
-/*noinspection CssUnusedSymbol*/
-.fullscreen-upload__dragzone--visible {
-    opacity: 1;
-    visibility: visible;
-}
+    /*noinspection CssUnusedSymbol*/
+    .fullscreen-upload__dragzone--visible {
+        opacity: 1;
+        visibility: visible;
+    }
 
-/*noinspection CssUnusedSymbol*/
-.fullscreen-upload__dragzone:before {
-    display: block;
-    content: ' ';
-    position: absolute;
-    top: 1em;
-    right: 1em;
-    bottom: 1em;
-    left: 1em;
-    border: 3px dashed white;
-    border-radius: 1em;
-}
+    /*noinspection CssUnusedSymbol*/
+    .fullscreen-upload__dragzone:before {
+        display: block;
+        content: ' ';
+        position: absolute;
+        top: 1em;
+        right: 1em;
+        bottom: 1em;
+        left: 1em;
+        border: 3px dashed white;
+        border-radius: 1em;
+    }
 
-/*noinspection CssUnusedSymbol*/
-.fullscreen-upload__icon .v-icon__svg {
-    width: 250px;
-    height: 250px;
-}
+    /*noinspection CssUnusedSymbol*/
+    .fullscreen-upload__icon .v-icon__svg {
+        width: 250px;
+        height: 250px;
+    }
 
-.fullscreen-upload__dragzone .textnode {
-    text-align: center;
-    transition: font-size 175ms;
-    font-size: 82px;
-}
+    .fullscreen-upload__dragzone .textnode {
+        text-align: center;
+        transition: font-size 175ms;
+        font-size: 82px;
+    }
 </style>
