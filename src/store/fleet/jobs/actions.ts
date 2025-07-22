@@ -213,4 +213,17 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
             throw error
         }
     },
+
+    async createJobGcodesBatch({ }, { jobId, gcodeFiles }) {
+        try {
+            const response = await axios.post(`${FLEET_API_URL}/jobs/${jobId}/gcode/batch`, {
+                gcode_files: gcodeFiles
+            })
+            return response.data
+        } catch (error) {
+            console.error('Failed to create job gcodes batch:', error)
+            throw error
+        }
+    },
+
 }

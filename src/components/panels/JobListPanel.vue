@@ -2362,45 +2362,59 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     // Replace your existing saveJob method with this updated version:
     async saveJob() {
-        console.log('🚀 saved')
         if (!this.createJobDialog.valid) return
-
         this.createJobDialog.loading = true
         try {
             const formData = { ...this.createJobDialog.form }
             if (formData.due_date) {
                 formData.due_date = new Date(formData.due_date).toISOString()
             }
-
             let savedJob = null
             if (this.createJobDialog.isEdit) {
-                // ... edit logic
+                const jobId = formData.id
+                delete formData.id
+    
+                savedJob = await this.$store.dispatch('fleet/jobs/updateJob', { 
+                    jobId: jobId, 
+                    jobData: formData 
+                })
+                this.$toast.success('Job updated successfully')
             } else {
                 delete formData.id
-        
-                console.log('🚀 Creating job with data:', formData)
+    
+                // Create the job
                 savedJob = await this.$store.dispatch('fleet/jobs/createJob', formData)
-                console.log('✅ Job created successfully:', savedJob)
                 this.$toast.success('Job created successfully')
-
-                // Debug batch GCode files
-                console.log('📋 Batch GCodes length:', this.createJobDialog.batchGcodes.length)
-                console.log('📋 Batch GCodes data:', this.createJobDialog.batchGcodes)
-
-                // Create batch GCode files if any
-                if (this.createJobDialog.batchGcodes.length > 0) {
-                    console.log(`🔧 About to create ${this.createJobDialog.batchGcodes.length} GCode files for job ${savedJob.id}`)
-                    await this.createBatchGcodeFiles(savedJob.id)
-                    console.log('✅ Batch GCode creation completed')
+            
+                // STORE BATCH DATA BEFORE CLOSING DIALOG
+                const batchGcodesToCreate = [...this.createJobDialog.batchGcodes]
+            
+                // Close dialog immediately after job creation
+                this.closeCreateJobDialog()
+            
+                // Do GCode creation and refresh in background
+                if (batchGcodesToCreate.length > 0) {
+                    console.log('🔧 Creating batch GCodes:', batchGcodesToCreate)
+                    this.createBatchGcodeFilesInBackground(savedJob.id, batchGcodesToCreate)
                 } else {
-                    console.log('❌ No batch GCode files to create')
+                    console.log('❌ No batch GCodes to create')
+                    // Still refresh jobs list, but in background
+                    this.refreshJobsInBackground()
                 }
+        
+                return // Exit early for new jobs
             }
-
+            // Only for edits - wait for everything to complete
+            if (this.detailsDialog.show && this.detailsDialog.item && 
+                this.detailsDialog.item.id === savedJob?.id) {
+                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+            }
+    
             await this.refreshJobs()
             this.closeCreateJobDialog()
+    
         } catch (error) {
-            console.error('❌ Failed to save job:', error)
+            console.error('Failed to save job:', error)
             this.$toast.error(`Failed to ${this.createJobDialog.isEdit ? 'update' : 'create'} job`)
         } finally {
             this.createJobDialog.loading = false
@@ -2854,11 +2868,16 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     closeCreateJobDialog() {
         this.createJobDialog.show = false
         this.createJobDialog.isEdit = false
-        // Clear batch GCode files
+        this.createJobDialog.loading = false
+    
+        // Store batch data before clearing for background processing
+        const batchGcodes = [...this.createJobDialog.batchGcodes]
+    
+        // Clear all state
         this.createJobDialog.batchGcodes = []
         this.createJobDialog.batchUploading = false
         this.createJobDialog.batchUploadProgress = 0
-
+    
         this.createJobDialog.form = {
             id: '',
             name: '',
@@ -2869,10 +2888,13 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             description: '',
             due_date: '',
         }
-
+    
+        // Reset form validation
         if (this.$refs.jobForm) {
             (this.$refs.jobForm as any).resetValidation()
         }
+    
+        console.log('✅ Create job dialog closed immediately')
     }
 
     getHighPriorityJobsCount(state): number {
@@ -3548,6 +3570,55 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         }
     }
 
+    async createBatchGcodeFilesInBackground(jobId: string, batchGcodes: any[]) {
+        if (batchGcodes.length === 0) return
+
+        this.$toast.info(`Creating ${batchGcodes.length} GCode files...`, { timeout: 2000 })
+
+        try {
+            // Prepare batch data
+            const gcodeFiles = batchGcodes.map(gcodeFile => ({
+                gcode_filename: gcodeFile.gcode_filename,
+                required_runs: gcodeFile.required_runs,
+                preferred_printer: gcodeFile.preferred_printer,
+                filament_type: gcodeFile.filament_type
+            }))
+
+            // Single batch API call
+            const result = await this.$store.dispatch('fleet/jobs/createJobGcodesBatch', {
+                jobId: jobId,
+                gcodeFiles: gcodeFiles
+            })
+
+            // Handle results
+            if (result.created_count > 0) {
+                this.$toast.success(`✅ Successfully created ${result.created_count} GCode files`)
+            }
+        
+            if (result.failed_count > 0) {
+                this.$toast.error(`❌ Failed to create ${result.failed_count} GCode files`)
+                result.errors.forEach(error => {
+                    console.error('GCode creation error:', error)
+                })
+            }
+
+        } catch (error) {
+            console.error('Batch GCode creation failed:', error)
+            this.$toast.error('Batch GCode creation failed')
+        } finally {
+            await this.refreshJobsInBackground()
+        }
+    }
+
+    async refreshJobsInBackground() {
+        try {
+            await this.refreshJobs()
+            console.log('✅ Jobs list refreshed in background')
+        } catch (error) {
+            console.error('Background refresh failed:', error)
+            this.$toast.error('Failed to refresh jobs list')
+        }
+    }
 
     @Watch('allJobRuns', { deep: true })
     onAllJobRunsChanged() {
