@@ -1171,7 +1171,6 @@
 
 <script lang="ts">
 import { Component, Mixins, Watch } from 'vue-property-decorator'
-import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import Panel from '@/components/ui/Panel.vue'
 import { caseInsensitiveSort } from '@/plugins/helpers'
@@ -1257,6 +1256,14 @@ interface FleetJobGcodeRun {
     qc?: string | null
 }
 
+interface BatchGcodeFile {
+    gcode_filename: string
+    required_runs: number
+    preferred_printer: string
+    filament_type: string
+    originalFile?: File | null
+}
+
 @Component({
     components: {
         Panel,
@@ -1297,7 +1304,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     private sortBy = 'created_at'
     private sortDesc = true
     private options = {}
-    private statusFilter = []
+    private statusFilter: string[] = []
     private dueDateMenu = false
 
     private selectedJobs: FleetJob[] = []
@@ -1400,7 +1407,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         return this.$store.state.fleet?.jobs?.jobs ?? []
     }
 
-    get customers() {
+    get customers(): FleetCustomer[] {
         return this.$store.state.fleet?.jobs?.customers ?? []
     }
 
@@ -1529,7 +1536,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     get customerDropdownOptions() {
-        // Return customers with the "Add New Customer" option
         return this.customers.map(customer => ({
             id: customer.id,
             name: customer.name
@@ -1734,27 +1740,29 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 try {
                     const runs = await this.$store.dispatch('fleet/jobs/loadJobGcodeRuns', gcode.id)
                     return { gcodeId: gcode.id, runs: runs || [], error: null }
-                } catch (error) {
+                } catch (error: unknown) {
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
                     console.warn(`Failed to load runs for gcode ${gcode.gcode_filename}:`, error)
-                    return { gcodeId: gcode.id, runs: [], error: error.message }
+                    return { gcodeId: gcode.id, runs: [], error: errorMessage }
                 }
             })
 
             const results = await Promise.all(runPromises)
-        
+
             // OPTIMIZATION: Build new object once instead of multiple Vue.set calls
-            const newAllJobRuns = {}
+            // Fix: Type the object properly
+            const newAllJobRuns: { [gcodeId: string]: FleetJobGcodeRun[] } = {}
             results.forEach(({ gcodeId, runs, error }) => {
                 newAllJobRuns[gcodeId] = runs
                 if (error) {
                     console.warn(`Error loading runs for ${gcodeId}: ${error}`)
                 }
             })
-        
+
             // Single reactive update
             this.allJobRuns = newAllJobRuns
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to load job runs:', error)
             this.allJobRuns = {}
         }
@@ -1771,8 +1779,9 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             in_progress: 'blue',
             complete: 'green',
             cancelled: 'red',
-        }
-        return colors[status] || 'grey'
+        } as const
+
+        return colors[status as keyof typeof colors] || 'grey'
     }
 
     getStatusTextColor(status: string) {
@@ -1869,7 +1878,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
         // Show loading toast for slow connections
         const loadingToast = setTimeout(() => {
-            this.$toast.info('Loading job details...', { timeout: 2000 })
+            this.$toast.info('Loading job details...')
         }, 500)
 
         this.viewJobDetails(item).then(() => {
@@ -1960,62 +1969,74 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     // Replace your existing saveJob method with this updated version:
     async saveJob() {
-        if (!this.createJobDialog.valid) return
-        this.createJobDialog.loading = true
+        if (!this.createJobDialog.valid) return;
+        this.createJobDialog.loading = true;
+
         try {
-            const formData = { ...this.createJobDialog.form }
-            if (formData.due_date) {
-                formData.due_date = new Date(formData.due_date).toISOString()
+            // Copy form data and normalize the date
+            const raw = { ...this.createJobDialog.form };
+            if (raw.due_date) {
+                raw.due_date = new Date(raw.due_date).toISOString();
             }
-            let savedJob = null
+
+            let savedJob = null;
+
             if (this.createJobDialog.isEdit) {
-                const jobId = formData.id
-                delete formData.id
-    
-                savedJob = await this.$store.dispatch('fleet/jobs/updateJob', { 
-                    jobId: jobId, 
-                    jobData: formData 
-                })
-                this.$toast.success('Job updated successfully')
+                // EDIT: pull out id, keep the rest
+                const { id: jobId, ...jobData } = raw;
+
+                savedJob = await this.$store.dispatch('fleet/jobs/updateJob', {
+                    jobId,
+                    jobData,
+                });
+                this.$toast.success('Job updated successfully');
+
             } else {
-                delete formData.id
-    
+                // CREATE: drop id entirely
+                const { id: _, ...jobData } = raw;
+
                 // Create the job
-                savedJob = await this.$store.dispatch('fleet/jobs/createJob', formData)
-                this.$toast.success('Job created successfully')
-            
+                savedJob = await this.$store.dispatch('fleet/jobs/createJob', jobData);
+                this.$toast.success('Job created successfully');
+
                 // STORE BATCH DATA BEFORE CLOSING DIALOG
-                const batchGcodesToCreate = [...this.createJobDialog.batchGcodes]
-            
+                const batchGcodesToCreate = [...this.createJobDialog.batchGcodes];
+
                 // Close dialog immediately after job creation
-                this.closeCreateJobDialog()
-            
+                this.closeCreateJobDialog();
+
                 // Do GCode creation and refresh in background
                 if (batchGcodesToCreate.length > 0) {
-                    console.log('🔧 Creating batch GCodes:', batchGcodesToCreate)
-                    this.createBatchGcodeFilesInBackground(savedJob.id, batchGcodesToCreate)
+                    console.log('🔧 Creating batch GCodes:', batchGcodesToCreate);
+                    this.createBatchGcodeFilesInBackground(savedJob.id, batchGcodesToCreate);
                 } else {
-                    console.log('❌ No batch GCodes to create')
+                    console.log('❌ No batch GCodes to create');
                     // Still refresh jobs list, but in background
-                    this.refreshJobsInBackground()
+                    this.refreshJobsInBackground();
                 }
-        
-                return // Exit early for new jobs
+
+                return; // Exit early for new jobs
             }
-            // Only for edits - wait for everything to complete
-            if (this.detailsDialog.show && this.detailsDialog.item && 
-                this.detailsDialog.item.id === savedJob?.id) {
-                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+
+            // Only for edits: refresh details if open
+            if (
+                this.detailsDialog.show &&
+                this.detailsDialog.item &&
+                this.detailsDialog.item.id === savedJob?.id
+            ) {
+                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id);
             }
-    
-            await this.refreshJobs()
-            this.closeCreateJobDialog()
-    
+
+            await this.refreshJobs();
+            this.closeCreateJobDialog();
+
         } catch (error) {
-            console.error('Failed to save job:', error)
-            this.$toast.error(`Failed to ${this.createJobDialog.isEdit ? 'update' : 'create'} job`)
+            console.error('Failed to save job:', error);
+            this.$toast.error(
+                `Failed to ${this.createJobDialog.isEdit ? 'update' : 'create'} job`
+            );
         } finally {
-            this.createJobDialog.loading = false
+            this.createJobDialog.loading = false;
         }
     }
 
@@ -2146,37 +2167,34 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     async saveRun() {
         if (!this.createRunDialog.valid || !this.gcodeRunsDialog.gcodeFile) return
-
         this.createRunDialog.loading = true
+
         try {
-            const formData = { ...this.createRunDialog.form }
-        
             if (this.createRunDialog.isEdit) {
-                const runId = formData.id
-                delete formData.id
-            
+                // Destructure to separate id from the rest
+                const { id, ...updateData } = this.createRunDialog.form
+
                 await this.$store.dispatch('fleet/jobs/updateJobGcodeRun', {
-                    runId: runId,
-                    updateData: formData
+                    runId: id,
+                    updateData: updateData
                 })
                 this.$toast.success('Print run updated successfully')
             } else {
-                delete formData.id
-                delete formData.status
-                delete formData.qc
-            
+                // Destructure to exclude id, status, and qc
+                const { id, status, qc, ...createData } = this.createRunDialog.form
+
                 await this.$store.dispatch('fleet/jobs/createJobGcodeRun', {
                     jobGcodeId: this.gcodeRunsDialog.gcodeFile.id,
-                    run: formData
+                    run: createData
                 })
                 this.$toast.success('Print run added successfully')
             }
-        
+
             // Refresh the runs data which will also update progress bars
             await this.refreshGcodeRuns()
             this.closeCreateRunDialog()
-        
-        } catch (error) {
+
+        } catch (error: unknown) {
             console.error('Failed to save run:', error)
             this.$toast.error(`Failed to ${this.createRunDialog.isEdit ? 'update' : 'add'} print run`)
         } finally {
@@ -2296,8 +2314,9 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             success: 'green',
             fail: 'red',
             cancelled: 'grey',
-        }
-        return colors[status] || 'grey'
+        } as const
+
+        return colors[status as keyof typeof colors] || 'grey'
     }
 
     getRunStatusTextColor(status: string) {
@@ -2473,16 +2492,16 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         console.log('✅ Create job dialog closed immediately')
     }
 
-    getHighPriorityJobsCount(state): number {
-        return state.jobs.filter((job: FleetJob) => job.priority === 'high').length
+    get highPriorityJobsCount(): number {
+        return this.jobs.filter((job: FleetJob) => job.priority === 'high').length
     }
 
-    getMediumPriorityJobsCount(state): number {
-        return state.jobs.filter((job: FleetJob) => job.priority === 'medium').length
+    get mediumPriorityJobsCount(): number {
+        return this.jobs.filter((job: FleetJob) => job.priority === 'medium').length
     }
 
-    getLowPriorityJobsCount(state): number {
-        return state.jobs.filter((job: FleetJob) => job.priority === 'low').length
+    get lowPriorityJobsCount(): number {
+        return this.jobs.filter((job: FleetJob) => job.priority === 'low').length
     }
 
     closeAddGcodeDialog() {
@@ -2895,9 +2914,8 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         const target = e.target as HTMLInputElement
         const files = target.files
         if (files && files.length > 0) {
-            await this.handleBatchFileUpload([...files])
+            await this.handleBatchFileUpload(Array.from(files))
         }
-        // Clear the input so the same files can be selected again
         target.value = ''
     }
 
@@ -2984,7 +3002,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     // Process batch GCode files (from drag/drop or manual selection)
-    processBatchGcodeFiles(files: FileList) {
+    processBatchGcodeFiles(files: File[]) {
         console.log('🔧 Processing batch GCode files:', files.length)
 
         for (let i = 0; i < files.length; i++) {
@@ -3148,14 +3166,12 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     async createBatchGcodeFilesInBackground(jobId: string, batchGcodes: any[]) {
         if (batchGcodes.length === 0) return
-
-        this.$toast.info(`Creating ${batchGcodes.length} GCode files...`, { timeout: 2000 })
+        this.$toast.info(`Creating ${batchGcodes.length} GCode files...`)
 
         try {
             // Prepare batch data with validation
             const gcodeFiles = batchGcodes.map((gcodeFile, index) => {
                 console.log(`🔍 Processing file ${index + 1}:`, gcodeFile)
-
                 // Ensure all required fields are present and valid
                 const processedFile = {
                     gcode_filename: String(gcodeFile.gcode_filename || '').trim(),
@@ -3163,9 +3179,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                     preferred_printer: String(gcodeFile.preferred_printer || 'any').trim(),
                     filament_type: String(gcodeFile.filament_type || '').trim()
                 }
-
                 console.log(`✅ Processed file ${index + 1}:`, processedFile)
-
                 // Validate required fields
                 if (!processedFile.gcode_filename) {
                     throw new Error(`File ${index + 1}: Missing filename`)
@@ -3179,7 +3193,6 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 if (!['HS-Pro', 'HS3', 'any'].includes(processedFile.preferred_printer)) {
                     throw new Error(`File ${index + 1}: Invalid printer preference`)
                 }
-
                 return processedFile
             })
 
@@ -3200,18 +3213,54 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
             if (result.failed_count > 0) {
                 this.$toast.error(`❌ Failed to create ${result.failed_count} GCode files`)
-                result.errors.forEach(error => {
+                result.errors.forEach((error: any) => {
                     console.error('GCode creation error:', error)
                 })
             }
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('❌ Batch GCode creation failed:', error)
-            console.error('❌ Error response:', error.response?.data)
-            this.$toast.error('Batch GCode creation failed: ' + (error.response?.data?.detail || error.message))
+
+            // Type-safe error handling
+            const errorMessage = this.getErrorMessage(error)
+            const responseDetail = this.getResponseDetail(error)
+
+            console.error('❌ Error response:', responseDetail)
+            this.$toast.error('Batch GCode creation failed: ' + (responseDetail || errorMessage))
+
         } finally {
             await this.refreshJobsInBackground()
         }
+    }
+
+    // Helper method for type-safe error message extraction
+    private getErrorMessage(error: unknown): string {
+        if (error instanceof Error) {
+            return error.message
+        }
+        if (typeof error === 'string') {
+            return error
+        }
+        return 'Unknown error occurred'
+    }
+
+    // Helper method for type-safe response detail extraction
+    private getResponseDetail(error: unknown): string | null {
+        // Check if it's an axios-like error with response.data.detail
+        if (
+            error &&
+            typeof error === 'object' &&
+            'response' in error &&
+            error.response &&
+            typeof error.response === 'object' &&
+            'data' in error.response &&
+            error.response.data &&
+            typeof error.response.data === 'object' &&
+            'detail' in error.response.data
+        ) {
+            return String((error.response.data as any).detail)
+        }
+        return null
     }
 
     async refreshJobsInBackground() {
@@ -3367,11 +3416,11 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     @Watch('allJobRuns', { deep: true })
     onAllJobRunsChanged() {
-        // OPTIMIZATION: Debounce cache clearing to avoid excessive computation
+        // Use window.setTimeout to get the browser version
         if (this.cacheCleanupTimeout) {
-            clearTimeout(this.cacheCleanupTimeout)
+            window.clearTimeout(this.cacheCleanupTimeout)
         }
-        this.cacheCleanupTimeout = setTimeout(() => {
+        this.cacheCleanupTimeout = window.setTimeout(() => {
             this.runStatisticsCache = {}
         }, 100)
     }
