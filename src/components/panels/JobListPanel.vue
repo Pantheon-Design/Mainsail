@@ -753,53 +753,71 @@
                                 </div>
                                 <v-divider class="mb-4" />
 
-                                <!-- Upload Section -->
-                                <div class="batch-gcode-upload-zone pa-4 mb-4">
-                                    <div v-if="!createJobDialog.batchUploading && createJobDialog.batchGcodes.length === 0" class="text-center">
-                                        <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                        <div class="text-body-1 mb-3">Upload GCode files for this job</div>
-                                        <v-btn color="primary"
-                                               large
-                                               @click="$refs.batchFileInput.click()">
-                                            <v-icon left>{{ mdiFileUpload }}</v-icon>
-                                            Choose Files
-                                        </v-btn>
-                                        <input ref="batchFileInput"
-                                               type="file"
-                                               accept=".gcode,.g,.gco"
-                                               multiple
-                                               style="display: none"
-                                               @change="onBatchFileSelect" />
-                                        <div class="text-caption text--secondary mt-3">
-                                            Supported: .gcode, .g, .gco files<br>
-                                            Auto-parses printer model and filament from filename
+                                <!-- File Selection Tabs -->
+                                <v-tabs v-model="createJobDialog.activeTab" class="mb-4">
+                                    <v-tab>Upload Files</v-tab>
+                                    <v-tab>Browse Existing</v-tab>
+                                </v-tabs>
+
+                                <v-tabs-items v-model="createJobDialog.activeTab">
+                                    <!-- Upload Tab -->
+                                    <v-tab-item>
+                                        <div class="batch-gcode-upload-zone pa-4 mb-4">
+                                            <div v-if="!createJobDialog.batchUploading && createJobDialog.batchGcodes.length === 0" class="text-center">
+                                                <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                                <div class="text-body-1 mb-3">Upload GCode files for this job</div>
+                                                <v-btn color="primary"
+                                                       large
+                                                       @click="$refs.batchFileInput.click()">
+                                                    <v-icon left>{{ mdiFileUpload }}</v-icon>
+                                                    Choose Files
+                                                </v-btn>
+                                                <input ref="batchFileInput"
+                                                       type="file"
+                                                       accept=".gcode,.g,.gco"
+                                                       multiple
+                                                       style="display: none"
+                                                       @change="onBatchFileSelect" />
+                                                <div class="text-caption text--secondary mt-3">
+                                                    Supported: .gcode, .g, .gco files<br>
+                                                    Auto-parses printer model and filament from filename
+                                                </div>
+                                            </div>
+
+                                            <!-- Upload Progress -->
+                                            <div v-if="createJobDialog.batchUploading" class="text-center">
+                                                <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                                <div class="text-body-1 mb-2">Uploading files...</div>
+                                                <v-progress-linear v-model="createJobDialog.batchUploadProgress"
+                                                                   height="8"
+                                                                   rounded
+                                                                   color="primary"
+                                                                   class="mb-2" />
+                                                <div class="text-caption">{{ Math.round(createJobDialog.batchUploadProgress) }}%</div>
+                                            </div>
+
+                                            <!-- Add More Files Button -->
+                                            <div v-if="!createJobDialog.batchUploading && createJobDialog.batchGcodes.length > 0" class="text-center">
+                                                <v-btn color="primary"
+                                                       outlined
+                                                       @click="$refs.batchFileInput.click()">
+                                                    <v-icon left>{{ mdiPlus }}</v-icon>
+                                                    Add More Files
+                                                </v-btn>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </v-tab-item>
 
-                                    <!-- Upload Progress -->
-                                    <div v-if="createJobDialog.batchUploading" class="text-center">
-                                        <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                        <div class="text-body-1 mb-2">Uploading files...</div>
-                                        <v-progress-linear v-model="createJobDialog.batchUploadProgress"
-                                                           height="8"
-                                                           rounded
-                                                           color="primary"
-                                                           class="mb-2" />
-                                        <div class="text-caption">{{ Math.round(createJobDialog.batchUploadProgress) }}%</div>
-                                    </div>
+                                    <!-- Browse Tab -->
+                                    <v-tab-item>
+                                        <div class="pa-4">
+                                            <gcode-file-browser selection-mode="multiple"
+                                                                @files-selected="onBrowseFilesSelected" />
+                                        </div>
+                                    </v-tab-item>
+                                </v-tabs-items>
 
-                                    <!-- Add More Files Button -->
-                                    <div v-if="!createJobDialog.batchUploading && createJobDialog.batchGcodes.length > 0" class="text-center">
-                                        <v-btn color="primary"
-                                               outlined
-                                               @click="$refs.batchFileInput.click()">
-                                            <v-icon left>{{ mdiPlus }}</v-icon>
-                                            Add More Files
-                                        </v-btn>
-                                    </div>
-                                </div>
-
-                                <!-- GCode Files List -->
+                                <!-- GCode Files List (shown regardless of tab) -->
                                 <div v-if="createJobDialog.batchGcodes.length > 0" class="batch-gcode-list">
                                     <div class="d-flex justify-space-between align-center mb-2">
                                         <div class="text-subtitle-2">Selected Files</div>
@@ -853,8 +871,10 @@
                                                 <v-col cols="12">
                                                     <v-text-field v-model="gcode.filament_type"
                                                                   label="Filament Type"
+                                                                  :rules="[v => !!v || 'Filament type is required']"
                                                                   outlined
                                                                   dense
+                                                                  required
                                                                   hide-details="auto" />
                                                 </v-col>
                                             </v-row>
@@ -909,104 +929,78 @@
                     </v-btn>
                 </template>
                 <v-card-text>
-                    <!-- File Upload Section on creation -->
-                    <div class="mb-4" v-if="!addGcodeDialog.isEdit">
-                        <div class="text-subtitle-2 mb-2">Upload GCode File</div>
-                        <div class="gcode-upload-zone pa-4">
-
-                            <!-- Upload Area -->
-                            <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
-                                <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                <div class="text-body-1 mb-3">Choose a GCode file to upload</div>
-                                <v-btn color="primary"
-                                       large
-                                       @click="$refs.fileInput.click()">
-                                    <v-icon left>{{ mdiFileUpload }}</v-icon>
-                                    Choose File
-                                </v-btn>
-                                <input ref="fileInput"
-                                       type="file"
-                                       accept=".gcode,.g,.gco"
-                                       style="display: none"
-                                       @change="onFileSelect" />
-                                <div class="text-caption text--secondary mt-3">
-                                    Supported formats: .gcode, .g, .gco
-                                </div>
-                            </div>
-
-                            <!-- Upload Progress -->
-                            <div v-if="addGcodeDialog.uploading" class="text-center">
-                                <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                <div class="text-body-1 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
-                                <v-progress-linear v-model="addGcodeDialog.uploadProgress"
-                                                   height="8"
-                                                   rounded
-                                                   color="primary"
-                                                   class="mb-2" />
-                                <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
-                            </div>
-
-                            <!-- Upload Success -->
-                            <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
-                                <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
-                                <div class="flex-grow-1">
-                                    <div class="text-body-1">{{ addGcodeDialog.uploadedFile.name }}</div>
-                                    <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
-                                </div>
-                                <v-btn icon small @click="clearUploadedFile">
-                                    <v-icon>{{ mdiClose }}</v-icon>
-                                </v-btn>
-                            </div>
+                    <!-- File Upload Section -->
+                    <div class="mb-4">
+                        <div class="text-subtitle-2 mb-2">
+                            {{ addGcodeDialog.isEdit ? 'Replace GCode File (Optional)' : 'Select GCode File' }}
                         </div>
-                    </div>
 
-                    <!-- File Upload Section on edit -->
-                    <div class="mb-4" v-if="addGcodeDialog.isEdit">
-                        <div class="text-subtitle-2 mb-2">Replace GCode File (Optional)</div>
-                        <div class="gcode-upload-zone pa-4">
-                            <!-- Upload Area -->
-                            <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
-                                <v-icon size="32" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                <div class="text-body-2 mb-2">Upload a new file to replace the existing one</div>
-                                <v-btn color="primary"
-                                       @click="$refs.editFileInput.click()">
-                                    <v-icon left>{{ mdiFileUpload }}</v-icon>
-                                    Choose New File
-                                </v-btn>
-                                <input ref="editFileInput"
-                                       type="file"
-                                       accept=".gcode,.g,.gco"
-                                       style="display: none"
-                                       @change="onFileSelect" />
-                                <div class="text-caption text--secondary mt-2">
-                                    Leave empty to keep the current file
+                        <!-- File Selection Tabs -->
+                        <v-tabs v-model="addGcodeDialog.activeTab" class="mb-4">
+                            <v-tab>Upload File</v-tab>
+                            <v-tab>Browse Existing</v-tab>
+                        </v-tabs>
+
+                        <v-tabs-items v-model="addGcodeDialog.activeTab">
+                            <!-- Upload Tab -->
+                            <v-tab-item>
+                                <div class="gcode-upload-zone pa-4">
+                                    <!-- Upload Area -->
+                                    <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
+                                        <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                        <div class="text-body-1 mb-3">
+                                            {{ addGcodeDialog.isEdit ? 'Upload a new file to replace the existing one' : 'Choose a GCode file to upload' }}
+                                        </div>
+                                        <v-btn color="primary"
+                                               large
+                                               @click="$refs.fileInput.click()">
+                                            <v-icon left>{{ mdiFileUpload }}</v-icon>
+                                            Choose File
+                                        </v-btn>
+                                        <input ref="fileInput"
+                                               type="file"
+                                               accept=".gcode,.g,.gco"
+                                               style="display: none"
+                                               @change="onFileSelect" />
+                                        <div class="text-caption text--secondary mt-3">
+                                            {{ addGcodeDialog.isEdit ? 'Leave empty to keep the current file' : 'Supported formats: .gcode, .g, .gco' }}
+                                        </div>
+                                    </div>
+
+                                    <!-- Upload Progress -->
+                                    <div v-if="addGcodeDialog.uploading" class="text-center">
+                                        <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                        <div class="text-body-1 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
+                                        <v-progress-linear v-model="addGcodeDialog.uploadProgress"
+                                                           height="8"
+                                                           rounded
+                                                           color="primary"
+                                                           class="mb-2" />
+                                        <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
+                                    </div>
+
+                                    <!-- Upload Success -->
+                                    <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
+                                        <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
+                                        <div class="flex-grow-1">
+                                            <div class="text-body-1">{{ addGcodeDialog.uploadedFile.name }}</div>
+                                            <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
+                                        </div>
+                                        <v-btn icon small @click="clearUploadedFile">
+                                            <v-icon>{{ mdiClose }}</v-icon>
+                                        </v-btn>
+                                    </div>
                                 </div>
-                            </div>
+                            </v-tab-item>
 
-                            <!-- Upload Progress -->
-                            <div v-if="addGcodeDialog.uploading" class="text-center">
-                                <v-icon size="32" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                <div class="text-body-2 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
-                                <v-progress-linear v-model="addGcodeDialog.uploadProgress"
-                                                   height="6"
-                                                   rounded
-                                                   color="primary"
-                                                   class="mb-2" />
-                                <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
-                            </div>
-
-                            <!-- Upload Success -->
-                            <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
-                                <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
-                                <div class="flex-grow-1">
-                                    <div class="text-body-2">{{ addGcodeDialog.uploadedFile.name }}</div>
-                                    <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
+                            <!-- Browse Tab -->
+                            <v-tab-item>
+                                <div class="pa-4">
+                                    <gcode-file-browser selection-mode="multiple"
+                                                        @files-selected="onBrowseFileSelected" />
                                 </div>
-                                <v-btn icon small @click="clearUploadedFile">
-                                    <v-icon>{{ mdiClose }}</v-icon>
-                                </v-btn>
-                            </div>
-                        </div>
+                            </v-tab-item>
+                        </v-tabs-items>
                     </div>
 
                     <!-- Form Fields -->
@@ -1548,6 +1542,7 @@ import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import Panel from '@/components/ui/Panel.vue'
 import { caseInsensitiveSort } from '@/plugins/helpers'
+import GcodeFileBrowser from '@/components/GcodeFileBrowser.vue'
 import {
     mdiBriefcaseOutline,
     mdiMagnify,
@@ -1628,7 +1623,7 @@ interface FleetJobGcodeRun {
 }
 
 @Component({
-    components: { Panel },
+    components: { Panel, GcodeFileBrowser },
 })
 export default class JobListPanel extends Mixins(BaseMixin) {
     mdiBriefcaseOutline = mdiBriefcaseOutline
@@ -1715,6 +1710,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         batchGcodes: [] as BatchGcodeFile[],
         batchUploading: false,
         batchUploadProgress: 0,
+        activeTab: 0,
         form: {
             id: '',
             name: '',
@@ -1737,6 +1733,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         uploadingFileName: '',
         uploadedFile: null as File | null,
         currentGcodeId: '',
+        activeTab: 0,
         form: {
             gcode_filename: '',
             required_runs: 1,
@@ -3408,31 +3405,31 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     // Process batch GCode files (from drag/drop or manual selection)
-    processBatchGcodeFiles(files: File[]) {
-        for (const file of files) {
+    processBatchGcodeFiles(files: FileList) {
+        console.log('🔧 Processing batch GCode files:', files.length)
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i]
             const parsed = this.parseGcodeFilename(file.name)
-        
-            const gcodeFile: BatchGcodeFile = {
+
+            const batchFile = {
                 gcode_filename: file.name,
                 required_runs: parsed.required_runs,
                 preferred_printer: parsed.preferred_printer,
-                filament_type: parsed.filament_type,
+                filament_type: parsed.filament_type, // This might be empty and needs user input
                 originalFile: file
             }
 
-            // Check if file already exists in batch
-            const existingIndex = this.createJobDialog.batchGcodes.findIndex(
-                g => g.gcode_filename === file.name
-            )
-        
-            if (existingIndex >= 0) {
-                // Replace existing
-                this.createJobDialog.batchGcodes.splice(existingIndex, 1, gcodeFile)
-            } else {
-                // Add new
-                this.createJobDialog.batchGcodes.push(gcodeFile)
-            }
+            this.createJobDialog.batchGcodes.push(batchFile)
         }
+
+        // Show a warning if any files have empty filament types
+        const emptyFilamentFiles = this.createJobDialog.batchGcodes.filter(f => !f.filament_type.trim())
+        if (emptyFilamentFiles.length > 0) {
+            this.$toast.warning(`${emptyFilamentFiles.length} file(s) need filament type specified`)
+        }
+
+        this.$toast.success(`Added ${files.length} files. Please review and fill in any missing information.`)
     }
 
     // Remove a file from batch GCode list
@@ -3576,13 +3573,38 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.$toast.info(`Creating ${batchGcodes.length} GCode files...`, { timeout: 2000 })
 
         try {
-            // Prepare batch data
-            const gcodeFiles = batchGcodes.map(gcodeFile => ({
-                gcode_filename: gcodeFile.gcode_filename,
-                required_runs: gcodeFile.required_runs,
-                preferred_printer: gcodeFile.preferred_printer,
-                filament_type: gcodeFile.filament_type
-            }))
+            // Prepare batch data with validation
+            const gcodeFiles = batchGcodes.map((gcodeFile, index) => {
+                console.log(`🔍 Processing file ${index + 1}:`, gcodeFile)
+
+                // Ensure all required fields are present and valid
+                const processedFile = {
+                    gcode_filename: String(gcodeFile.gcode_filename || '').trim(),
+                    required_runs: Number(gcodeFile.required_runs) || 1,
+                    preferred_printer: String(gcodeFile.preferred_printer || 'any').trim(),
+                    filament_type: String(gcodeFile.filament_type || '').trim()
+                }
+
+                console.log(`✅ Processed file ${index + 1}:`, processedFile)
+
+                // Validate required fields
+                if (!processedFile.gcode_filename) {
+                    throw new Error(`File ${index + 1}: Missing filename`)
+                }
+                if (!processedFile.filament_type) {
+                    throw new Error(`File ${index + 1}: Missing filament type`)
+                }
+                if (processedFile.required_runs <= 0) {
+                    throw new Error(`File ${index + 1}: Invalid required runs`)
+                }
+                if (!['HS-Pro', 'HS3', 'any'].includes(processedFile.preferred_printer)) {
+                    throw new Error(`File ${index + 1}: Invalid printer preference`)
+                }
+
+                return processedFile
+            })
+
+            console.log('🔧 Final batch data:', { jobId, gcodeFiles })
 
             // Single batch API call
             const result = await this.$store.dispatch('fleet/jobs/createJobGcodesBatch', {
@@ -3590,11 +3612,13 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 gcodeFiles: gcodeFiles
             })
 
+            console.log('✅ Batch creation result:', result)
+
             // Handle results
             if (result.created_count > 0) {
                 this.$toast.success(`✅ Successfully created ${result.created_count} GCode files`)
             }
-        
+
             if (result.failed_count > 0) {
                 this.$toast.error(`❌ Failed to create ${result.failed_count} GCode files`)
                 result.errors.forEach(error => {
@@ -3603,8 +3627,9 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             }
 
         } catch (error) {
-            console.error('Batch GCode creation failed:', error)
-            this.$toast.error('Batch GCode creation failed')
+            console.error('❌ Batch GCode creation failed:', error)
+            console.error('❌ Error response:', error.response?.data)
+            this.$toast.error('Batch GCode creation failed: ' + (error.response?.data?.detail || error.message))
         } finally {
             await this.refreshJobsInBackground()
         }
@@ -3618,6 +3643,76 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             console.error('Background refresh failed:', error)
             this.$toast.error('Failed to refresh jobs list')
         }
+    }
+
+
+    onBrowseFileSelected(files: any[]) {
+        if (files.length === 1) {
+            // Single file - auto-fill the form
+            const file = files[0]
+            const parsed = this.parseGcodeFilename(file.filename)
+
+            this.addGcodeDialog.form = {
+                gcode_filename: file.filename,
+                required_runs: parsed.required_runs,
+                preferred_printer: parsed.preferred_printer,
+                filament_type: parsed.filament_type,
+            }
+
+            this.$toast.success(`Selected file: ${file.filename}`)
+        } else if (files.length > 1) {
+            // Multiple files - add them to batch and close this dialog
+            const processedFiles = files.map(file => {
+                const parsed = this.parseGcodeFilename(file.filename)
+                return {
+                    gcode_filename: file.filename,
+                    required_runs: parsed.required_runs,
+                    preferred_printer: parsed.preferred_printer,
+                    filament_type: parsed.filament_type,
+                    originalFile: null
+                }
+            })
+
+            // Add to the current job's batch gcodes (if create job dialog is open)
+            if (this.createJobDialog.show) {
+                processedFiles.forEach(newFile => {
+                    const existingIndex = this.createJobDialog.batchGcodes.findIndex(
+                        existing => existing.gcode_filename === newFile.gcode_filename
+                    )
+
+                    if (existingIndex >= 0) {
+                        this.createJobDialog.batchGcodes.splice(existingIndex, 1, newFile)
+                    } else {
+                        this.createJobDialog.batchGcodes.push(newFile)
+                    }
+                })
+            }
+
+            this.$toast.success(`Added ${files.length} files to batch`)
+            this.closeAddGcodeDialog()
+        }
+    }
+
+    onBrowseFilesSelected(files: any[]) {
+        // Process selected files for batch creation
+        const processedFiles = files.map(file => {
+            const parsed = this.parseGcodeFilename(file.filename)
+            return {
+                gcode_filename: file.filename,
+                required_runs: parsed.required_runs,
+                preferred_printer: parsed.preferred_printer,
+                filament_type: parsed.filament_type,
+                originalFile: null // Since these are existing files
+            }
+        })
+
+        // Add to batch (or replace existing)
+        this.createJobDialog.batchGcodes = [
+            ...this.createJobDialog.batchGcodes,
+            ...processedFiles
+        ]
+
+        this.$toast.success(`Added ${files.length} file(s) to job creation`)
     }
 
     @Watch('allJobRuns', { deep: true })
@@ -3822,6 +3917,14 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
 .theme--dark .dialog-loading-overlay {
     background: rgba(33, 33, 33, 0.9);
+}
+
+.v-tabs {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.v-tab {
+    text-transform: none !important;
 }
 
 </style>
