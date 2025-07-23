@@ -444,7 +444,9 @@
                                     <!-- Browse Tab -->
                                     <v-tab-item>
                                         <div class="pa-4">
-                                            <gcode-file-browser selection-mode="multiple"
+                                            <gcode-file-browser :key="`create-browse-${createJobDialog.dialogKey}`"
+                                                                :reset-key="createJobDialog.dialogKey"
+                                                                selection-mode="multiple"
                                                                 @files-selected="onBrowseFilesSelected" />
                                         </div>
                                     </v-tab-item>
@@ -629,7 +631,9 @@
                             <!-- Browse Tab -->
                             <v-tab-item>
                                 <div class="pa-4">
-                                    <gcode-file-browser selection-mode="multiple"
+                                    <gcode-file-browser :key="`add-browse-${addGcodeDialog.dialogKey}`"
+                                                        :reset-key="addGcodeDialog.dialogKey"
+                                                        selection-mode="multiple"
                                                         @files-selected="onBrowseFileSelected" />
                                 </div>
                             </v-tab-item>
@@ -1932,6 +1936,12 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     editJob(item: FleetJob) {
+        // Clear any existing batch data since edit mode doesn't use batch upload
+        this.createJobDialog.batchGcodes = []
+        this.createJobDialog.batchUploading = false
+        this.createJobDialog.batchUploadProgress = 0
+        this.createJobDialog.activeTab = 0
+
         this.createJobDialog.isEdit = true
         this.createJobDialog.form = {
             id: item.id,
@@ -1941,7 +1951,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             priority: item.priority,
             operator_name: item.operator_name || '',
             description: item.description || '',
-            due_date: item.due_date ? item.due_date.split('T')[0] : '', // Convert ISO datetime to YYYY-MM-DD
+            due_date: item.due_date ? item.due_date.split('T')[0] : '',
         }
         this.createJobDialog.show = true
     }
@@ -1958,7 +1968,26 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     openCreateJobDialog() {
+        // Ensure clean state when opening for create
         this.createJobDialog.isEdit = false
+        this.createJobDialog.batchGcodes = []
+        this.createJobDialog.batchUploading = false
+        this.createJobDialog.batchUploadProgress = 0
+        this.createJobDialog.activeTab = 0
+        this.createJobDialog.loading = false
+
+        // Clear form
+        this.createJobDialog.form = {
+            id: '',
+            name: '',
+            customer_id: '',
+            job_type: 'sample',
+            priority: 'low',
+            operator_name: '',
+            description: '',
+            due_date: '',
+        }
+
         this.createJobDialog.show = true
     }
 
@@ -2464,15 +2493,14 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.createJobDialog.show = false
         this.createJobDialog.isEdit = false
         this.createJobDialog.loading = false
-    
-        // Store batch data before clearing for background processing
-        const batchGcodes = [...this.createJobDialog.batchGcodes]
-    
-        // Clear all state
+
+        // Clear all batch-related state
         this.createJobDialog.batchGcodes = []
         this.createJobDialog.batchUploading = false
         this.createJobDialog.batchUploadProgress = 0
-    
+        this.createJobDialog.activeTab = 0 // Reset to upload tab
+
+        // Clear form data
         this.createJobDialog.form = {
             id: '',
             name: '',
@@ -2483,13 +2511,13 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             description: '',
             due_date: '',
         }
-    
+
         // Reset form validation
         if (this.$refs.jobForm) {
             (this.$refs.jobForm as any).resetValidation()
         }
-    
-        console.log('✅ Create job dialog closed immediately')
+
+        console.log('✅ Create job dialog closed and state cleared')
     }
 
     get highPriorityJobsCount(): number {
@@ -3423,6 +3451,25 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.cacheCleanupTimeout = window.setTimeout(() => {
             this.runStatisticsCache = {}
         }, 100)
+    }
+    @Watch('createJobDialog.show')
+    onCreateJobDialogToggle(newVal: boolean, oldVal: boolean) {
+        // If dialog was closed (show changed from true to false) and it wasn't via our closeCreateJobDialog method
+        if (oldVal === true && newVal === false) {
+            // Ensure cleanup happens even if closed via ESC or clicking outside
+            this.$nextTick(() => {
+                if (!this.createJobDialog.show) {
+                    // Clear batch data
+                    this.createJobDialog.batchGcodes = []
+                    this.createJobDialog.batchUploading = false
+                    this.createJobDialog.batchUploadProgress = 0
+                    this.createJobDialog.activeTab = 0
+                    this.createJobDialog.loading = false
+
+                    console.log('✅ Dialog closed via v-model, state cleaned up')
+                }
+            })
+        }
     }
 
     beforeDestroy() {
