@@ -551,10 +551,10 @@
 
         <!-- Add GCode Dialog -->
         <v-dialog v-model="addGcodeDialog.show"
-                  :max-width="600"
+                  :max-width="800"
                   persistent
                   @keydown.esc="closeAddGcodeDialog">
-            <panel :title="addGcodeDialog.isEdit ? 'Edit GCode File' : 'Add GCode File'"
+            <panel :title="addGcodeDialogTitle"
                    :icon="addGcodeDialog.isEdit ? mdiPencil : mdiCodeBraces"
                    card-class="add-gcode-dialog"
                    :margin-bottom="false">
@@ -564,133 +564,235 @@
                     </v-btn>
                 </template>
                 <v-card-text>
-                    <!-- File Upload Section -->
-                    <div class="mb-4">
-                        <div class="text-subtitle-2 mb-2">
-                            {{ addGcodeDialog.isEdit ? 'Replace GCode File (Optional)' : 'Select GCode File' }}
+                    <!-- Single File Mode -->
+                    <div v-if="!addGcodeDialog.isBatchMode">
+                        <!-- File Upload Section -->
+                        <div class="mb-4">
+                            <div class="text-subtitle-2 mb-2">
+                                {{ addGcodeDialog.isEdit ? 'Replace GCode File (Optional)' : 'Select GCode File' }}
+                            </div>
+
+                            <!-- File Selection Tabs -->
+                            <v-tabs v-model="addGcodeDialog.activeTab" class="mb-4">
+                                <v-tab>Upload File</v-tab>
+                                <v-tab>Browse Existing</v-tab>
+                            </v-tabs>
+
+                            <v-tabs-items v-model="addGcodeDialog.activeTab">
+                                <!-- Upload Tab -->
+                                <v-tab-item>
+                                    <div class="gcode-upload-zone pa-4">
+                                        <!-- Upload Area -->
+                                        <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
+                                            <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                            <div class="text-body-1 mb-3">
+                                                {{ addGcodeDialog.isEdit ? 'Upload a new file to replace the existing one' : 'Choose a GCode file to upload' }}
+                                            </div>
+                                            <v-btn color="primary"
+                                                   large
+                                                   @click="$refs.fileInput.click()">
+                                                <v-icon left>{{ mdiFileUpload }}</v-icon>
+                                                Choose File
+                                            </v-btn>
+                                            <input ref="fileInput"
+                                                   type="file"
+                                                   accept=".gcode,.g,.gco"
+                                                   style="display: none"
+                                                   @change="onFileSelect" />
+                                            <div class="text-caption text--secondary mt-3">
+                                                {{ addGcodeDialog.isEdit ? 'Leave empty to keep the current file' : 'Supported formats: .gcode, .g, .gco' }}
+                                            </div>
+                                        </div>
+
+                                        <!-- Upload Progress -->
+                                        <div v-if="addGcodeDialog.uploading" class="text-center">
+                                            <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
+                                            <div class="text-body-1 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
+                                            <v-progress-linear v-model="addGcodeDialog.uploadProgress"
+                                                               height="8"
+                                                               rounded
+                                                               color="primary"
+                                                               class="mb-2" />
+                                            <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
+                                        </div>
+
+                                        <!-- Upload Success -->
+                                        <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
+                                            <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
+                                            <div class="flex-grow-1">
+                                                <div class="text-body-1">{{ addGcodeDialog.uploadedFile.name }}</div>
+                                                <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
+                                            </div>
+                                            <v-btn icon small @click="clearUploadedFile">
+                                                <v-icon>{{ mdiClose }}</v-icon>
+                                            </v-btn>
+                                        </div>
+                                    </div>
+                                </v-tab-item>
+
+                                <!-- Browse Tab -->
+                                <v-tab-item>
+                                    <div class="pa-4">
+                                        <gcode-file-browser :key="`add-browse-${addGcodeDialog.dialogKey}`"
+                                                            :reset-key="addGcodeDialog.dialogKey"
+                                                            selection-mode="multiple"
+                                                            @files-selected="onBrowseFileSelected" />
+                                    </div>
+                                </v-tab-item>
+                            </v-tabs-items>
                         </div>
 
-                        <!-- File Selection Tabs -->
-                        <v-tabs v-model="addGcodeDialog.activeTab" class="mb-4">
-                            <v-tab>Upload File</v-tab>
-                            <v-tab>Browse Existing</v-tab>
-                        </v-tabs>
-
-                        <v-tabs-items v-model="addGcodeDialog.activeTab">
-                            <!-- Upload Tab -->
-                            <v-tab-item>
-                                <div class="gcode-upload-zone pa-4">
-                                    <!-- Upload Area -->
-                                    <div v-if="!addGcodeDialog.uploading && !addGcodeDialog.uploadedFile" class="text-center">
-                                        <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                        <div class="text-body-1 mb-3">
-                                            {{ addGcodeDialog.isEdit ? 'Upload a new file to replace the existing one' : 'Choose a GCode file to upload' }}
-                                        </div>
-                                        <v-btn color="primary"
-                                               large
-                                               @click="$refs.fileInput.click()">
-                                            <v-icon left>{{ mdiFileUpload }}</v-icon>
-                                            Choose File
-                                        </v-btn>
-                                        <input ref="fileInput"
-                                               type="file"
-                                               accept=".gcode,.g,.gco"
-                                               style="display: none"
-                                               @change="onFileSelect" />
-                                        <div class="text-caption text--secondary mt-3">
-                                            {{ addGcodeDialog.isEdit ? 'Leave empty to keep the current file' : 'Supported formats: .gcode, .g, .gco' }}
-                                        </div>
-                                    </div>
-
-                                    <!-- Upload Progress -->
-                                    <div v-if="addGcodeDialog.uploading" class="text-center">
-                                        <v-icon size="48" color="primary" class="mb-2">{{ mdiCloudUpload }}</v-icon>
-                                        <div class="text-body-1 mb-2">Uploading {{ addGcodeDialog.uploadingFileName }}...</div>
-                                        <v-progress-linear v-model="addGcodeDialog.uploadProgress"
-                                                           height="8"
-                                                           rounded
-                                                           color="primary"
-                                                           class="mb-2" />
-                                        <div class="text-caption">{{ Math.round(addGcodeDialog.uploadProgress) }}%</div>
-                                    </div>
-
-                                    <!-- Upload Success -->
-                                    <div v-if="addGcodeDialog.uploadedFile" class="d-flex align-center">
-                                        <v-icon color="success" class="mr-2">{{ mdiCheckCircle }}</v-icon>
-                                        <div class="flex-grow-1">
-                                            <div class="text-body-1">{{ addGcodeDialog.uploadedFile.name }}</div>
-                                            <div class="text-caption text--secondary">{{ formatFileSize(addGcodeDialog.uploadedFile.size) }}</div>
-                                        </div>
-                                        <v-btn icon small @click="clearUploadedFile">
-                                            <v-icon>{{ mdiClose }}</v-icon>
-                                        </v-btn>
-                                    </div>
-                                </div>
-                            </v-tab-item>
-
-                            <!-- Browse Tab -->
-                            <v-tab-item>
-                                <div class="pa-4">
-                                    <gcode-file-browser :key="`add-browse-${addGcodeDialog.dialogKey}`"
-                                                        :reset-key="addGcodeDialog.dialogKey"
-                                                        selection-mode="multiple"
-                                                        @files-selected="onBrowseFileSelected" />
-                                </div>
-                            </v-tab-item>
-                        </v-tabs-items>
+                        <!-- Single File Form Fields -->
+                        <v-form ref="gcodeForm" v-model="addGcodeDialog.valid">
+                            <v-row>
+                                <v-col cols="12">
+                                    <v-text-field v-model="addGcodeDialog.form.gcode_filename"
+                                                  label="GCode Filename"
+                                                  :rules="[v => !!v || 'Filename is required']"
+                                                  outlined
+                                                  dense
+                                                  required
+                                                  :readonly="!!addGcodeDialog.uploadedFile"
+                                                  :hint="addGcodeDialog.uploadedFile ? 'Auto-filled from uploaded file' : (addGcodeDialog.isEdit ? 'Edit filename or upload new file to replace' : 'Or enter filename manually')"
+                                                  persistent-hint />
+                                </v-col>
+                                <v-col cols="6">
+                                    <v-text-field v-model.number="addGcodeDialog.form.required_runs"
+                                                  label="Required Runs"
+                                                  type="number"
+                                                  :rules="[v => v > 0 || 'Must be greater than 0']"
+                                                  outlined
+                                                  dense
+                                                  required />
+                                </v-col>
+                                <v-col cols="6">
+                                    <v-select v-model="addGcodeDialog.form.preferred_printer"
+                                              :items="printerOptions"
+                                              label="Preferred Printer"
+                                              :rules="[v => !!v || 'Printer preference is required']"
+                                              outlined
+                                              dense
+                                              required />
+                                </v-col>
+                                <v-col cols="12">
+                                    <v-text-field v-model="addGcodeDialog.form.filament_type"
+                                                  label="Filament Type (e.g., PLA, PETG, ABS)"
+                                                  :rules="[v => !!v || 'Filament type is required']"
+                                                  outlined
+                                                  dense
+                                                  required />
+                                </v-col>
+                            </v-row>
+                        </v-form>
                     </div>
 
-                    <!-- Form Fields -->
-                    <v-form ref="gcodeForm" v-model="addGcodeDialog.valid">
-                        <v-row>
-                            <v-col cols="12">
-                                <v-text-field v-model="addGcodeDialog.form.gcode_filename"
-                                              label="GCode Filename"
-                                              :rules="[v => !!v || 'Filename is required']"
-                                              outlined
-                                              dense
-                                              required
-                                              :readonly="!!addGcodeDialog.uploadedFile"
-                                              :hint="addGcodeDialog.uploadedFile ? 'Auto-filled from uploaded file' : (addGcodeDialog.isEdit ? 'Edit filename or upload new file to replace' : 'Or enter filename manually')"
-                                              persistent-hint />
-                            </v-col>
-                            <v-col cols="6">
-                                <v-text-field v-model.number="addGcodeDialog.form.required_runs"
-                                              label="Required Runs"
-                                              type="number"
-                                              :rules="[v => v > 0 || 'Must be greater than 0']"
-                                              outlined
-                                              dense
-                                              required />
-                            </v-col>
-                            <v-col cols="6">
-                                <v-select v-model="addGcodeDialog.form.preferred_printer"
-                                          :items="printerOptions"
-                                          label="Preferred Printer"
-                                          :rules="[v => !!v || 'Printer preference is required']"
-                                          outlined
-                                          dense
-                                          required />
-                            </v-col>
-                            <v-col cols="12">
-                                <v-text-field v-model="addGcodeDialog.form.filament_type"
-                                              label="Filament Type (e.g., PLA, PETG, ABS)"
-                                              :rules="[v => !!v || 'Filament type is required']"
-                                              outlined
-                                              dense
-                                              required />
-                            </v-col>
-                        </v-row>
-                    </v-form>
+                    <!-- Batch Mode -->
+                    <div v-else>
+                        <div class="d-flex justify-space-between align-center mb-3">
+                            <div class="text-subtitle-2">
+                                Selected Files for Batch Creation ({{ addGcodeDialog.batchGcodes.length }})
+                            </div>
+                            <div class="d-flex align-center">
+                                <v-btn small
+                                       text
+                                       color="primary"
+                                       @click="addGcodeDialog.activeTab = 1">
+                                    <v-icon small left>{{ mdiPlus }}</v-icon>
+                                    Add More Files
+                                </v-btn>
+                                <v-btn small
+                                       text
+                                       color="error"
+                                       @click="clearBatchGcodesFromAdd">
+                                    <v-icon small left>{{ mdiDelete }}</v-icon>
+                                    Clear All
+                                </v-btn>
+                            </div>
+                        </div>
+
+                        <!-- Browse Tab for adding more files -->
+                        <div v-if="addGcodeDialog.activeTab === 1" class="mb-4 pa-4" style="border: 1px solid #e0e0e0; border-radius: 4px;">
+                            <div class="text-subtitle-2 mb-2">Browse for Additional Files</div>
+                            <gcode-file-browser :key="`add-batch-browse-${addGcodeDialog.dialogKey}`"
+                                                :reset-key="addGcodeDialog.dialogKey"
+                                                selection-mode="multiple"
+                                                @files-selected="onBrowseFileSelected" />
+                        </div>
+
+                        <!-- Batch Files List -->
+                        <div class="batch-gcode-items-container" style="max-height: 400px; overflow-y: auto;">
+                            <div v-for="(gcode, index) in addGcodeDialog.batchGcodes"
+                                 :key="index"
+                                 class="batch-gcode-item pa-3 mb-2"
+                                 style="border: 1px solid #e0e0e0; border-radius: 8px; background-color: rgba(0,0,0,0.05);">
+                                <!-- File header -->
+                                <div class="d-flex justify-space-between align-center mb-2">
+                                    <div class="font-weight-bold text--primary" style="font-size: 14px;">
+                                        {{ gcode.gcode_filename }}
+                                    </div>
+                                    <v-btn icon
+                                           x-small
+                                           color="error"
+                                           @click="removeBatchGcodeFromAdd(index)"
+                                           title="Remove file">
+                                        <v-icon x-small>{{ mdiClose }}</v-icon>
+                                    </v-btn>
+                                </div>
+
+                                <!-- Editable fields -->
+                                <v-row dense>
+                                    <v-col cols="6">
+                                        <v-text-field v-model.number="gcode.required_runs"
+                                                      label="Required Runs"
+                                                      type="number"
+                                                      :rules="[v => v > 0 || 'Must be > 0']"
+                                                      outlined
+                                                      dense
+                                                      hide-details="auto" />
+                                    </v-col>
+                                    <v-col cols="6">
+                                        <v-select v-model="gcode.preferred_printer"
+                                                  :items="printerOptions"
+                                                  label="Printer"
+                                                  outlined
+                                                  dense
+                                                  hide-details="auto" />
+                                    </v-col>
+                                    <v-col cols="12">
+                                        <v-text-field v-model="gcode.filament_type"
+                                                      label="Filament Type"
+                                                      :rules="[v => !!v || 'Filament type is required']"
+                                                      outlined
+                                                      dense
+                                                      required
+                                                      hide-details="auto" />
+                                    </v-col>
+                                </v-row>
+
+                                <!-- Auto-parsed info chips -->
+                                <div class="mt-2">
+                                    <v-chip x-small color="blue" text-color="white" class="mr-1">
+                                        {{ gcode.filament_type || 'Unknown' }}
+                                    </v-chip>
+                                    <v-chip x-small color="orange" text-color="white" class="mr-1">
+                                        {{ gcode.required_runs }} runs
+                                    </v-chip>
+                                    <v-chip x-small color="green" text-color="white">
+                                        {{ gcode.preferred_printer || 'Any' }}
+                                    </v-chip>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </v-card-text>
                 <v-card-actions>
                     <v-spacer />
                     <v-btn color="" text @click="closeAddGcodeDialog">Cancel</v-btn>
                     <v-btn color="primary"
                            :loading="addGcodeDialog.loading"
-                           :disabled="!addGcodeDialog.valid || addGcodeDialog.uploading"
+                           :disabled="!canSaveGcode"
                            @click="saveGcode">
-                        {{ addGcodeDialog.isEdit ? 'Update' : 'Add' }} GCode
+                        {{ addGcodeSaveButtonText }}
                     </v-btn>
                 </v-card-actions>
             </panel>
@@ -1384,6 +1486,9 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         uploadedFile: null as File | null,
         currentGcodeId: '',
         activeTab: 0,
+        dialogKey: 0,
+        isBatchMode: false,
+        batchGcodes: [] as BatchGcodeFile[],
         form: {
             gcode_filename: '',
             required_runs: 1,
@@ -1705,27 +1810,64 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
         try {
             this.detailsDialog.loadingGcodes = true
-        
+            this.detailsDialog.loadingRuns = true
+
+            console.log('🔄 Loading complete job data with single API call...')
+
+            // Single API call to get everything
+            const response = await this.$store.dispatch('fleet/jobs/loadJobComplete', jobId)
+
+            console.log('✅ Received complete job data:', response)
+
+            // Extract the data from the complete response
+            this.jobGcodes = response.gcode_files || []
+
+            // Build allJobRuns from the complete response
+            const newAllJobRuns: { [gcodeId: string]: FleetJobGcodeRun[] } = {}
+            response.gcode_files.forEach((gcode: any) => {
+                newAllJobRuns[gcode.id] = gcode.runs || []
+            })
+            this.allJobRuns = newAllJobRuns
+
+            // Clear cache since we have fresh data
+            this.runStatisticsCache = {}
+
+            console.log('✅ Job data loaded:', {
+                gcodes: this.jobGcodes.length,
+                totalRuns: Object.values(newAllJobRuns).reduce((sum, runs) => sum + runs.length, 0)
+            })
+
+        } catch (error) {
+            console.error('❌ Failed to load complete job data:', error)
+            this.$toast.error('Failed to load job details')
+
+            // Fallback to individual API calls if the complete endpoint fails
+            console.log('🔄 Falling back to individual API calls...')
+            await this.loadJobGcodesAndRunsFallback(jobId)
+
+        } finally {
+            this.detailsDialog.loadingGcodes = false
+            this.detailsDialog.loadingRuns = false
+        }
+    }
+
+    async loadJobGcodesAndRunsFallback(jobId: string) {
+        try {
             // Load gcode files
             this.jobGcodes = await this.$store.dispatch('fleet/jobs/loadJobGcodes', jobId)
-            this.detailsDialog.loadingGcodes = false
-        
-            // OPTIMIZATION: Early return if no gcode files to avoid unnecessary API calls
+
+            // Early return if no gcode files to avoid unnecessary API calls
             if (!this.jobGcodes || this.jobGcodes.length === 0) {
                 this.allJobRuns = {}
                 return
             }
-        
-            // Load runs only if we have gcode files
-            this.detailsDialog.loadingRuns = true
+
+            // Load runs for each gcode file
             await this.loadAllJobRuns()
-            this.detailsDialog.loadingRuns = false
-        
+
         } catch (error) {
-            console.error('Failed to load job gcodes and runs:', error)
-            this.detailsDialog.loadingGcodes = false
-            this.detailsDialog.loadingRuns = false
-            this.$toast.error('Failed to load job details')
+            console.error('❌ Fallback loading also failed:', error)
+            throw error
         }
     }
 
@@ -1735,11 +1877,11 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             return
         }
 
-        // OPTIMIZATION: Clear cache before loading new data
+        // Clear cache before loading new data
         this.runStatisticsCache = {}
 
         try {
-            // OPTIMIZATION: Load runs in parallel with better error isolation
+            // Load runs in parallel with better error isolation
             const runPromises = this.jobGcodes.map(async (gcode) => {
                 try {
                     const runs = await this.$store.dispatch('fleet/jobs/loadJobGcodeRuns', gcode.id)
@@ -1753,8 +1895,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
             const results = await Promise.all(runPromises)
 
-            // OPTIMIZATION: Build new object once instead of multiple Vue.set calls
-            // Fix: Type the object properly
+            // Build new object once instead of multiple Vue.set calls
             const newAllJobRuns: { [gcodeId: string]: FleetJobGcodeRun[] } = {}
             results.forEach(({ gcodeId, runs, error }) => {
                 newAllJobRuns[gcodeId] = runs
@@ -2100,33 +2241,98 @@ export default class JobListPanel extends Mixins(BaseMixin) {
     }
 
     async saveGcode() {
-        if (!this.addGcodeDialog.valid || !this.detailsDialog.item) return
+        if (!this.detailsDialog.item) return
 
-        this.addGcodeDialog.loading = true
-        try {
-            if (this.addGcodeDialog.isEdit) {
-                // Update existing gcode
-                await this.$store.dispatch('fleet/jobs/updateJobGcode', {
-                    gcodeId: this.addGcodeDialog.currentGcodeId,
-                    gcode: this.addGcodeDialog.form
-                })
-                this.$toast.success('GCode file updated successfully')
-            } else {
-                // Create new gcode
-                await this.$store.dispatch('fleet/jobs/createJobGcode', {
-                    jobId: this.detailsDialog.item.id,
-                    gcode: this.addGcodeDialog.form
-                })
-                this.$toast.success('GCode file added successfully')
+        if (this.addGcodeDialog.isBatchMode) {
+            // Batch mode - create multiple GCode files
+            if (this.addGcodeDialog.batchGcodes.length === 0) {
+                this.$toast.error('No files selected for batch creation')
+                return
             }
-        
-            await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
-            this.closeAddGcodeDialog()
-        } catch (error) {
-            console.error('Failed to save gcode:', error)
-            this.$toast.error(`Failed to ${this.addGcodeDialog.isEdit ? 'update' : 'add'} GCode file`)
-        } finally {
-            this.addGcodeDialog.loading = false
+
+            // Validate all batch files
+            const invalidFiles = this.addGcodeDialog.batchGcodes.filter(file =>
+                !file.gcode_filename.trim() ||
+                !file.filament_type.trim() ||
+                file.required_runs <= 0
+            )
+
+            if (invalidFiles.length > 0) {
+                this.$toast.error(`${invalidFiles.length} file(s) have missing or invalid information`)
+                return
+            }
+
+            this.addGcodeDialog.loading = true
+            try {
+                let successCount = 0
+                let failCount = 0
+
+                for (const gcodeFile of this.addGcodeDialog.batchGcodes) {
+                    try {
+                        await this.$store.dispatch('fleet/jobs/createJobGcode', {
+                            jobId: this.detailsDialog.item.id,
+                            gcode: {
+                                gcode_filename: gcodeFile.gcode_filename,
+                                required_runs: gcodeFile.required_runs,
+                                preferred_printer: gcodeFile.preferred_printer,
+                                filament_type: gcodeFile.filament_type
+                            }
+                        })
+                        successCount++
+                    } catch (error) {
+                        console.error(`Failed to create GCode file ${gcodeFile.gcode_filename}:`, error)
+                        failCount++
+                    }
+                }
+
+                // Report results
+                if (successCount > 0) {
+                    this.$toast.success(`Successfully created ${successCount} GCode files`)
+                }
+                if (failCount > 0) {
+                    this.$toast.error(`Failed to create ${failCount} GCode files`)
+                }
+
+                if (successCount > 0) {
+                    await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+                    this.closeAddGcodeDialog()
+                }
+
+            } catch (error) {
+                console.error('Batch GCode creation failed:', error)
+                this.$toast.error('Batch GCode creation failed')
+            } finally {
+                this.addGcodeDialog.loading = false
+            }
+
+        } else {
+            // Single mode - existing behavior
+            if (!this.addGcodeDialog.valid) return
+
+            this.addGcodeDialog.loading = true
+            try {
+                if (this.addGcodeDialog.isEdit) {
+                    await this.$store.dispatch('fleet/jobs/updateJobGcode', {
+                        gcodeId: this.addGcodeDialog.currentGcodeId,
+                        gcode: this.addGcodeDialog.form
+                    })
+                    this.$toast.success('GCode file updated successfully')
+                } else {
+                    await this.$store.dispatch('fleet/jobs/createJobGcode', {
+                        jobId: this.detailsDialog.item.id,
+                        gcode: this.addGcodeDialog.form
+                    })
+                    this.$toast.success('GCode file added successfully')
+                }
+
+                await this.loadJobGcodesAndRuns(this.detailsDialog.item.id)
+                this.closeAddGcodeDialog()
+            } catch (error) {
+                console.error('Failed to save gcode:', error)
+                this.$toast.error(`Failed to ${this.addGcodeDialog.isEdit ? 'update' : 'add'} GCode file`)
+            } finally {
+                this.addGcodeDialog.loading = false
+            }
         }
     }
 
@@ -2532,6 +2738,49 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         return this.jobs.filter((job: FleetJob) => job.priority === 'low').length
     }
 
+    get addGcodeDialogTitle() {
+        if (this.addGcodeDialog.isEdit) {
+            return 'Edit GCode File'
+        } else if (this.addGcodeDialog.isBatchMode) {
+            return `Add ${this.addGcodeDialog.batchGcodes.length} GCode Files`
+        } else {
+            return 'Add GCode File'
+        }
+    }
+
+    get addGcodeSaveButtonText() {
+        if (this.addGcodeDialog.isEdit) {
+            return 'Update GCode'
+        } else if (this.addGcodeDialog.isBatchMode) {
+            return `Create ${this.addGcodeDialog.batchGcodes.length} GCode Files`
+        } else {
+            return 'Add GCode'
+        }
+    }
+
+    get canSaveGcode() {
+        if (this.addGcodeDialog.uploading) {
+            return false
+        }
+
+        if (this.addGcodeDialog.isBatchMode) {
+            // Batch mode - check if we have files and all are valid
+            if (this.addGcodeDialog.batchGcodes.length === 0) {
+                return false
+            }
+
+            // Check if all batch files have required fields
+            return this.addGcodeDialog.batchGcodes.every(file =>
+                file.gcode_filename.trim() &&
+                file.filament_type.trim() &&
+                file.required_runs > 0
+            )
+        } else {
+            // Single mode - use form validation
+            return this.addGcodeDialog.valid
+        }
+    }
+
     closeAddGcodeDialog() {
         this.addGcodeDialog.show = false
         this.addGcodeDialog.isEdit = false
@@ -2540,6 +2789,10 @@ export default class JobListPanel extends Mixins(BaseMixin) {
         this.addGcodeDialog.uploadingFileName = ''
         this.addGcodeDialog.uploadedFile = null
         this.addGcodeDialog.currentGcodeId = ''
+        this.addGcodeDialog.dialogKey++
+        this.addGcodeDialog.activeTab = 0
+        this.addGcodeDialog.isBatchMode = false // Clear batch mode
+        this.addGcodeDialog.batchGcodes = [] // Clear batch files
         this.addGcodeDialog.form = {
             gcode_filename: '',
             required_runs: 1,
@@ -3304,7 +3557,7 @@ export default class JobListPanel extends Mixins(BaseMixin) {
 
     onBrowseFileSelected(files: any[]) {
         if (files.length === 1) {
-            // Single file - auto-fill the form
+            // Single file - auto-fill the form (existing behavior)
             const file = files[0]
             const parsed = this.parseGcodeFilename(file.filename)
 
@@ -3314,10 +3567,11 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 preferred_printer: parsed.preferred_printer,
                 filament_type: parsed.filament_type,
             }
+            this.addGcodeDialog.isBatchMode = false
 
             this.$toast.success(`Selected file: ${file.filename}`)
         } else if (files.length > 1) {
-            // Multiple files - add them to batch and close this dialog
+            // Multiple files - enter batch mode and populate batch list
             const processedFiles = files.map(file => {
                 const parsed = this.parseGcodeFilename(file.filename)
                 return {
@@ -3329,23 +3583,18 @@ export default class JobListPanel extends Mixins(BaseMixin) {
                 }
             })
 
-            // Add to the current job's batch gcodes (if create job dialog is open)
-            if (this.createJobDialog.show) {
-                processedFiles.forEach(newFile => {
-                    const existingIndex = this.createJobDialog.batchGcodes.findIndex(
-                        existing => existing.gcode_filename === newFile.gcode_filename
-                    )
+            this.addGcodeDialog.batchGcodes = processedFiles
+            this.addGcodeDialog.isBatchMode = true
 
-                    if (existingIndex >= 0) {
-                        this.createJobDialog.batchGcodes.splice(existingIndex, 1, newFile)
-                    } else {
-                        this.createJobDialog.batchGcodes.push(newFile)
-                    }
-                })
+            // Clear single file form since we're in batch mode
+            this.addGcodeDialog.form = {
+                gcode_filename: '',
+                required_runs: 1,
+                preferred_printer: 'any',
+                filament_type: '',
             }
 
-            this.$toast.success(`Added ${files.length} files to batch`)
-            this.closeAddGcodeDialog()
+            this.$toast.success(`Selected ${files.length} files for batch creation`)
         }
     }
 
@@ -3411,6 +3660,20 @@ export default class JobListPanel extends Mixins(BaseMixin) {
             console.error('Failed to update job status from details:', error)
             this.$toast.error('Failed to update job status')
         }
+    }
+
+    removeBatchGcodeFromAdd(index: number) {
+        this.addGcodeDialog.batchGcodes.splice(index, 1)
+
+        // Exit batch mode if no files left
+        if (this.addGcodeDialog.batchGcodes.length === 0) {
+            this.addGcodeDialog.isBatchMode = false
+        }
+    }
+
+    clearBatchGcodesFromAdd() {
+        this.addGcodeDialog.batchGcodes = []
+        this.addGcodeDialog.isBatchMode = false
     }
 
     onJobDetailsEditJob(job: FleetJob) {

@@ -7,6 +7,16 @@ import axios from 'axios'
 
 const FLEET_API_URL = 'http://localhost:8090'
 
+// Add these new interfaces for the complete response
+interface FleetJobGcodeWithRuns extends FleetJobGcode {
+    runs: FleetJobGcodeRun[]
+}
+
+interface FleetJobCompleteResponse {
+    job: FleetJob
+    gcode_files: FleetJobGcodeWithRuns[]
+}
+
 export const actions: ActionTree<FleetJobsState, RootState> = {
     reset({ commit }) {
         commit('reset')
@@ -71,7 +81,7 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
     async updateJobStatus({ commit, state }, { jobId, status }) {
         try {
             await axios.put(`${FLEET_API_URL}/jobs/${jobId}/status?status=${status}`)
-            
+
             // Update local state
             const job = state.jobs.find(j => j.id === jobId)
             if (job) {
@@ -90,6 +100,17 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
             commit('removeJob', jobId)
         } catch (error) {
             console.error('Failed to delete job:', error)
+            throw error
+        }
+    },
+
+    // NEW: Load complete job data (job + gcode files + runs) in single API call
+    async loadJobComplete({ }, jobId: string): Promise<FleetJobCompleteResponse> {
+        try {
+            const response = await axios.get(`${FLEET_API_URL}/jobs/${jobId}/complete`)
+            return response.data
+        } catch (error) {
+            console.error('Failed to load complete job data:', error)
             throw error
         }
     },

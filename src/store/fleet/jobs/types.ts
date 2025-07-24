@@ -67,3 +67,12 @@ export interface FleetJobGcodeRunUpdate {
     qc?: string
     completed_at?: string
 }
+
+export interface FleetJobGcodeWithRuns extends FleetJobGcode {
+    runs: FleetJobGcodeRun[]
+}
+
+export interface FleetJobCompleteResponse {
+    job: FleetJob
+    gcode_files: FleetJobGcodeWithRuns[]
+}
