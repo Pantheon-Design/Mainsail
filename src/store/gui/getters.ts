@@ -79,7 +79,7 @@ export const getters: GetterTree<GuiState, any> = {
 
         // remove spoolTracker panel, if no spoolTracker component exists in moonraker
         if (!rootState.server.components.includes('spool_tracker')) {
-            allPanels = allPanels.filter((name) => name !== 'spool_tracker')
+            allPanels = allPanels.filter((name) => name !== 'spoolTracker')
         }
 
         return allPanels
