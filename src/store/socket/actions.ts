@@ -131,7 +131,14 @@ export const actions: ActionTree<SocketState, RootState> = {
             case 'notify_active_spool_set':
                 dispatch('server/spoolman/getActiveSpoolId', payload.params[0], { root: true })
                 break
+                
+            case 'notify_spoolTracker_usage_updated':
+                dispatch('server/spoolTracker/handleUsageUpdate', payload.params[0], { root: true })
+                break
 
+            case 'notify_spoolTracker_filament_changed':
+                dispatch('server/spoolTracker/handleFilamentChange', payload.params[0], { root: true })
+                break
             default:
                 window.console.debug(payload)
         }
