@@ -9,9 +9,12 @@
             </div>
             <v-card-title class="text-h5">{{ $t('Dialogs.StartPrint.Headline') }}</v-card-title>
             <v-card-text class="pb-0">
-                <p v-for="(text, index) in question.textArray" :key="index" :style="question.stylesArray[index]">
-                    {{ text }}
-                </p>
+                <p>{{ mainQuestionText }}</p>
+
+                <!-- Show alerts for various conditions -->
+                <v-alert v-for="alert in alerts" :key="alert.text" text :color="alert.color" class="mt-4 mx-3">
+                    {{ alert.text }}
+                </v-alert>
             </v-card-text>
 
             <start-print-dialog-spoolman v-if="moonrakerComponents.includes('spoolman')" :file="file" />
@@ -40,351 +43,178 @@
 </template>
 
 <script lang="ts">
-import { Component, Mixins, Prop } from 'vue-property-decorator'
-import BaseMixin from '@/components/mixins/base'
-import { FileStateGcodefile } from '@/store/files/types'
-import SettingsRow from '@/components/settings/SettingsRow.vue'
-import { mdiPrinter3d } from '@mdi/js'
-import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
-import { defaultBigThumbnailBackground } from '@/store/variables'
-import StartPrintDialogSpoolTracker from '@/components/dialogs/StartPrintDialogSpoolTracker.vue'
+    import { Component, Mixins, Prop } from 'vue-property-decorator'
+    import BaseMixin from '@/components/mixins/base'
+    import { FileStateGcodefile } from '@/store/files/types'
+    import SettingsRow from '@/components/settings/SettingsRow.vue'
+    import { mdiPrinter3d } from '@mdi/js'
+    import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
+    import { defaultBigThumbnailBackground } from '@/store/variables'
+    import StartPrintDialogSpoolTracker from '@/components/dialogs/StartPrintDialogSpoolTracker.vue'
 
-@Component({
-    components: {
-        SettingsRow,
-        StartPrintDialogSpoolTracker,
-    },
-})
-export default class StartPrintDialog extends Mixins(BaseMixin) {
-    mdiPrinter3d = mdiPrinter3d
+    @Component({
+        components: {
+            SettingsRow,
+            StartPrintDialogSpoolTracker,
+        },
+    })
+    export default class StartPrintDialog extends Mixins(BaseMixin) {
+        mdiPrinter3d = mdiPrinter3d
 
-    printer_config_file_path = '/home/hs3/printer_data/config/printer-config.yml'
+        printer_config_file_path = '/home/hs3/printer_data/config/printer-config.yml'
 
-    @Prop({ required: true, default: false })
-    declare readonly bool: boolean
+        @Prop({ required: true, default: false })
+        declare readonly bool: boolean
 
-    @Prop({ required: true, default: '' })
-    declare readonly currentPath: string
+        @Prop({ required: true, default: '' })
+        declare readonly currentPath: string
 
-    @Prop({ required: true })
-    declare file: FileStateGcodefile
+        @Prop({ required: true })
+        declare file: FileStateGcodefile
 
-    get timelapseEnabled() {
-        return this.$store.state.server.timelapse?.settings?.enabled ?? false
-    }
-
-    set timelapseEnabled(newVal) {
-        this.$socket.emit(
-            'machine.timelapse.post_settings',
-            { enabled: newVal },
-            { action: 'server/timelapse/initSettings' }
-        )
-    }
-
-    get bigThumbnailBackground() {
-        return this.$store.state.gui.uiSettings.bigThumbnailBackground ?? defaultBigThumbnailBackground
-    }
-
-    get bigThumbnailStyle() {
-        if (defaultBigThumbnailBackground.toLowerCase() === this.bigThumbnailBackground.toLowerCase()) {
-            return {}
+        get timelapseEnabled() {
+            return this.$store.state.server.timelapse?.settings?.enabled ?? false
         }
 
-        return { backgroundColor: this.bigThumbnailBackground }
-    }
-
-    get active_spool(): ServerSpoolmanStateSpool | null {
-        return this.$store.state.server.spoolman.active_spool ?? null
-    }
-
-    get filamentVendor() {
-        return this.active_spool?.filament?.vendor?.name ?? 'Unknown'
-    }
-
-    get filamentName() {
-        return this.active_spool?.filament.name ?? 'Unknown'
-    }
-
-    get filament() {
-        return `${this.filamentVendor} - ${this.filamentName}`
-    }
-
-    get question() {
-        const defaultStyle = {
-            color: 'white',
-            backgroundColor: 'transparent'
+        set timelapseEnabled(newVal) {
+            this.$socket.emit(
+                'machine.timelapse.post_settings',
+                { enabled: newVal },
+                { action: 'server/timelapse/initSettings' }
+            )
         }
 
-        const warningStyle = {
-            color: 'orange',
-            backgroundColor: 'transparent'
+        get bigThumbnailBackground() {
+            return this.$store.state.gui.uiSettings.bigThumbnailBackground ?? defaultBigThumbnailBackground
         }
 
-        const cautionStyle = {
-            color: 'rgb( 218, 218, 11)',
-            backgroundColor: 'transparent'
+        get bigThumbnailStyle() {
+            if (defaultBigThumbnailBackground.toLowerCase() === this.bigThumbnailBackground.toLowerCase()) {
+                return {}
+            }
+
+            return { backgroundColor: this.bigThumbnailBackground }
         }
 
-        const dangerStyle = {
-            color: 'red',
-            backgroundColor: 'transparent'
+        get active_spool(): ServerSpoolmanStateSpool | null {
+            return this.$store.state.server.spoolman.active_spool ?? null
         }
 
-        const cautionHeadlineStyle = {
-            color: 'black',
-            backgroundColor: 'rgb( 218, 218, 11)',
-            fontWeight: 'bold',
-            fontSize: '26px'
+        get filamentVendor() {
+            return this.active_spool?.filament?.vendor?.name ?? 'Unknown'
         }
 
-        const warningHeadlineStyle = {
-            color: 'black',
-            backgroundColor: 'orange',
-            fontWeight: 'bold',
-            fontSize: '26px'
+        get filamentName() {
+            return this.active_spool?.filament.name ?? 'Unknown'
         }
 
-        const dangerHeadlineStyle = {
-            color: 'black',
-            backgroundColor: 'red',
-            fontWeight: 'bold',
-            fontSize: '26px'
+        get filament() {
+            return `${this.filamentVendor} - ${this.filamentName}`
         }
 
-        const cautionGenericStyle = {
-            color: 'rgb( 218, 218, 11)',
-
-            fontSize: '20px'
-        }
-
-        const warningGenericStyle = {
-            color: 'orange',
-
-            fontSize: '20px'
-        }
-
-        const dangerGenericStyle = {
-            color: 'red',
-
-            fontSize: '20px'
-        }
-
-        const cautionGenericText = 'Print Quality may be degraded'
-
-        const warningGenericText = 'Running this file may damage your machine'
-
-        let textArray = []
-        let stylesArray = []
-
-        //console.log(this.file.config_verifier);
-        //this.$toast.error(this.moonrakerComponents)
-        //this.$toast.error(this.$store.state.printer.toolhead.nozzle_size)
-        
-        //this.$toast.success(this.file.config_verifier)
-
-        //this.$toast.error("====" + this.file.enable_config_verifier)
-
-        if (!this.file.enable_config_verifier){
-            // Scenario 1: config_verifier is not found in the printer
+        get mainQuestionText() {
             if (this.active_spool) {
-                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
+                return this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
                     filename: this.file?.filename ?? 'unknown',
-                }))
-                stylesArray.push(defaultStyle)
+                })
+            } else {
+                return this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', {
+                    filename: this.file?.filename ?? 'unknown'
+                })
             }
-            else {
-                textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
-                    filename: this.file?.filename ?? 'unknown' }
-                ))
-                stylesArray.push(defaultStyle)
-                        
-            }
-            return { textArray, stylesArray };
         }
 
+        get alerts() {
+            let alerts = []
 
-        if (this.file.slicer == 'PantheonSlicer') {
-            // Scenario 2: config_yml doesnt exist for pantheonslicer
-            if (this.file.config_yml == undefined) {
-                if (this.active_spool) {
-                    textArray.push("Caution")
-                    stylesArray.push(cautionHeadlineStyle)
-                    textArray.push(cautionGenericText)
-                    stylesArray.push(cautionGenericStyle)
-                    textArray.push("Caution: Out of date PantheonSlicer Detected.")
-                    stylesArray.push(cautionStyle)
-                    textArray.push("Please update PantheonSlicer and the profiles")
-                    stylesArray.push(cautionStyle)
-                } else {
-                    textArray.push("Caution")
-                    stylesArray.push(cautionHeadlineStyle)
-                    textArray.push(cautionGenericText)
-                    stylesArray.push(cautionGenericStyle)
-                    textArray.push("Caution: Out of date PantheonSlicer Detected.")
-                    stylesArray.push(cautionStyle)
-                    textArray.push("Please update PantheonSlicer and the profiles")
-                    stylesArray.push(cautionStyle)
+            // If config_verifier is not enabled, no alerts needed
+            if (!this.file.enable_config_verifier) {
+                return alerts
+            }
+
+            if (this.file.slicer == 'PantheonSlicer') {
+                // Scenario 2: config_yml doesn't exist for pantheonslicer
+                if (this.file.config_yml == undefined) {
+                    alerts.push({
+                        text: 'Out of date PantheonSlicer detected. Please update PantheonSlicer and the profiles. Print quality may be degraded.',
+                        color: 'warning',
+                    })
+                    return alerts
                 }
-            } else {
-                // Handle filament type and nozzle size check. the following parameters are available
-                // Create a copy of the config_verifier array to add warnings
+
+                // Handle filament type and nozzle size check
                 let configVerifier = [...this.file.config_verifier];  // Shallow copy of the config_verifier array
 
                 // Handle filament type check
                 if (this.file.filament_type !== this.$store.state.printer.toolhead.filament_type) {
-                    const filamentWarning = `Warning! Filament type mismatch: expected ${this.file.filament_type},\n\t but the printer filament is set to ${this.$store.state.printer.toolhead.filament_type}`;
-                    configVerifier.push(filamentWarning);
+                    const filamentWarning = `Filament type mismatch: expected ${this.file.filament_type}, but the printer filament is set to ${this.$store.state.printer.toolhead.filament_type}`;
+                    configVerifier.push(`Warning! ${filamentWarning}`);
                 }
 
                 // Handle nozzle size check
                 const nozzleDiameter = parseFloat(this.$store.state.printer.toolhead.nozzle_size);
                 if (this.file.nozzle_diameter !== nozzleDiameter) {
-                    const nozzleWarning = `Warning! Nozzle diameter mismatch: expected ${this.file.nozzle_diameter} mm,\n\t but the printer nozzle size is set to ${this.$store.state.printer.toolhead.nozzle_size} mm`;
-                    configVerifier.push(nozzleWarning);
+                    const nozzleWarning = `Nozzle diameter mismatch: expected ${this.file.nozzle_diameter} mm, but the printer nozzle size is set to ${this.$store.state.printer.toolhead.nozzle_size} mm`;
+                    configVerifier.push(`Warning! ${nozzleWarning}`);
                 }
-                //console.log(configVerifier);
 
-
-                // Scenario 3:config check passed
-                if (configVerifier.length === 0){
-                    if (this.active_spool) {
-                        textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilenameFilament', {
-                            filename: this.file?.filename ?? 'unknown',
-                        }))
-                        stylesArray.push(defaultStyle)
-                    }
-                    else {
-                        textArray.push(this.$t('Dialogs.StartPrint.DoYouWantToStartFilename', { 
-                            filename: this.file?.filename ?? 'unknown' }
-                        ))
-                        stylesArray.push(defaultStyle)
-                        
-                    }
+                // Scenario 3: config check passed - no alerts needed
+                if (configVerifier.length === 0) {
+                    return alerts
                 }
-                else if (this.file.config_verifier == undefined){
-                    // Scenario 4: Gcode_yml format is invalid
-                    if (this.active_spool) {
-                        textArray.push("Caution")
-                        stylesArray.push(cautionHeadlineStyle)
-                        textArray.push(cautionGenericText)
-                        stylesArray.push(cautionGenericStyle)
-                        textArray.push("Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check " +  this.file.slicer
-                        + "template_custom_gcode content")
-                        stylesArray.push(cautionStyle)
-                    }
-                    else {
-                        textArray.push("Caution")
-                        stylesArray.push(cautionHeadlineStyle)
-                        textArray.push(cautionGenericText)
-                        stylesArray.push(cautionGenericStyle)
-                        textArray.push("Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check " +  this.file.slicer
-                        + "template_custom_gcode content")
-                        stylesArray.push(cautionStyle)
-                    }
+
+                // Scenario 4: Gcode_yml format is invalid
+                if (this.file.config_verifier == undefined) {
+                    alerts.push({
+                        text: `Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check ${this.file.slicer} template_custom_gcode content. Print quality may be degraded.`,
+                        color: 'warning',
+                    })
+                    return alerts
                 }
-                // HERE================
-                // Scenario 4: Difference found
-                else {
-                    let warningStrings: string[] = [];
-                    let cautionStrings: string[] = [];
-                    let dangerStrings: string[] = [];
-                    let updatedTextArray: string[] = [];
-                    let updatedStylesArray: any[] = [];
-                  
-                    textArray = configVerifier
-                    textArray.forEach((str : string) => {
-                        if (str.startsWith("Warning")) {
-                            warningStrings.push(str)
-                            stylesArray.push(defaultStyle);
-                        } else if (str.startsWith("Caution")) {
-                            cautionStrings.push(str)
-                            stylesArray.push(defaultStyle);
-                        } else if (str.startsWith("Danger")) {
-                            dangerStrings.push(str)
-                            stylesArray.push(defaultStyle);
-                        }
-                    });
 
-
-                    // Add warnings and their styles if they exist
-                    if (warningStrings.length > 0) {
-                        updatedTextArray.push("Warning");
-                        updatedStylesArray.push(warningHeadlineStyle); // You can add a separate style for headlines if needed
-                        updatedTextArray.push(warningGenericText)
-                        updatedStylesArray.push(warningGenericStyle)
-                        warningStrings.forEach((str) => {
-                            updatedTextArray.push(str);
-                            updatedStylesArray.push(warningStyle);
-                        });
+                // Scenario 4: Differences found
+                configVerifier.forEach((str: string) => {
+                    if (str.startsWith("Warning")) {
+                        alerts.push({
+                            text: `${str}. Running this file may damage your machine.`,
+                            color: 'orange',
+                        })
+                    } else if (str.startsWith("Caution")) {
+                        alerts.push({
+                            text: `${str}. Print quality may be degraded.`,
+                            color: 'info',
+                        })
+                    } else if (str.startsWith("Danger")) {
+                        alerts.push({
+                            text: str,
+                            color: 'error',
+                        })
                     }
+                })
 
-                    // Add cautions and their styles if they exist
-                    if (cautionStrings.length > 0) {
-                        updatedTextArray.push("Caution");
-                        updatedStylesArray.push(cautionHeadlineStyle); // You can add a separate style for headlines if needed
-                        updatedTextArray.push(cautionGenericText)
-                        updatedStylesArray.push(cautionGenericStyle)
-                        cautionStrings.forEach((str) => {
-                            updatedTextArray.push(str);
-                            updatedStylesArray.push(cautionStyle);
-                        });
-                    }
-
-                    // Add dangers and their styles if they exist
-                    if (dangerStrings.length > 0) {
-                        updatedTextArray.push("Danger");
-                        updatedStylesArray.push(dangerHeadlineStyle); // You can add a separate style for headlines if needed
-                        dangerStrings.forEach((str) => {
-                            updatedTextArray.push(str);
-                            updatedStylesArray.push(defaultStyle);
-                        });
-                    }
-                    // Assign the updated arrays back to the original arrays
-                    textArray = updatedTextArray;
-                    stylesArray = updatedStylesArray
-
-                }
+            } else {
+                // Scenario 5: Not Pantheon Slicer
+                alerts.push({
+                    text: `Third-party slicer detected: ${this.file.slicer}. Running this file may damage your machine.`,
+                    color: 'orange',
+                })
             }
-        } else {
-            //Scenario 5: Not Pantheon Slicer
-            if (this.active_spool) {
-                textArray.push("Warning")
-                stylesArray.push(warningHeadlineStyle)
-                textArray.push(warningGenericText)
-                stylesArray.push(warningGenericStyle)
-                textArray.push("Warning: Third-party slicer detected: <<" +  this.file.slicer
-                + ">>")
-                stylesArray.push(warningStyle)
-            }
-            else {
-                textArray.push("Warning")
-                stylesArray.push(warningHeadlineStyle)
-                textArray.push(warningGenericText)
-                stylesArray.push(warningGenericStyle)
-                textArray.push("Warning: Third-party slicer detected: <<" +  this.file.slicer
-                + ">>")
-                stylesArray.push(warningStyle)
-            }
+
+            return alerts
         }
 
+        get maxThumbnailWidth() {
+            return this.file?.big_thumbnail_width ?? 400
+        }
 
-        return { textArray, stylesArray };
+        startPrint(filename = '') {
+            filename = (this.currentPath + '/' + filename).substring(1)
+            this.closeDialog()
+            this.$socket.emit('printer.print.start', { filename: filename }, { action: 'switchToDashboard' })
+        }
+
+        closeDialog() {
+            this.$emit('closeDialog')
+        }
     }
-
-
-
-    get maxThumbnailWidth() {
-        return this.file?.big_thumbnail_width ?? 400
-    }
-
-    startPrint(filename = '') {
-        filename = (this.currentPath + '/' + filename).substring(1)
-        this.closeDialog()
-        this.$socket.emit('printer.print.start', { filename: filename }, { action: 'switchToDashboard' })
-    }
-
-    closeDialog() {
-        this.$emit('closeDialog')
-    }
-}
 </script>
