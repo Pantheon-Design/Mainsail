@@ -2,11 +2,10 @@
     <v-dialog v-model="bool" :max-width="450" @click:outside="closeDialog" @keydown.esc="closeDialog">
         <v-card>
             <div v-if="file.big_thumbnail" class="d-flex align-center justify-center" style="min-height: 200px">
-                <v-img
-                    :src="file.big_thumbnail"
-                    :max-width="maxThumbnailWidth"
-                    class="d-inline-block"
-                    :style="bigThumbnailStyle" />
+                <v-img :src="file.big_thumbnail"
+                       :max-width="maxThumbnailWidth"
+                       class="d-inline-block"
+                       :style="bigThumbnailStyle" />
             </div>
             <v-card-title class="text-h5">{{ $t('Dialogs.StartPrint.Headline') }}</v-card-title>
             <v-card-text class="pb-0">
@@ -16,8 +15,9 @@
             </v-card-text>
 
             <start-print-dialog-spoolman v-if="moonrakerComponents.includes('spoolman')" :file="file" />
+            <start-print-dialog-spool-tracker v-if="moonrakerComponents.includes('spool_tracker')" :file="file" />
             <template v-if="moonrakerComponents.includes('timelapse')">
-                <v-divider v-if="!moonrakerComponents.includes('spoolman')" class="mt-3 mb-2" />
+                <v-divider v-if="!moonrakerComponents.includes('spoolman') && !moonrakerComponents.includes('spool_tracker')" class="mt-3 mb-2" />
                 <v-card-text class="py-0">
                     <settings-row :title="$t('Dialogs.StartPrint.Timelapse')">
                         <v-switch v-model="timelapseEnabled" hide-details class="mt-0" />
@@ -28,11 +28,10 @@
             <v-card-actions>
                 <v-spacer />
                 <v-btn text @click="closeDialog">{{ $t('Dialogs.StartPrint.Cancel') }}</v-btn>
-                <v-btn
-                    color="primary"
-                    text
-                    :disabled="printerIsPrinting || !klipperReadyForGui"
-                    @click="startPrint(file.filename)">
+                <v-btn color="primary"
+                       text
+                       :disabled="printerIsPrinting || !klipperReadyForGui"
+                       @click="startPrint(file.filename)">
                     {{ $t('Dialogs.StartPrint.Print') }}
                 </v-btn>
             </v-card-actions>
@@ -48,10 +47,12 @@ import SettingsRow from '@/components/settings/SettingsRow.vue'
 import { mdiPrinter3d } from '@mdi/js'
 import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
 import { defaultBigThumbnailBackground } from '@/store/variables'
+import StartPrintDialogSpoolTracker from '@/components/dialogs/StartPrintDialogSpoolTracker.vue'
 
 @Component({
     components: {
         SettingsRow,
+        StartPrintDialogSpoolTracker,
     },
 })
 export default class StartPrintDialog extends Mixins(BaseMixin) {
@@ -176,7 +177,7 @@ export default class StartPrintDialog extends Mixins(BaseMixin) {
         let stylesArray = []
 
         //console.log(this.file.config_verifier);
-        //this.$toast.error(this.$store.state.printer.toolhead.filament_type)
+        //this.$toast.error(this.moonrakerComponents)
         //this.$toast.error(this.$store.state.printer.toolhead.nozzle_size)
         
         //this.$toast.success(this.file.config_verifier)
