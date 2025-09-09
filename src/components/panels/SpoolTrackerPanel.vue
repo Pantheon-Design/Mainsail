@@ -28,11 +28,6 @@
                                 {{ displayRemainingWeight }}
                             </v-col>
                         </v-row>
-                        <v-row v-if="!canTrack">
-                            <v-col cols="12" class="text-center">
-                                <p class="red--text caption mb-0">{{ $t('Panels.SpoolTrackerPanel.NotTracking') }}</p>
-                            </v-col>
-                        </v-row>
                     </v-col>
                 </v-row>
             </v-card-text>

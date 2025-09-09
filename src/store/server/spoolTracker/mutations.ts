@@ -34,4 +34,12 @@ export const mutations: MutationTree<ServerSpoolTrackerState> = {
             Vue.set(state, 'filament_specs', payload.filament_specs)
         }
     },
+
+    updateCanTrack(state, canTrack) {
+            Vue.set(state, 'can_track', canTrack)
+        },
+
+        updateUsagePercentage(state, usagePercentage) {
+            Vue.set(state, 'usage_percentage', usagePercentage)
+        },
 }

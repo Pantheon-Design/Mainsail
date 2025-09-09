@@ -41,14 +41,41 @@ export const actions: ActionTree<ServerSpoolTrackerState, RootState> = {
         commit('setStatus', payload)
     },
 
+
     handleUsageUpdate({ commit }, payload) {
         // Handle spoolTracker:usage_updated WebSocket events
         if ('requestParams' in payload) delete payload.requestParams
         
-        // Update only the weights from usage update
-        commit('updateWeights', {
-            remaining_weight: payload.remaining_weight || 0
-        })
+        // Update weights from usage update
+        if (payload.remaining_weight !== undefined || payload.used_weight !== undefined) {
+            commit('updateWeights', {
+                remaining_weight: payload.remaining_weight || 0,
+                used_weight: payload.used_weight || 0
+            })
+        }
+        
+        // Update filament info to prevent desync if provided in payload
+        const filamentUpdate: any = {}
+        if (payload.filament_type !== undefined) {
+            filamentUpdate.filament_type = payload.filament_type
+        }
+        if (payload.filament_specs !== undefined) {
+            filamentUpdate.filament_specs = payload.filament_specs
+        }
+        
+        if (Object.keys(filamentUpdate).length > 0) {
+            commit('updateFilament', filamentUpdate)
+        }
+        
+        // Update tracking capability status if provided
+        if (payload.can_track !== undefined) {
+            commit('updateCanTrack', payload.can_track)
+        }
+        
+        // Update usage percentage if provided
+        if (payload.usage_percentage !== undefined) {
+            commit('updateUsagePercentage', payload.usage_percentage)
+        }
     },
 
     handleFilamentChange({ commit }, payload) {
