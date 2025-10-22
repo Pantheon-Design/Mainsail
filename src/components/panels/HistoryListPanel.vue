@@ -1009,6 +1009,7 @@ export default class HistoryListPanel extends Mixins(BaseMixin) {
         this.deleteSelectedDialog = false
     }
 
+
     exportHistory() {
         const checkString = parseFloat('1.23').toLocaleString(this.browserLocale)
         const decimalSeparator = checkString.indexOf(',') >= 0 ? ',' : '.'
@@ -1027,6 +1028,9 @@ export default class HistoryListPanel extends Mixins(BaseMixin) {
         if (this.headers.find((header) => header.value === 'slicer')?.visible) {
             row.push('slicer')
         }
+
+        // NEW: Add filament_type header
+        row.push('filament_type')
 
         content.push(row)
 
@@ -1055,6 +1059,10 @@ export default class HistoryListPanel extends Mixins(BaseMixin) {
                     row.push(slicerString)
                 }
 
+                // NEW: Add filament_type data
+                const filamentType = job.metadata?.filament_type || '--'
+                row.push(filamentType)
+
                 content.push(row)
             })
         }
@@ -1075,6 +1083,7 @@ export default class HistoryListPanel extends Mixins(BaseMixin) {
         link.click()
         link.remove()
     }
+
 
     getStatusIcon(status: string) {
         return this.$store.getters['server/history/getPrintStatusIcon'](status)
