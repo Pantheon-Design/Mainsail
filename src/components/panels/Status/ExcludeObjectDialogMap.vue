@@ -12,48 +12,52 @@
                     <polygon points="0 0, 5 2, 0 4" :fill="coordinationCrossColor" />
                 </marker>
             </defs>
+            <!-- 90° CW rotation: Y axis now points right from origin -->
             <line
                 :x1="convertX(0)"
                 :y1="convertY(1)"
-                :x2="convertX(stepperXmax / 4)"
+                :x2="convertX(stepperYmax / 4)"
                 :y2="convertY(1)"
                 :stroke="coordinationCrossColor"
                 stroke-width="2"
                 marker-end="url(#arrowhead)" />
+            <!-- 90° CW rotation: X axis now points down from origin -->
             <line
                 :x1="convertX(1)"
                 :y1="convertY(0)"
                 :x2="convertX(1)"
-                :y2="convertY(stepperYmax / 4)"
+                :y2="convertY(stepperXmax / 4)"
                 :stroke="coordinationCrossColor"
                 stroke-width="2"
                 marker-end="url(#arrowhead)" />
             <g>
-                <line
-                    v-for="x in xStripes"
-                    :key="'xLines' + x"
-                    :x1="convertX(x)"
-                    :x2="convertX(x)"
-                    :y1="convertY(stepperYmin)"
-                    :y2="convertY(stepperYmax)"
-                    :stroke="coordinationCrossColor"
-                    :stroke-opacity="0.25"
-                    stroke-width="1" />
+                <!-- 90° CW rotation: Y stripes are now vertical lines -->
                 <line
                     v-for="y in yStripes"
                     :key="'yLines' + y"
-                    :x1="convertX(stepperXmin)"
-                    :x2="convertX(stepperXmax)"
-                    :y1="convertY(y)"
-                    :y2="convertY(y)"
+                    :x1="convertX(y)"
+                    :x2="convertX(y)"
+                    :y1="convertY(stepperXmin)"
+                    :y2="convertY(stepperXmax)"
+                    :stroke="coordinationCrossColor"
+                    :stroke-opacity="0.25"
+                    stroke-width="1" />
+                <!-- 90° CW rotation: X stripes are now horizontal lines -->
+                <line
+                    v-for="x in xStripes"
+                    :key="'xLines' + x"
+                    :x1="convertX(stepperYmin)"
+                    :x2="convertX(stepperYmax)"
+                    :y1="convertY(x)"
+                    :y2="convertY(x)"
                     :stroke="coordinationCrossColor"
                     :stroke-opacity="0.25"
                     stroke-width="1" />
             </g>
 
             <g v-for="(object, index) in printing_objects_with_polygons" :key="index">
-                <polygon
-                    :points="object.polygon.map((point) => convertX(point[0]) + ',' + convertY(point[1])).join(' ')"
+                <!-- 90° CW rotation: swap point[0] and point[1] -->
+                <polygon :points="object.polygon.map((point) => convertX(point[1]) + ',' + convertY(point[0])).join(' ')"
                     style="cursor: pointer"
                     :stroke="current_object === object.name ? primaryColor : '#666'"
                     stroke-width="2"
@@ -130,14 +134,15 @@ export default class StatusPanelObjectsDialogMap extends Mixins(BaseMixin) {
     }
 
     get viewBox() {
+        // 90° CW rotation: viewBox uses Y range for width, X range for height
         return (
-            this.convertX(this.stepperXmin) +
+            this.convertX(this.stepperYmin) +
             ' ' +
-            this.convertY(this.stepperYmax) +
+            this.convertY(this.stepperXmin) +
             ' ' +
-            this.absoluteX +
+            this.absoluteY +
             ' ' +
-            this.absoluteY
+            this.absoluteX
         )
     }
 
@@ -205,12 +210,14 @@ export default class StatusPanelObjectsDialogMap extends Mixins(BaseMixin) {
         return this.$store.state.gui.theme?.primary ?? defaultPrimaryColor
     }
 
-    convertX(x: number) {
-        return x
+    // 90° CW rotation: SVG X coordinate comes from bed Y
+    convertX(y: number) {
+        return y
     }
 
-    convertY(y: number) {
-        return y * -1
+    // 90° CW rotation: SVG Y coordinate comes from bed X (no inversion)
+    convertY(x: number) {
+        return x
     }
 
     showObjectTooltip(text: string) {
