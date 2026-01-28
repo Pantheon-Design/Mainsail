@@ -23,6 +23,7 @@ export const mutations: MutationTree<ServerSpoolTrackerState> = {
 
     updateWeights(state, payload) {
         const currentWeights = { ...state.weights, ...payload }
+        //Vue.$toast.info(currentWeights)
         Vue.set(state, 'weights', currentWeights)
     },
 

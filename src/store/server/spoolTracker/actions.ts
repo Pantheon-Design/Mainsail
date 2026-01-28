@@ -20,21 +20,24 @@ export const actions: ActionTree<ServerSpoolTrackerState, RootState> = {
         commit('reset')
     },
 
-    init({ dispatch }) {
-        Vue.$socket.emit(
-            'server.spool_tracker.status',
-            {},
-            { action: 'server/spoolTracker/getStatus' }
-        )
-
-        dispatch('socket/addInitModule', 'server/spoolTracker/getStatus', { root: true })
+    async init({ dispatch, commit, rootGetters }) {
+        try {
+            const baseUrl = rootGetters['socket/getUrl']
+            const response = await fetch(baseUrl + '/server/spool_tracker/status')
+            const data = await response.json()
+            if (data.result) {
+                commit('setStatus', data.result)
+            }
+        } catch (e) {
+            window.console.error('Failed to fetch spool tracker status', e)
+        }
         dispatch('socket/removeInitModule', 'server/spoolTracker/init', { root: true })
     },
 
     getStatus({ commit, dispatch }, payload) {
         if ('requestParams' in payload) delete payload.requestParams
         dispatch('socket/removeInitModule', 'server/spoolTracker/getStatus', { root: true })
-        
+
         payload = convertV2response(payload)
         if (payload === null) return
 
@@ -43,6 +46,8 @@ export const actions: ActionTree<ServerSpoolTrackerState, RootState> = {
 
 
     handleUsageUpdate({ commit }, payload) {
+        //Vue.$toast.error(payload)
+
         // Handle spoolTracker:usage_updated WebSocket events
         if ('requestParams' in payload) delete payload.requestParams
         
@@ -66,7 +71,6 @@ export const actions: ActionTree<ServerSpoolTrackerState, RootState> = {
         if (Object.keys(filamentUpdate).length > 0) {
             commit('updateFilament', filamentUpdate)
         }
-        
         // Update tracking capability status if provided
         if (payload.can_track !== undefined) {
             commit('updateCanTrack', payload.can_track)
@@ -81,15 +85,24 @@ export const actions: ActionTree<ServerSpoolTrackerState, RootState> = {
     handleFilamentChange({ commit }, payload) {
         // Handle spoolTracker:filament_changed WebSocket events
         if ('requestParams' in payload) delete payload.requestParams
-        
         commit('updateFilament', {
             filament_type: payload.new_type,
             filament_specs: payload.new_specs
         })
     },
 
-    refreshStatus({ dispatch }) {
-        dispatch('getStatus')
+    async refreshStatus({ commit, dispatch, rootGetters }) {
         dispatch('socket/addLoading', 'refreshSpoolTrackerStatus', { root: true })
+        try {
+            const baseUrl = rootGetters['socket/getUrl']
+            const response = await fetch(baseUrl + '/server/spool_tracker/status')
+            const data = await response.json()
+            if (data.result) {
+                commit('setStatus', data.result)
+            }
+        } catch (e) {
+            window.console.error('Failed to refresh spool tracker status', e)
+        }
+        dispatch('socket/removeLoading', 'refreshSpoolTrackerStatus', { root: true })
     },
 }
