@@ -13,13 +13,25 @@ import { basicSetup } from 'codemirror'
 import { EditorView, keymap } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { vscodeDark } from '@uiw/codemirror-theme-vscode'
-import { StreamLanguage } from '@codemirror/language'
+import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
 import { klipper_config } from '@/plugins/StreamParserKlipperConfig'
 import { gcode } from '@/plugins/StreamParserGcode'
 import { indentWithTab } from '@codemirror/commands'
 import { json } from '@codemirror/lang-json'
 import { css } from '@codemirror/lang-css'
+import { yaml } from '@codemirror/lang-yaml'
 import { indentUnit } from '@codemirror/language'
+
+// Custom YAML highlighting - keys vs values
+const yamlHighlightStyle = HighlightStyle.define([
+    // Keys - light blue
+    { tag: tags.definition(tags.propertyName), color: '#9cdcfe' },
+    // Values - orange (plain/unquoted values)
+    { tag: tags.content, color: '#ce9178' },
+    // Comments - green
+    { tag: tags.lineComment, color: '#6a9955' },
+])
 
 @Component
 export default class Codemirror extends Mixins(BaseMixin) {
@@ -81,10 +93,11 @@ export default class Codemirror extends Mixins(BaseMixin) {
     }
 
     get cmExtensions() {
+        const isYaml = ['yml', 'yaml'].includes(this.fileExtension)
+
         const extensions = [
             EditorView.theme({}, { dark: true }),
             basicSetup,
-            vscodeDark,
             indentUnit.of(' '.repeat(this.tabSize)),
             keymap.of([indentWithTab]),
             EditorView.updateListener.of((update) => {
@@ -95,10 +108,26 @@ export default class Codemirror extends Mixins(BaseMixin) {
             }),
         ]
 
-        if (['cfg', 'conf'].includes(this.fileExtension)) extensions.push(StreamLanguage.define(klipper_config))
-        else if (['gcode'].includes(this.fileExtension)) extensions.push(StreamLanguage.define(gcode))
-        else if (['json'].includes(this.fileExtension)) extensions.push(json())
-        else if (['css', 'scss', 'sass'].includes(this.fileExtension)) extensions.push(css())
+        // For YAML, use custom highlighting instead of vscodeDark
+        if (isYaml) {
+            extensions.push(yaml())
+            extensions.push(syntaxHighlighting(yamlHighlightStyle))
+            // Add dark background theme for YAML
+            extensions.push(EditorView.theme({
+                '&': { backgroundColor: '#1e1e1e' },
+                '.cm-content': { caretColor: '#fff' },
+                '.cm-gutters': { backgroundColor: '#1e1e1e', borderRight: '1px solid #333' },
+                '.cm-activeLineGutter': { backgroundColor: '#2a2a2a' },
+                '.cm-activeLine': { backgroundColor: '#2a2a2a' },
+            }, { dark: true }))
+        } else {
+            extensions.push(vscodeDark)
+
+            if (['cfg', 'conf'].includes(this.fileExtension)) extensions.push(StreamLanguage.define(klipper_config))
+            else if (['gcode'].includes(this.fileExtension)) extensions.push(StreamLanguage.define(gcode))
+            else if (['json'].includes(this.fileExtension)) extensions.push(json())
+            else if (['css', 'scss', 'sass'].includes(this.fileExtension)) extensions.push(css())
+        }
 
         return extensions
     }

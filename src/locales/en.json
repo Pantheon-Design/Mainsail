@@ -682,6 +682,13 @@
             "Weight": "Weight",
             "Yesterday": "Yesterday"
         },
+        "SpoolTrackerPanel": {
+            "Headline": "Spool Tracker",
+            "FilamentType": "Filament Type",
+            "FilamentName": "Filament Name",
+            "RemainingWeight": "Remaining Weight",
+            "Untracked": "Weight Untracked"
+        },
         "StatusPanel": {
             "CancelPrint": "Cancel print",
             "ClearPrintStats": "Clear print stats",
