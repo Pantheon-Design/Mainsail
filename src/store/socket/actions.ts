@@ -131,7 +131,16 @@ export const actions: ActionTree<SocketState, RootState> = {
             case 'notify_active_spool_set':
                 dispatch('server/spoolman/getActiveSpoolId', payload.params[0], { root: true })
                 break
+                
+            case 'notify_usage_updated':
+                //Vue.$toast.success(payload.params[0])
+                dispatch('server/spoolTracker/handleUsageUpdate', payload.params[0], { root: true })
+                break
 
+            case 'notify_filament_changed':
+                //Vue.$toast.error(payload.params[0])
+                dispatch('server/spoolTracker/handleFilamentChange', payload.params[0], { root: true })
+                break
             default:
                 window.console.debug(payload)
         }
