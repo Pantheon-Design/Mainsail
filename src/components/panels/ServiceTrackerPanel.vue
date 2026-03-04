@@ -40,7 +40,7 @@
                         <span class="text-caption grey--text">{{ $t('Panels.ServiceTrackerPanel.NozzleLife') }}</span>
                     </v-col>
                     <v-col cols="6" class="text-right">
-                        <span class="text-caption">{{ nozzleLife }} hrs</span>
+                        <span class="text-caption">{{ nozzleLife }} kg</span>
                     </v-col>
                 </v-row>
                 <v-row no-gutters class="mb-1">
@@ -48,7 +48,7 @@
                         <span class="text-caption grey--text">{{ $t('Panels.ServiceTrackerPanel.RemainingNozzleLife') }}</span>
                     </v-col>
                     <v-col cols="6" class="text-right">
-                        <span class="text-caption" :class="remainingNozzleLifeClass">{{ remainingNozzleLife }} hrs</span>
+                        <span class="text-caption" :class="remainingNozzleLifeClass">{{ remainingNozzleLife }} kg</span>
                     </v-col>
                 </v-row>
                 <v-row no-gutters class="mb-3">
@@ -138,9 +138,17 @@
                         outlined
                         class="mb-2">
                     </v-text-field>
+                    <v-select
+                        v-model="editNozzleSize"
+                        :items="nozzleSizeOptions"
+                        :label="$t('Panels.ServiceTrackerPanel.NozzleSize') + ' (mm)'"
+                        dense
+                        outlined
+                        class="mb-2">
+                    </v-select>
                     <v-text-field
                         v-model.number="editNozzleLife"
-                        :label="$t('Panels.ServiceTrackerPanel.NozzleLife') + ' (hrs)'"
+                        :label="$t('Panels.ServiceTrackerPanel.NozzleLife') + ' (kg)'"
                         type="number"
                         min="0"
                         dense
@@ -149,7 +157,7 @@
                     </v-text-field>
                     <v-text-field
                         v-model.number="editRemainingNozzleLife"
-                        :label="$t('Panels.ServiceTrackerPanel.RemainingNozzleLife') + ' (hrs)'"
+                        :label="$t('Panels.ServiceTrackerPanel.RemainingNozzleLife') + ' (kg)'"
                         type="number"
                         dense
                         outlined>
@@ -189,10 +197,12 @@ export default class ServiceTrackerPanel extends Mixins(BaseMixin) {
     resettingAxis: string | null = null
 
     readonly nozzleTypeOptions = ['DLC Hardened Steel', 'Nickel Plated Copper', 'Custom']
+    readonly nozzleSizeOptions = ['0.4', '0.5', '0.6', '0.8']
 
     nozzleDialog = false
     editNozzleTypeSelection = 'DLC Hardened Steel'
     editCustomNozzleType = ''
+    editNozzleSize = '0.4'
     editNozzleLife = 0
     editRemainingNozzleLife = 0
 
@@ -213,8 +223,8 @@ export default class ServiceTrackerPanel extends Mixins(BaseMixin) {
         return this.$store.state.printer.toolhead?.nozzle_type ?? 'N/A'
     }
 
-    get nozzleSize(): number {
-        return this.$store.state.printer.toolhead?.nozzle_size ?? 0
+    get nozzleSize(): string {
+        return this.$store.state.printer.toolhead?.nozzle_size ?? '0.4'
     }
 
     get nozzleLife(): number {
@@ -267,6 +277,7 @@ export default class ServiceTrackerPanel extends Mixins(BaseMixin) {
             this.editNozzleTypeSelection = 'Custom'
             this.editCustomNozzleType = this.nozzleType !== 'N/A' ? this.nozzleType : ''
         }
+        this.editNozzleSize = this.nozzleSizeOptions.includes(this.nozzleSize) ? this.nozzleSize : '0.4'
         this.editNozzleLife = this.nozzleLife
         this.editRemainingNozzleLife = this.remainingNozzleLife
         this.nozzleDialog = true
@@ -275,6 +286,7 @@ export default class ServiceTrackerPanel extends Mixins(BaseMixin) {
     saveNozzle() {
         this.$store.dispatch('server/serviceTracker/setNozzleLife', {
             nozzle_type: this.resolvedNozzleType,
+            nozzle_size: this.editNozzleSize,
             nozzle_life: Number(this.editNozzleLife),
             remaining_nozzle_life: Number(this.editRemainingNozzleLife),
         })

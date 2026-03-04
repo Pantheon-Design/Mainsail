@@ -13,8 +13,9 @@ export const actions: ActionTree<ServerServiceTrackerState, RootState> = {
         }
     },
 
-    setNozzleLife(_ctx, payload: { nozzle_type: string; nozzle_life: number; remaining_nozzle_life: number }) {
+    setNozzleLife(_ctx, payload: { nozzle_type: string; nozzle_size: string; nozzle_life: number; remaining_nozzle_life: number }) {
         Vue.$socket.emit('server.database.post_item', { namespace: 'HS3', key: 'nozzle_type', value: payload.nozzle_type })
+        Vue.$socket.emit('server.database.post_item', { namespace: 'HS3', key: 'nozzle_size', value: payload.nozzle_size })
         Vue.$socket.emit('server.database.post_item', { namespace: 'HS3', key: 'nozzle_life', value: payload.nozzle_life })
         Vue.$socket.emit('server.database.post_item', { namespace: 'HS3', key: 'remaining_nozzle_life', value: payload.remaining_nozzle_life })
     },
