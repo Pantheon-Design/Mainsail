@@ -682,6 +682,23 @@
             "Weight": "Weight",
             "Yesterday": "Yesterday"
         },
+        "ServiceTrackerPanel": {
+            "Headline": "Service Tracker",
+            "NozzleStatus": "Nozzle Status",
+            "NozzleType": "Type",
+            "NozzleSize": "Size",
+            "NozzleLife": "Nozzle Life",
+            "RemainingNozzleLife": "Remaining Life",
+            "NozzleLifePercent": "Life Remaining",
+            "EditNozzle": "Edit Nozzle",
+            "CustomNozzleType": "Custom Nozzle Type",
+            "Odometer": "Odometer",
+            "Tripmeter": "Tripmeter",
+            "ResetAll": "Reset All",
+            "Reset": "Reset",
+            "SaveNozzle": "Save",
+            "Cancel": "Cancel"
+        },
         "SpoolTrackerPanel": {
             "Headline": "Spool Tracker",
             "FilamentType": "Filament Type",

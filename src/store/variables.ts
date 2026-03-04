@@ -94,6 +94,7 @@ export const allDashboardPanels = [
     'miscellaneous',
     'spoolman',
     'spoolTracker',
+    'serviceTracker',
     'temperature',
     'webcam',
 ]

@@ -13,6 +13,7 @@ import { jobQueue } from '@/store/server/jobQueue'
 import { announcements } from '@/store/server/announcements'
 import { spoolman } from '@/store/server/spoolman'
 import { spoolTracker } from '@/store/server/spoolTracker'
+import { serviceTracker } from '@/store/server/serviceTracker'
 
 // create getDefaultState
 export const getDefaultState = (): ServerState => {
@@ -64,5 +65,6 @@ export const server: Module<ServerState, any> = {
         announcements,
         spoolman,
         spoolTracker,
+        serviceTracker,
     },
 }
