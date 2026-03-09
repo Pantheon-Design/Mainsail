@@ -1,5 +1,5 @@
 import { Module } from 'vuex'
-import { jobs } from './jobs'
+import { history } from './history'
 
 const state = {}
 const getters = {}
@@ -13,6 +13,6 @@ export const fleet: Module<any, any> = {
     actions,
     mutations,
     modules: {
-        jobs,
+        history,
     },
 }

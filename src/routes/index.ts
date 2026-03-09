@@ -4,7 +4,6 @@ import Farm from '../pages/Farm.vue'
 import Console from '../pages/Console.vue'
 import Files from '../pages/Files.vue'
 import History from '../pages/History.vue'
-import Job from '../pages/Job.vue'
 import Timelapse from '../pages/Timelapse.vue'
 import Machine from '../pages/Machine.vue'
 import { AsyncComponent, Component } from 'vue'
@@ -17,7 +16,7 @@ import {
     mdiFileDocumentMultipleOutline,
     mdiVideo3d,
     mdiHistory,
-    mdiBriefcaseOutline,
+    mdiChartLine,
     mdiTimelapse,
     mdiWrench,
 } from '@mdi/js'
@@ -99,11 +98,11 @@ const routes: AppRoute[] = [
         fullscreen: true,
     },
     {
-        name: 'jobs',
-        title: 'Jobs',
-        path: '/jobs',
-        icon: mdiBriefcaseOutline,
-        component: Job,
+        name: 'fleet-history',
+        title: 'Fleet History',
+        path: '/fleet-history',
+        icon: mdiChartLine,
+        component: () => import('../pages/FleetHistory.vue'),
         alwaysShow: true,
         showInNavi: true,
         position: 65,
