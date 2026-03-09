@@ -103,6 +103,10 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         position: 'absolute',
     }
 
+    get fleetDaemonUrl() {
+        return this.$store.getters['gui/fleetDaemonUrl']
+    }
+
     get fleetDaemonPrinters() {
         return this.$store.state.farm.fleetDaemonPrinters || {}
     }
@@ -150,7 +154,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         }
 
         try {
-            this.fleetSocket = new WebSocket('ws://pantheonfleet2.local:8090/ws')
+            this.fleetSocket = new WebSocket(this.fleetDaemonUrl.replace(/^http/, 'ws') + '/ws')
 
             this.fleetSocket.onopen = () => {
                 console.log('Fleet Daemon connected from Jobs page')
@@ -471,7 +475,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         this.connectWebSocket()
 
         // Then trigger printer reconnect
-        fetch('http://pantheonfleet2.local:8090/reconnect_all', { method: 'POST' })
+        fetch(`${this.fleetDaemonUrl}/reconnect_all`, { method: 'POST' })
             .then(res => {
                 if (res.ok) {
                     this.$toast.success('Reconnecting all printers...')

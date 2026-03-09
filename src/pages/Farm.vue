@@ -123,6 +123,10 @@
             position: 'absolute',
         };
 
+        get fleetDaemonUrl() {
+            return this.$store.getters['gui/fleetDaemonUrl']
+        }
+
         get fleetDaemonPrinters() {
             return this.$store.state.farm.fleetDaemonPrinters || {};
         }
@@ -206,7 +210,7 @@
             }
 
             try {
-                this.fleetSocket = new WebSocket('ws://pantheonfleet2.local:8090/ws');
+                this.fleetSocket = new WebSocket(this.fleetDaemonUrl.replace(/^http/, 'ws') + '/ws');
 
                 this.fleetSocket.onopen = () => {
                     Vue.$toast.success('Connected to Fleet Daemon');
@@ -293,7 +297,7 @@
         }
 
         refreshPrinterList() {
-            fetch('http://pantheonfleet2.local:8090/refresh_printer_list', { method: 'POST' })
+            fetch(`${this.fleetDaemonUrl}/refresh_printer_list`, { method: 'POST' })
                 .then(res => {
                     if (res.ok) {
                         Vue.$toast.success('Printer list refreshed');
@@ -325,7 +329,7 @@
             // Then trigger printer reconnect
             Vue.$toast.info('Reconnecting all printers...');
 
-            fetch('http://pantheonfleet2.local:8090/reconnect_all', { method: 'POST' })
+            fetch(`${this.fleetDaemonUrl}/reconnect_all`, { method: 'POST' })
                 .then(res => {
                     if (res.ok) {
                         Vue.$toast.success('Reconnecting all printers...');

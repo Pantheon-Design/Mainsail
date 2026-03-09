@@ -162,4 +162,6 @@ export const getters: GetterTree<GuiState, any> = {
 
         return false
     },
+
+    fleetDaemonUrl: (state) => state.fleetDaemonUrl ?? 'http://pantheonfleet.local:8090',
 }

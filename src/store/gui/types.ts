@@ -203,6 +203,7 @@ export interface GuiState {
             }
         }
     }
+    fleetDaemonUrl: string
 }
 
 export interface GuiStateLayoutoption {

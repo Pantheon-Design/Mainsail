@@ -3,6 +3,17 @@
         <v-card v-if="!form.bool" flat>
             <v-card-text>
                 <h3 class="text-h5 mb-3">{{ $t('Settings.RemotePrintersTab.RemotePrinters') }}</h3>
+                <settings-row :title="'Fleet Daemon URL'">
+                    <v-text-field
+                        v-model="fleetDaemonUrlInput"
+                        placeholder="http://pantheonfleet.local:8090"
+                        hide-details="auto"
+                        dense
+                        outlined
+                        @blur="saveFleetDaemonUrl"
+                        @keyup.enter="saveFleetDaemonUrl"></v-text-field>
+                </settings-row>
+                <v-divider class="my-2"></v-divider>
                 <v-alert v-if="!canAddPrinters" :icon="mdiAlertOutline" type="warning" text>
                     {{ $t('Settings.RemotePrintersTab.UseConfigJson') }}
                 </v-alert>
@@ -115,6 +126,23 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     mdiDelete = mdiDelete
     mdiAlertOutline = mdiAlertOutline
 
+    fleetDaemonUrlInput = ''
+
+    get fleetDaemonUrl() {
+        return this.$store.getters['gui/fleetDaemonUrl']
+    }
+
+    created() {
+        this.fleetDaemonUrlInput = this.fleetDaemonUrl
+    }
+
+    saveFleetDaemonUrl() {
+        const url = this.fleetDaemonUrlInput.trim()
+        if (url) {
+            this.$store.commit('gui/saveSetting', { name: 'fleetDaemonUrl', value: url })
+        }
+    }
+
     private form: printerForm = {
         bool: false,
         hostname: '',
@@ -200,7 +228,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     }
 
     refreshPrinterList() {
-        fetch('http://pantheonfleet2.local:8090/refresh_printer_list', { method: 'POST' })
+        fetch(`${this.fleetDaemonUrl}/refresh_printer_list`, { method: 'POST' })
             .then(res => {
                 if (res.ok) {
                     Vue.$toast.success('Printer list refreshed');
