@@ -29,8 +29,8 @@ import { use } from 'echarts/core'
 
 // import ECharts modules manually to reduce bundle size
 import { SVGRenderer } from 'echarts/renderers'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
-import { DatasetComponent, GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { BarChart, HeatmapChart, LineChart, PieChart } from 'echarts/charts'
+import { DatasetComponent, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 // vue-resize
 import 'vue-resize/dist/vue-resize.css'
 // @ts-ignore
@@ -59,7 +59,7 @@ Vue.use(OverlayScrollbarsPlugin, {
     },
 })
 
-use([SVGRenderer, LineChart, BarChart, LegendComponent, PieChart, DatasetComponent, GridComponent, TooltipComponent])
+use([SVGRenderer, LineChart, BarChart, HeatmapChart, LegendComponent, PieChart, DatasetComponent, GridComponent, TooltipComponent, VisualMapComponent])
 Vue.component('EChart', ECharts)
 
 Vue.use(VueResize)
