@@ -106,6 +106,41 @@
                 {{ formatFilament(item.filament_used_mm) }}
             </template>
 
+            <!-- Filament remaining weight -->
+            <template #item.filament_remaining_weight="{ item }">
+                {{ item.filament_remaining_weight != null ? `${item.filament_remaining_weight.toFixed(1)} g` : '—' }}
+            </template>
+
+            <!-- Printer nozzle type -->
+            <template #item.printer_nozzle_type="{ item }">
+                {{ item.printer_nozzle_type || '—' }}
+            </template>
+
+            <!-- Nozzle health as percent bar -->
+            <template #item.nozzle_health="{ item }">
+                <v-tooltip bottom v-if="item.nozzle_life != null && item.printer_nozzle_start_health != null && item.nozzle_life > 0">
+                    <template #activator="{ on, attrs }">
+                        <div v-bind="attrs" v-on="on" style="min-width: 80px">
+                            <v-progress-linear
+                                :value="nozzleHealthPct(item)"
+                                :color="nozzleHealthColor(item)"
+                                height="16"
+                                rounded
+                                class="nozzle-bar"
+                            >
+                                <span class="white--text caption">{{ nozzleHealthPct(item) }}%</span>
+                            </v-progress-linear>
+                        </div>
+                    </template>
+                    <span>
+                        Remaining: {{ item.printer_nozzle_start_health.toFixed(3) }} kg<br>
+                        Total life: {{ item.nozzle_life.toFixed(3) }} kg<br>
+                        Used: {{ (item.nozzle_life - item.printer_nozzle_start_health).toFixed(3) }} kg
+                    </span>
+                </v-tooltip>
+                <span v-else>—</span>
+            </template>
+
             <!-- Start time -->
             <template #item.start_time="{ item }">
                 {{ formatDate(item.start_time) }}
@@ -213,6 +248,9 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'Start', value: 'start_time', sortable: true },
         { text: 'Duration', value: 'print_duration_secs', sortable: true },
         { text: 'Filament Used', value: 'filament_used_mm', sortable: true },
+        { text: 'Remaining Wt', value: 'filament_remaining_weight', sortable: true },
+        { text: 'Nozzle Type', value: 'printer_nozzle_type', sortable: true },
+        { text: 'Nozzle Health', value: 'nozzle_health', sortable: false },
         { text: 'QC', value: 'qc_status', sortable: false },
         { text: 'QC Note', value: 'qc_note', sortable: false },
         { text: 'QR Code', value: 'qr_code', sortable: true },
@@ -355,6 +393,19 @@ export default class FleetHistoryListPanel extends Vue {
         this.snackbar = true
     }
 
+    nozzleHealthPct(item: FleetHistoryRecord): number {
+        if (!item.nozzle_life || item.printer_nozzle_start_health == null) return 0
+        const pct = (item.printer_nozzle_start_health / item.nozzle_life) * 100
+        return Math.round(Math.min(100, Math.max(0, pct)))
+    }
+
+    nozzleHealthColor(item: FleetHistoryRecord): string {
+        const pct = this.nozzleHealthPct(item)
+        if (pct > 60) return 'success'
+        if (pct > 30) return 'warning'
+        return 'error'
+    }
+
     statusColor(status: string | null): string {
         switch (status) {
             case 'completed': return 'success'
@@ -403,5 +454,8 @@ export default class FleetHistoryListPanel extends Vue {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.nozzle-bar {
+    cursor: default;
 }
 </style>

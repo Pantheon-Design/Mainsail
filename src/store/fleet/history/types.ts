@@ -12,6 +12,12 @@ export interface FleetHistoryRecord {
     filament_type: string | null
     moonraker_user: string | null
     printer_model: string | null
+    gcode_nozzle_size: number | null
+    printer_nozzle_size: string | null
+    printer_nozzle_type: string | null
+    nozzle_life: number | null
+    printer_nozzle_start_health: number | null
+    filament_remaining_weight: number | null
     parts_printed: number
     parts_passed: number | null
     qc_status: string | null
