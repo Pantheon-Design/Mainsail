@@ -15,6 +15,36 @@
         </v-row>
 
         <template v-if="analytics">
+            <!-- Model Breakdown -->
+            <v-row dense class="mb-4" v-if="analytics.model_summary && analytics.model_summary.length">
+                <v-col cols="12" md="5">
+                    <v-card flat>
+                        <v-card-title class="subtitle-2">Jobs by Printer Model</v-card-title>
+                        <v-card-text>
+                            <e-chart
+                                :option="modelDonutOptions"
+                                :autoresize="true"
+                                :init-options="{ renderer: 'svg' }"
+                                style="height: 260px; width: 100%"
+                            />
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                <v-col cols="12" md="7">
+                    <v-card flat>
+                        <v-card-title class="subtitle-2">Printer Model Comparison</v-card-title>
+                        <v-card-text>
+                            <e-chart
+                                :option="modelComparisonOptions"
+                                :autoresize="true"
+                                :init-options="{ renderer: 'svg' }"
+                                style="height: 260px; width: 100%"
+                            />
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+            </v-row>
+
             <!-- 2. TTM Utilization -->
             <v-card flat class="mb-4">
                 <v-card-title class="subtitle-2">TTM Fleet Utilization %</v-card-title>
@@ -43,7 +73,14 @@
 
             <!-- 4. 8-Week Utilization Heatmap -->
             <v-card flat class="mb-4">
-                <v-card-title class="subtitle-2">8-Week Printer Utilization Heatmap</v-card-title>
+                <v-card-title class="subtitle-2 d-flex align-center">
+                    <span>8-Week Printer Utilization Heatmap</span>
+                    <v-spacer />
+                    <v-btn-toggle v-model="heatmapModelFilter" dense mandatory class="ml-4">
+                        <v-btn small value="all">All</v-btn>
+                        <v-btn v-for="m in availableModels" :key="m" small :value="m">{{ m }}</v-btn>
+                    </v-btn-toggle>
+                </v-card-title>
                 <v-card-text>
                     <e-chart
                         :option="heatmapChartOptions"
@@ -112,10 +149,24 @@ import Component from 'vue-class-component'
 import { Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import ThemeMixin from '@/components/mixins/theme'
-import { FleetAnalytics, FleetDailyUtilization, FleetPrinterHealth } from '@/store/fleet/history/types'
+import { FleetAnalytics, FleetDailyUtilization, FleetPrinterHealth, FleetModelSummary } from '@/store/fleet/history/types'
 
 @Component
 export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
+    heatmapModelFilter = 'all'
+
+    get availableModels(): string[] {
+        if (!this.analytics) return []
+        const models = new Set(this.analytics.daily_utilization.map((r) => r.printer_model))
+        return [...models].sort()
+    }
+
+    get filteredDailyUtilization(): FleetDailyUtilization[] {
+        if (!this.analytics) return []
+        if (this.heatmapModelFilter === 'all') return this.analytics.daily_utilization
+        return this.analytics.daily_utilization.filter((r) => r.printer_model === this.heatmapModelFilter)
+    }
+
     get analytics(): FleetAnalytics | null {
         return this.$store.getters['fleet/history/getAnalytics']
     }
@@ -137,6 +188,77 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
             { label: 'Print Hours (30d)', value: `${k.print_hours_30d.toFixed(1)} h` },
             { label: 'Filament (30d)', value: `${k.filament_kg_30d.toFixed(2)} kg` },
         ]
+    }
+
+    // Model donut chart
+    get modelDonutOptions() {
+        if (!this.analytics?.model_summary) return {}
+        const modelColors: Record<string, string> = {
+            'HS-3': '#2196f3',
+            'HS-Pro': '#ff9800',
+        }
+        const data = this.analytics.model_summary.map((r: FleetModelSummary) => ({
+            name: r.printer_model,
+            value: r.total_jobs,
+            itemStyle: { color: modelColors[r.printer_model] ?? '#607d8b' },
+        }))
+        return {
+            animation: false,
+            tooltip: {
+                trigger: 'item',
+                formatter: (params: any) => {
+                    const m = this.analytics!.model_summary.find((r: FleetModelSummary) => r.printer_model === params.name)
+                    if (!m) return params.name
+                    return `<b>${m.printer_model}</b><br/>Jobs: ${m.total_jobs}<br/>Completed: ${m.completed_jobs}<br/>Failed: ${m.failed_jobs}<br/>Completion: ${m.completion_rate}%<br/>Print Hours: ${m.print_hours.toFixed(1)}h<br/>Filament: ${m.filament_kg.toFixed(2)} kg`
+                },
+            },
+            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor } },
+            series: [{
+                type: 'pie',
+                radius: ['45%', '70%'],
+                data,
+                label: { color: this.fgColor, formatter: '{b}\n{d}%' },
+            }],
+        }
+    }
+
+    // Model comparison bar chart
+    get modelComparisonOptions() {
+        if (!this.analytics?.model_summary) return {}
+        const models = this.analytics.model_summary.map((r: FleetModelSummary) => r.printer_model)
+        const modelColors: Record<string, string> = {
+            'HS-3': '#2196f3',
+            'HS-Pro': '#ff9800',
+        }
+        return {
+            animation: false,
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            legend: { data: ['Completion Rate %', 'Print Hours'], textStyle: { color: this.fgColor } },
+            xAxis: { type: 'category', data: models, axisLabel: { color: this.fgColor } },
+            yAxis: [
+                { type: 'value', name: 'Rate %', max: 100, axisLabel: { color: this.fgColor, formatter: '{value}%' } },
+                { type: 'value', name: 'Hours', axisLabel: { color: this.fgColor } },
+            ],
+            series: [
+                {
+                    name: 'Completion Rate %',
+                    type: 'bar',
+                    data: this.analytics.model_summary.map((r: FleetModelSummary) => ({
+                        value: r.completion_rate,
+                        itemStyle: { color: modelColors[r.printer_model] ?? '#607d8b' },
+                    })),
+                },
+                {
+                    name: 'Print Hours',
+                    type: 'bar',
+                    yAxisIndex: 1,
+                    data: this.analytics.model_summary.map((r: FleetModelSummary) => ({
+                        value: Math.round(r.print_hours * 10) / 10,
+                        itemStyle: { color: modelColors[r.printer_model] ?? '#607d8b', opacity: 0.6 },
+                    })),
+                },
+            ],
+        }
     }
 
     // 2. Utilization line chart
@@ -187,13 +309,11 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
 
     // 4. Heatmap
     get heatmapPrinters(): string[] {
-        if (!this.analytics) return []
-        return [...new Set(this.analytics.daily_utilization.map((r) => r.printer_hostname))].sort()
+        return [...new Set(this.filteredDailyUtilization.map((r) => r.printer_hostname))].sort()
     }
 
     get heatmapDays(): string[] {
-        if (!this.analytics) return []
-        return [...new Set(this.analytics.daily_utilization.map((r) => r.day))].sort()
+        return [...new Set(this.filteredDailyUtilization.map((r) => r.day))].sort()
     }
 
     get heatmapHeight(): string {
@@ -211,7 +331,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         const printers = this.heatmapPrinters
         const days = this.heatmapDays
         const map: Record<string, Record<string, number>> = {}
-        this.analytics.daily_utilization.forEach((r: FleetDailyUtilization) => {
+        this.filteredDailyUtilization.forEach((r: FleetDailyUtilization) => {
             if (!map[r.printer_hostname]) map[r.printer_hostname] = {}
             map[r.printer_hostname][r.day] = r.utilization_pct
         })

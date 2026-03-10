@@ -11,7 +11,7 @@
         <!-- Filters -->
         <v-card-text class="pb-0">
             <v-row dense>
-                <v-col cols="12" sm="4">
+                <v-col cols="12" sm="3">
                     <v-select
                         v-model="filterPrinter"
                         :items="printerOptions"
@@ -23,7 +23,7 @@
                         @change="applyFilters"
                     />
                 </v-col>
-                <v-col cols="12" sm="4">
+                <v-col cols="12" sm="3">
                     <v-select
                         v-model="filterStatus"
                         :items="statusOptions"
@@ -35,7 +35,7 @@
                         @change="applyFilters"
                     />
                 </v-col>
-                <v-col cols="12" sm="4">
+                <v-col cols="12" sm="3">
                     <v-text-field
                         v-model="filterFilename"
                         label="Filename search"
@@ -44,6 +44,33 @@
                         clearable
                         hide-details
                         @input="applyFiltersDebounced"
+                    />
+                </v-col>
+                <v-col cols="12" sm="3">
+                    <v-select
+                        v-model="filterModel"
+                        :items="modelOptions"
+                        label="Printer Model"
+                        clearable
+                        dense
+                        outlined
+                        hide-details
+                        @change="applyFilters"
+                    />
+                </v-col>
+            </v-row>
+            <v-row dense class="mt-1">
+                <v-col cols="12" sm="4">
+                    <v-text-field
+                        v-model="filterQrCode"
+                        label="QR Code Search"
+                        dense
+                        outlined
+                        clearable
+                        hide-details
+                        prepend-inner-icon="mdi-qrcode-scan"
+                        @input="applyFiltersDebounced"
+                        @keydown.enter="applyFilters"
                     />
                 </v-col>
             </v-row>
@@ -59,6 +86,11 @@
             dense
             class="fleet-history-table"
         >
+            <!-- Printer model -->
+            <template #item.printer_model="{ item }">
+                {{ item.printer_model || '—' }}
+            </template>
+
             <!-- Status chip -->
             <template #item.status="{ item }">
                 <v-chip x-small :color="statusColor(item.status)" dark>{{ item.status || 'unknown' }}</v-chip>
@@ -91,6 +123,56 @@
                     @change="saveQC(item, $event)"
                 />
             </template>
+
+            <!-- QC note — click to edit -->
+            <template #item.qc_note="{ item }">
+                <div
+                    v-if="editingNoteId !== item.id"
+                    class="qc-note-cell"
+                    style="min-width: 120px; cursor: pointer"
+                    :title="item.qc_note || 'Click to add note'"
+                    @click="startEditNote(item)"
+                >
+                    {{ item.qc_note || '—' }}
+                </div>
+                <v-text-field
+                    v-else
+                    v-model="editingNoteText"
+                    dense
+                    hide-details
+                    autofocus
+                    style="max-width: 200px"
+                    placeholder="Enter note..."
+                    @blur="saveNote(item)"
+                    @keydown.enter="saveNote(item)"
+                    @keydown.escape="cancelEditNote"
+                />
+            </template>
+
+            <!-- QR code — click to edit -->
+            <template #item.qr_code="{ item }">
+                <div
+                    v-if="editingQrId !== item.id"
+                    class="qr-code-cell"
+                    style="min-width: 120px; cursor: pointer"
+                    :title="item.qr_code || 'Click to add QR code'"
+                    @click="startEditQr(item)"
+                >
+                    {{ item.qr_code || '—' }}
+                </div>
+                <v-text-field
+                    v-else
+                    v-model="editingQrText"
+                    dense
+                    hide-details
+                    autofocus
+                    style="max-width: 200px"
+                    placeholder="Scan or type QR..."
+                    @blur="saveQr(item)"
+                    @keydown.enter="saveQr(item)"
+                    @keydown.escape="cancelEditQr"
+                />
+            </template>
         </v-data-table>
 
         <!-- Snackbar -->
@@ -110,7 +192,13 @@ export default class FleetHistoryListPanel extends Vue {
     filterPrinter = ''
     filterStatus = ''
     filterFilename = ''
+    filterModel = ''
+    filterQrCode = ''
     collecting = false
+    editingNoteId: string | null = null
+    editingNoteText = ''
+    editingQrId: string | null = null
+    editingQrText = ''
     snackbar = false
     snackbarText = ''
     snackbarColor = 'success'
@@ -118,6 +206,7 @@ export default class FleetHistoryListPanel extends Vue {
 
     readonly headers = [
         { text: 'Printer', value: 'printer_hostname', sortable: true },
+        { text: 'Model', value: 'printer_model', sortable: true },
         { text: 'Filename', value: 'filename', sortable: true },
         { text: 'Filament', value: 'filament_type', sortable: true },
         { text: 'Status', value: 'status', sortable: true },
@@ -125,6 +214,8 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'Duration', value: 'print_duration_secs', sortable: true },
         { text: 'Filament Used', value: 'filament_used_mm', sortable: true },
         { text: 'QC', value: 'qc_status', sortable: false },
+        { text: 'QC Note', value: 'qc_note', sortable: false },
+        { text: 'QR Code', value: 'qr_code', sortable: true },
     ]
 
     readonly statusOptions = [
@@ -152,11 +243,23 @@ export default class FleetHistoryListPanel extends Vue {
         return [...new Set(hostnames)].sort()
     }
 
+    get modelOptions(): string[] {
+        const models = this.records.map((r) => r.printer_model).filter(Boolean) as string[]
+        return [...new Set(models)].sort()
+    }
+
     get filteredRecords(): FleetHistoryRecord[] {
         let data = this.records
         if (this.filterFilename) {
             const q = this.filterFilename.toLowerCase()
             data = data.filter((r) => r.filename?.toLowerCase().includes(q))
+        }
+        if (this.filterModel) {
+            data = data.filter((r) => r.printer_model === this.filterModel)
+        }
+        if (this.filterQrCode) {
+            const q = this.filterQrCode.toLowerCase()
+            data = data.filter((r) => r.qr_code?.toLowerCase().includes(q))
         }
         return data
     }
@@ -165,6 +268,7 @@ export default class FleetHistoryListPanel extends Vue {
         this.$store.dispatch('fleet/history/loadHistory', {
             printer: this.filterPrinter || undefined,
             status: this.filterStatus || undefined,
+            qr_code: this.filterQrCode || undefined,
             limit: 200,
         })
     }
@@ -193,6 +297,51 @@ export default class FleetHistoryListPanel extends Vue {
             this.showSnackbar('QC saved', 'success')
         } catch {
             this.showSnackbar('Failed to save QC', 'error')
+        }
+    }
+
+    startEditNote(item: FleetHistoryRecord) {
+        this.editingNoteId = item.id
+        this.editingNoteText = item.qc_note || ''
+    }
+
+    cancelEditNote() {
+        this.editingNoteId = null
+        this.editingNoteText = ''
+    }
+
+    async saveNote(item: FleetHistoryRecord) {
+        const newNote = this.editingNoteText.trim()
+        this.editingNoteId = null
+        // Skip save if unchanged
+        if (newNote === (item.qc_note || '')) return
+        try {
+            await this.$store.dispatch('fleet/history/updateQC', { id: item.id, qc_note: newNote || '' })
+            this.showSnackbar('Note saved', 'success')
+        } catch {
+            this.showSnackbar('Failed to save note', 'error')
+        }
+    }
+
+    startEditQr(item: FleetHistoryRecord) {
+        this.editingQrId = item.id
+        this.editingQrText = item.qr_code || ''
+    }
+
+    cancelEditQr() {
+        this.editingQrId = null
+        this.editingQrText = ''
+    }
+
+    async saveQr(item: FleetHistoryRecord) {
+        const newQr = this.editingQrText.trim()
+        this.editingQrId = null
+        if (newQr === (item.qr_code || '')) return
+        try {
+            await this.$store.dispatch('fleet/history/updateQC', { id: item.id, qr_code: newQr || '' })
+            this.showSnackbar('QR code saved', 'success')
+        } catch {
+            this.showSnackbar('Failed to save QR code', 'error')
         }
     }
 
@@ -238,5 +387,17 @@ export default class FleetHistoryListPanel extends Vue {
 <style scoped>
 .qc-select :deep(.v-input__slot) {
     min-height: 28px !important;
+}
+.qc-note-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.qr-code-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 </style>

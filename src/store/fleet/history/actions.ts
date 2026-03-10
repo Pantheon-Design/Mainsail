@@ -4,13 +4,14 @@ import { RootState } from '@/store/types'
 import axios from 'axios'
 
 export const actions: ActionTree<FleetHistoryState, RootState> = {
-    async loadHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; limit?: number; offset?: number } = {}) {
+    async loadHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; limit?: number; offset?: number } = {}) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setLoading', true)
         try {
             const params = new URLSearchParams()
             if (filters.printer) params.set('printer', filters.printer)
             if (filters.status) params.set('status', filters.status)
+            if (filters.qr_code) params.set('qr_code', filters.qr_code)
             params.set('limit', String(filters.limit ?? 200))
             params.set('offset', String(filters.offset ?? 0))
             const response = await axios.get(`${baseUrl}/history?${params}`)
@@ -36,7 +37,7 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         }
     },
 
-    async updateQC({ commit, rootGetters }, payload: { id: string; qc_status?: string; qc_inspector?: string; parts_passed?: number; parts_printed?: number }) {
+    async updateQC({ commit, rootGetters }, payload: { id: string; qc_status?: string; qc_inspector?: string; qc_note?: string; qr_code?: string; parts_passed?: number; parts_printed?: number }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
             const response = await axios.patch(`${baseUrl}/history/${payload.id}/qc`, payload)

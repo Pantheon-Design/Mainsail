@@ -11,11 +11,14 @@ export interface FleetHistoryRecord {
     filament_used_mm: number | null
     filament_type: string | null
     moonraker_user: string | null
+    printer_model: string | null
     parts_printed: number
     parts_passed: number | null
     qc_status: string | null
     qc_inspector: string | null
     qc_date: string | null
+    qc_note: string | null
+    qr_code: string | null
     collected_at: string
 }
 
@@ -73,9 +76,20 @@ export interface FleetWeeklySuccessRate {
 
 export interface FleetDailyUtilization {
     printer_hostname: string
+    printer_model: string
     day: string
     print_hours: number
     utilization_pct: number
+}
+
+export interface FleetModelSummary {
+    printer_model: string
+    total_jobs: number
+    completed_jobs: number
+    failed_jobs: number
+    print_hours: number
+    filament_kg: number
+    completion_rate: number
 }
 
 export interface FleetAnalytics {
@@ -87,6 +101,7 @@ export interface FleetAnalytics {
     status_summary: FleetStatusSummary[]
     weekly_success_rate: FleetWeeklySuccessRate[]
     daily_utilization: FleetDailyUtilization[]
+    model_summary: FleetModelSummary[]
 }
 
 export interface FleetHistoryState {
