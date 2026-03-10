@@ -293,7 +293,7 @@ export default class FleetHistoryListPanel extends Vue {
 
     async saveQC(item: FleetHistoryRecord, qcStatus: string | null) {
         try {
-            await this.$store.dispatch('fleet/history/updateQC', { id: item.id, qc_status: qcStatus })
+            await this.$store.dispatch('fleet/history/updateQC', { id: item.id, qc_status: qcStatus ?? '' })
             this.showSnackbar('QC saved', 'success')
         } catch {
             this.showSnackbar('Failed to save QC', 'error')
