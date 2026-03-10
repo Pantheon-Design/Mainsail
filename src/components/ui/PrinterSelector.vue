@@ -11,7 +11,7 @@
                 v-for="printer in printers"
                 :key="printer._namespace"
                 two-line
-                :disabled="!printer.socket.isConnected"
+                :disabled="!printer.socket || !printer.socket.isConnected"
                 link
                 @click="changePrinter(printer)">
                 <v-list-item-content>
@@ -69,7 +69,7 @@ export default class PrinterSelector extends Mixins(BaseMixin) {
     }
 
     changePrinter(printer: FarmPrinterState) {
-        if (printer.socket.isConnected) {
+        if (printer.socket?.isConnected) {
             this.$store.dispatch('changePrinter', { printer: printer._namespace })
         }
     }

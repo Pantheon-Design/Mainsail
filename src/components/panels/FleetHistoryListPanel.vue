@@ -340,8 +340,12 @@ export default class FleetHistoryListPanel extends Vue {
         try {
             await this.$store.dispatch('fleet/history/updateQC', { id: item.id, qr_code: newQr || '' })
             this.showSnackbar('QR code saved', 'success')
-        } catch {
-            this.showSnackbar('Failed to save QR code', 'error')
+        } catch (err: any) {
+            if (err?.response?.status === 409) {
+                this.showSnackbar('QR code already assigned to another record (409 Conflict)', 'error')
+            } else {
+                this.showSnackbar('Failed to save QR code', 'error')
+            }
         }
     }
 
