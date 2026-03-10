@@ -18,6 +18,10 @@ export const getters: GetterTree<FleetHistoryState, any> = {
         return state.analyticsLoading
     },
 
+    isDevMode(state): boolean {
+        return state.devMode
+    },
+
     // Monthly utilization with 3-month rolling average
     getMonthlyUtilizationSeries(state) {
         const data = state.analytics?.monthly_summary ?? []

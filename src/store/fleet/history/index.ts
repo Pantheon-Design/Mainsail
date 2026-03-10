@@ -10,6 +10,7 @@ export const getDefaultState = (): FleetHistoryState => ({
     loading: false,
     analyticsLoading: false,
     total: 0,
+    devMode: false,
 })
 
 const state = getDefaultState()

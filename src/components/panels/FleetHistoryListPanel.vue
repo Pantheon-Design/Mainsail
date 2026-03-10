@@ -6,6 +6,10 @@
             <v-btn small color="primary" :loading="collecting" @click="collectNow" class="mr-2">
                 Collect Now
             </v-btn>
+            <v-btn small :color="devMode ? 'orange' : 'grey'" :outlined="!devMode" @click="toggleDevMode" class="mr-2" title="Toggle dev mode">
+                <v-icon small left>{{ mdiBug }}</v-icon>
+                Dev
+            </v-btn>
             <v-menu offset-y :close-on-content-click="false" left>
                 <template #activator="{ on, attrs }">
                     <v-btn small icon v-bind="attrs" v-on="on" title="Toggle columns">
@@ -242,12 +246,13 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
-import { mdiCog, mdiQrcodeScan } from '@mdi/js'
+import { mdiCog, mdiQrcodeScan, mdiBug } from '@mdi/js'
 
 @Component
 export default class FleetHistoryListPanel extends Vue {
     mdiCog = mdiCog
     mdiQrcodeScan = mdiQrcodeScan
+    mdiBug = mdiBug
     filterPrinter = ''
     filterStatus = ''
     filterFilename = ''
@@ -276,7 +281,7 @@ export default class FleetHistoryListPanel extends Vue {
     private _onMouseMove: ((e: MouseEvent) => void) | null = null
     private _onMouseUp: ((e: MouseEvent) => void) | null = null
 
-    readonly allHeaders = [
+    readonly baseHeaders = [
         { text: 'Printer', value: 'printer_hostname', sortable: true },
         { text: 'Model', value: 'printer_model', sortable: true },
         { text: 'Filename', value: 'filename', sortable: true },
@@ -292,6 +297,14 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'QC Note', value: 'qc_note', sortable: false },
         { text: 'QR Code', value: 'qr_code', sortable: true },
     ]
+
+    readonly devHeaders = [
+        { text: 'Moonraker Job ID', value: 'moonraker_job_id', sortable: true },
+    ]
+
+    get allHeaders() {
+        return this.devMode ? [...this.baseHeaders, ...this.devHeaders] : this.baseHeaders
+    }
 
     visibleColumns: string[] = []
 
@@ -326,9 +339,13 @@ export default class FleetHistoryListPanel extends Vue {
         this.cleanupResizeListeners()
     }
 
+    get devColumnValues(): string[] {
+        return this.devHeaders.map((h) => h.value)
+    }
+
     get headers() {
         return this.allHeaders
-            .filter((h) => this.visibleColumns.includes(h.value))
+            .filter((h) => this.visibleColumns.includes(h.value) || this.devColumnValues.includes(h.value))
             .map((h) => {
                 const w = this.columnWidths[h.value]
                 return w ? { ...h, width: `${w}px` } : h
@@ -357,6 +374,14 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'Fail', value: 'fail' },
         { text: 'Pending', value: 'pending' },
     ]
+
+    get devMode(): boolean {
+        return this.$store.getters['fleet/history/isDevMode']
+    }
+
+    toggleDevMode() {
+        this.$store.commit('fleet/history/setDevMode', !this.devMode)
+    }
 
     get records(): FleetHistoryRecord[] {
         return this.$store.getters['fleet/history/getRecords']

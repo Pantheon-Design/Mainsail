@@ -28,6 +28,10 @@ export const mutations: MutationTree<FleetHistoryState> = {
         Vue.set(state, 'analytics', analytics)
     },
 
+    setDevMode(state, enabled: boolean) {
+        Vue.set(state, 'devMode', enabled)
+    },
+
     updateRecord(state, updated: FleetHistoryRecord) {
         const index = state.records.findIndex((r) => r.id === updated.id)
         if (index !== -1) {

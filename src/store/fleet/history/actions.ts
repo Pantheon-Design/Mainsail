@@ -37,10 +37,12 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         }
     },
 
-    async updateQC({ commit, rootGetters }, payload: { id: string; qc_status?: string; qc_inspector?: string; qc_note?: string; qr_code?: string; parts_passed?: number; parts_printed?: number }) {
+    async updateQC({ state, commit, rootGetters }, payload: { id: string; qc_status?: string; qc_inspector?: string; qc_note?: string; qr_code?: string; parts_passed?: number; parts_printed?: number }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
+            if (state.devMode) console.log('updateQC request:', `PATCH ${baseUrl}/history/${payload.id}/qc`, payload)
             const response = await axios.patch(`${baseUrl}/history/${payload.id}/qc`, payload)
+            if (state.devMode) console.log('updateQC response:', response.data)
             commit('updateRecord', response.data)
         } catch (error) {
             console.error('Failed to update QC:', error)

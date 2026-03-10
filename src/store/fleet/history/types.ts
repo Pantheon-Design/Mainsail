@@ -116,4 +116,5 @@ export interface FleetHistoryState {
     loading: boolean
     analyticsLoading: boolean
     total: number
+    devMode: boolean
 }
