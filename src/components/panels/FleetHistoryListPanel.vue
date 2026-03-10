@@ -6,6 +6,26 @@
             <v-btn small color="primary" :loading="collecting" @click="collectNow" class="mr-2">
                 Collect Now
             </v-btn>
+            <v-menu offset-y :close-on-content-click="false" left>
+                <template #activator="{ on, attrs }">
+                    <v-btn small icon v-bind="attrs" v-on="on" title="Toggle columns">
+                        <v-icon small>{{ mdiCog }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card class="pa-2" style="max-height: 400px; overflow-y: auto">
+                    <v-card-subtitle class="pa-1 caption font-weight-bold">Visible Columns</v-card-subtitle>
+                    <v-checkbox
+                        v-for="col in allHeaders"
+                        :key="col.value"
+                        :label="col.text"
+                        :input-value="visibleColumns.includes(col.value)"
+                        dense
+                        hide-details
+                        class="mt-0 ml-1"
+                        @change="toggleColumn(col.value)"
+                    />
+                </v-card>
+            </v-menu>
         </v-card-title>
 
         <!-- Filters -->
@@ -68,7 +88,7 @@
                         outlined
                         clearable
                         hide-details
-                        prepend-inner-icon="mdi-qrcode-scan"
+                        :prepend-inner-icon="mdiQrcodeScan"
                         @input="applyFiltersDebounced"
                         @keydown.enter="applyFilters"
                     />
@@ -78,13 +98,14 @@
 
         <!-- Table -->
         <v-data-table
+            ref="historyTable"
             :headers="headers"
             :items="filteredRecords"
             :loading="isLoading"
             :items-per-page="50"
             :footer-props="{ 'items-per-page-options': [25, 50, 100, 200] }"
             dense
-            class="fleet-history-table"
+            class="fleet-history-table resizable-table"
         >
             <!-- Printer model -->
             <template #item.printer_model="{ item }">
@@ -221,9 +242,12 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
+import { mdiCog, mdiQrcodeScan } from '@mdi/js'
 
 @Component
 export default class FleetHistoryListPanel extends Vue {
+    mdiCog = mdiCog
+    mdiQrcodeScan = mdiQrcodeScan
     filterPrinter = ''
     filterStatus = ''
     filterFilename = ''
@@ -239,7 +263,20 @@ export default class FleetHistoryListPanel extends Vue {
     snackbarColor = 'success'
     debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-    readonly headers = [
+    readonly STORAGE_KEY = 'fleet_history_visible_columns'
+    readonly WIDTHS_KEY = 'fleet_history_column_widths'
+    readonly HIDE_THRESHOLD = 36
+
+    columnWidths: Record<string, number> = {}
+    resizingCol = ''
+    resizeStartX = 0
+    resizeStartW = 0
+
+    // bound handlers for cleanup
+    private _onMouseMove: ((e: MouseEvent) => void) | null = null
+    private _onMouseUp: ((e: MouseEvent) => void) | null = null
+
+    readonly allHeaders = [
         { text: 'Printer', value: 'printer_hostname', sortable: true },
         { text: 'Model', value: 'printer_model', sortable: true },
         { text: 'Filename', value: 'filename', sortable: true },
@@ -255,6 +292,59 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'QC Note', value: 'qc_note', sortable: false },
         { text: 'QR Code', value: 'qr_code', sortable: true },
     ]
+
+    visibleColumns: string[] = []
+
+    created() {
+        try {
+            const saved = localStorage.getItem(this.STORAGE_KEY)
+            if (saved) {
+                const parsed = JSON.parse(saved) as string[]
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.visibleColumns = parsed
+                }
+            }
+        } catch { /* ignore */ }
+        if (!this.visibleColumns.length) {
+            this.visibleColumns = this.allHeaders.map((h) => h.value)
+        }
+        try {
+            const w = localStorage.getItem(this.WIDTHS_KEY)
+            if (w) this.columnWidths = JSON.parse(w)
+        } catch { /* ignore */ }
+    }
+
+    mounted() {
+        this.$nextTick(() => this.attachResizeHandles())
+    }
+
+    updated() {
+        this.$nextTick(() => this.attachResizeHandles())
+    }
+
+    beforeDestroy() {
+        this.cleanupResizeListeners()
+    }
+
+    get headers() {
+        return this.allHeaders
+            .filter((h) => this.visibleColumns.includes(h.value))
+            .map((h) => {
+                const w = this.columnWidths[h.value]
+                return w ? { ...h, width: `${w}px` } : h
+            })
+    }
+
+    toggleColumn(value: string) {
+        const idx = this.visibleColumns.indexOf(value)
+        if (idx >= 0) {
+            if (this.visibleColumns.length <= 1) return
+            this.visibleColumns.splice(idx, 1)
+        } else {
+            this.visibleColumns.push(value)
+        }
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.visibleColumns))
+    }
 
     readonly statusOptions = [
         'completed', 'cancelled', 'error', 'in_progress',
@@ -393,6 +483,75 @@ export default class FleetHistoryListPanel extends Vue {
         this.snackbar = true
     }
 
+    // ---- Column resize ----
+
+    attachResizeHandles() {
+        const table = (this.$refs.historyTable as any)?.$el as HTMLElement | undefined
+        if (!table) return
+        const ths = table.querySelectorAll('thead th')
+        ths.forEach((th, idx) => {
+            const el = th as HTMLElement
+            if (el.querySelector('.col-resize-handle')) return
+            el.style.position = 'relative'
+            const handle = document.createElement('div')
+            handle.className = 'col-resize-handle'
+            handle.addEventListener('mousedown', (e) => {
+                const header = this.headers[idx]
+                if (!header) return
+                e.preventDefault()
+                e.stopPropagation()
+                this.resizingCol = header.value
+                this.resizeStartX = e.clientX
+                this.resizeStartW = el.offsetWidth
+                this._onMouseMove = (ev: MouseEvent) => this.onResizeMove(ev, el)
+                this._onMouseUp = (ev: MouseEvent) => this.onResizeEnd(ev, el)
+                document.addEventListener('mousemove', this._onMouseMove)
+                document.addEventListener('mouseup', this._onMouseUp)
+                document.body.style.cursor = 'col-resize'
+                document.body.style.userSelect = 'none'
+            })
+            el.appendChild(handle)
+        })
+    }
+
+    onResizeMove(e: MouseEvent, th: HTMLElement) {
+        const delta = e.clientX - this.resizeStartX
+        const newW = Math.max(20, this.resizeStartW + delta)
+        th.style.width = newW + 'px'
+        th.style.minWidth = newW + 'px'
+    }
+
+    onResizeEnd(e: MouseEvent, th: HTMLElement) {
+        this.cleanupResizeListeners()
+        const delta = e.clientX - this.resizeStartX
+        const newW = Math.max(20, this.resizeStartW + delta)
+
+        if (newW < this.HIDE_THRESHOLD) {
+            // Hide the column
+            const col = this.allHeaders.find((h) => h.value === this.resizingCol)
+            this.toggleColumn(this.resizingCol)
+            // Remove stored width so it comes back at default size
+            delete this.columnWidths[this.resizingCol]
+            localStorage.setItem(this.WIDTHS_KEY, JSON.stringify(this.columnWidths))
+            if (col) this.showSnackbar(`"${col.text}" column hidden`, 'info')
+        } else {
+            this.$set(this.columnWidths, this.resizingCol, newW)
+            localStorage.setItem(this.WIDTHS_KEY, JSON.stringify(this.columnWidths))
+        }
+        this.resizingCol = ''
+    }
+
+    cleanupResizeListeners() {
+        if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove)
+        if (this._onMouseUp) document.removeEventListener('mouseup', this._onMouseUp)
+        this._onMouseMove = null
+        this._onMouseUp = null
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+    }
+
+    // ---- Nozzle helpers ----
+
     nozzleHealthPct(item: FleetHistoryRecord): number {
         if (!item.nozzle_life || item.printer_nozzle_start_health == null) return 0
         const pct = (item.printer_nozzle_start_health / item.nozzle_life) * 100
@@ -457,5 +616,37 @@ export default class FleetHistoryListPanel extends Vue {
 }
 .nozzle-bar {
     cursor: default;
+}
+</style>
+
+<style>
+.resizable-table table {
+    table-layout: fixed;
+}
+.resizable-table thead th {
+    position: relative !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.resizable-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.resizable-table .col-resize-handle {
+    position: absolute !important;
+    right: -3px;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: col-resize !important;
+    z-index: 10;
+}
+.resizable-table .col-resize-handle:hover,
+.resizable-table .col-resize-handle:active {
+    background: rgba(33, 150, 243, 0.5);
 }
 </style>
