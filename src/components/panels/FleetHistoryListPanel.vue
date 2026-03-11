@@ -281,6 +281,10 @@ export default class FleetHistoryListPanel extends Vue {
     private _onMouseMove: ((e: MouseEvent) => void) | null = null
     private _onMouseUp: ((e: MouseEvent) => void) | null = null
 
+    // WebSocket for live history updates
+    private fleetHistoryWs: WebSocket | null = null
+    private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
+
     readonly baseHeaders = [
         { text: 'Printer', value: 'printer_hostname', sortable: true },
         { text: 'Model', value: 'printer_model', sortable: true },
@@ -329,6 +333,7 @@ export default class FleetHistoryListPanel extends Vue {
 
     mounted() {
         this.$nextTick(() => this.attachResizeHandles())
+        this.connectFleetWs()
     }
 
     updated() {
@@ -336,7 +341,52 @@ export default class FleetHistoryListPanel extends Vue {
     }
 
     beforeDestroy() {
+        this.disconnectFleetWs()
         this.cleanupResizeListeners()
+    }
+
+    get fleetDaemonUrl(): string {
+        return this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+    }
+
+    connectFleetWs() {
+        this.disconnectFleetWs()
+        try {
+            const wsUrl = this.fleetDaemonUrl.replace(/^http/, 'ws') + '/ws'
+            this.fleetHistoryWs = new WebSocket(wsUrl)
+
+            this.fleetHistoryWs.onmessage = (event: MessageEvent) => {
+                try {
+                    const msg = JSON.parse(event.data)
+                    if (msg.event === 'history_updated') {
+                        this.applyFilters()
+                    }
+                } catch { /* ignore non-JSON */ }
+            }
+
+            this.fleetHistoryWs.onclose = () => {
+                this.fleetHistoryWs = null
+                this.wsReconnectTimer = setTimeout(() => this.connectFleetWs(), 5000)
+            }
+
+            this.fleetHistoryWs.onerror = () => {
+                this.fleetHistoryWs?.close()
+            }
+        } catch {
+            this.wsReconnectTimer = setTimeout(() => this.connectFleetWs(), 5000)
+        }
+    }
+
+    disconnectFleetWs() {
+        if (this.wsReconnectTimer) {
+            clearTimeout(this.wsReconnectTimer)
+            this.wsReconnectTimer = null
+        }
+        if (this.fleetHistoryWs) {
+            this.fleetHistoryWs.onclose = null
+            this.fleetHistoryWs.close()
+            this.fleetHistoryWs = null
+        }
     }
 
     get devColumnValues(): string[] {
