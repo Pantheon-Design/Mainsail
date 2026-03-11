@@ -82,14 +82,17 @@ export const farm: Module<FarmState, RootState> = {
         // Individual printer mutation
         SET_FLEET_DAEMON_PRINTER(state, payload: { hostname: string; data: any }) {
             const { hostname, data } = payload;
+            const existing = state.fleetDaemonPrinters?.[hostname];
 
             // Ensure the printer data has the expected structure
+            // Merge with existing socket data to preserve position/model during rapid WS updates
             const printerData = {
                 ...data,
                 socket: {
                     hostname: hostname,
                     isConnected: true,
                     webPort: 80,
+                    ...(existing?.socket || {}),
                     ...data.socket
                 },
                 _namespace: hostname

@@ -212,12 +212,12 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
                     return `<b>${m.printer_model}</b><br/>Jobs: ${m.total_jobs}<br/>Completed: ${m.completed_jobs}<br/>Failed: ${m.failed_jobs}<br/>Completion: ${m.completion_rate}%<br/>Print Hours: ${m.print_hours.toFixed(1)}h<br/>Filament: ${m.filament_kg.toFixed(2)} kg`
                 },
             },
-            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor } },
+            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor() } },
             series: [{
                 type: 'pie',
                 radius: ['45%', '70%'],
                 data,
-                label: { color: this.fgColor, formatter: '{b}\n{d}%' },
+                label: { color: this.fgColor(), formatter: '{b}\n{d}%' },
             }],
         }
     }
@@ -233,29 +233,25 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         return {
             animation: false,
             tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-            legend: { data: ['Completion Rate %', 'Print Hours'], textStyle: { color: this.fgColor } },
-            xAxis: { type: 'category', data: models, axisLabel: { color: this.fgColor } },
+            legend: { data: ['Completion Rate %', 'Print Hours'], textStyle: { color: this.fgColor() } },
+            xAxis: { type: 'category', data: models, axisLabel: { color: this.fgColor() } },
             yAxis: [
-                { type: 'value', name: 'Rate %', max: 100, axisLabel: { color: this.fgColor, formatter: '{value}%' } },
-                { type: 'value', name: 'Hours', axisLabel: { color: this.fgColor } },
+                { type: 'value', name: 'Rate %', max: 100, axisLabel: { color: this.fgColor(), formatter: '{value}%' } },
+                { type: 'value', name: 'Hours', axisLabel: { color: this.fgColor() } },
             ],
             series: [
                 {
                     name: 'Completion Rate %',
                     type: 'bar',
-                    data: this.analytics.model_summary.map((r: FleetModelSummary) => ({
-                        value: r.completion_rate,
-                        itemStyle: { color: modelColors[r.printer_model] ?? '#607d8b' },
-                    })),
+                    itemStyle: { color: '#4caf50' },
+                    data: this.analytics.model_summary.map((r: FleetModelSummary) => r.completion_rate),
                 },
                 {
                     name: 'Print Hours',
                     type: 'bar',
                     yAxisIndex: 1,
-                    data: this.analytics.model_summary.map((r: FleetModelSummary) => ({
-                        value: Math.round(r.print_hours * 10) / 10,
-                        itemStyle: { color: modelColors[r.printer_model] ?? '#607d8b', opacity: 0.6 },
-                    })),
+                    itemStyle: { color: '#2196f3' },
+                    data: this.analytics.model_summary.map((r: FleetModelSummary) => Math.round(r.print_hours * 10) / 10),
                 },
             ],
         }
@@ -267,9 +263,9 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         return {
             animation: false,
             tooltip: { trigger: 'axis' },
-            legend: { data: ['Utilization %', '3-Month Avg'], textStyle: { color: this.fgColor } },
-            xAxis: { type: 'category', data: series.labels, axisLabel: { color: this.fgColor } },
-            yAxis: { type: 'value', axisLabel: { color: this.fgColor, formatter: '{value}%' }, max: 100 },
+            legend: { data: ['Utilization %', '3-Month Avg'], textStyle: { color: this.fgColor() } },
+            xAxis: { type: 'category', data: series.labels, axisLabel: { color: this.fgColor() } },
+            yAxis: { type: 'value', axisLabel: { color: this.fgColor(), formatter: '{value}%' }, max: 100 },
             series: [
                 { name: 'Utilization %', type: 'line', data: series.actual, smooth: true, areaStyle: { opacity: 0.2 } },
                 { name: '3-Month Avg', type: 'line', data: series.rolling, smooth: true, lineStyle: { type: 'dashed' } },
@@ -300,9 +296,9 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         return {
             animation: false,
             tooltip: { trigger: 'axis' },
-            legend: { data: top5, textStyle: { color: this.fgColor } },
-            xAxis: { type: 'category', data: months, axisLabel: { color: this.fgColor } },
-            yAxis: { type: 'value', axisLabel: { color: this.fgColor, formatter: '{value} kg' } },
+            legend: { data: top5, textStyle: { color: this.fgColor() } },
+            xAxis: { type: 'category', data: months, axisLabel: { color: this.fgColor() } },
+            yAxis: { type: 'value', axisLabel: { color: this.fgColor(), formatter: '{value} kg' } },
             series,
         }
     }
@@ -333,7 +329,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         const map: Record<string, Record<string, number>> = {}
         this.filteredDailyUtilization.forEach((r: FleetDailyUtilization) => {
             if (!map[r.printer_hostname]) map[r.printer_hostname] = {}
-            map[r.printer_hostname][r.day] = r.utilization_pct
+            map[r.printer_hostname][r.day] = Math.min(100, r.utilization_pct)
         })
         const data: [number, number, number][] = []
         printers.forEach((p, pi) => {
@@ -347,8 +343,8 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
                 formatter: (params: any) => `${printers[params.data[1]]} / ${days[params.data[0]]}<br/>Utilization: ${params.data[2]}%`,
             },
             grid: { top: 10, bottom: 60, left: 140, right: 60 },
-            xAxis: { type: 'category', data: days, axisLabel: { color: this.fgColor, rotate: 45, fontSize: 10 } },
-            yAxis: { type: 'category', data: printers, axisLabel: { color: this.fgColor, fontSize: 10 } },
+            xAxis: { type: 'category', data: days, axisLabel: { color: this.fgColor(), rotate: 45, fontSize: 10 } },
+            yAxis: { type: 'category', data: printers, axisLabel: { color: this.fgColor(), fontSize: 10 } },
             visualMap: { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, inRange: { color: ['#1a1a2e', '#16213e', '#0f3460', '#533483', '#e94560'] } },
             series: [{ type: 'heatmap', data, emphasis: { itemStyle: { shadowBlur: 10 } } }],
         }
@@ -362,15 +358,15 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
             animation: false,
             tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
             grid: { left: 140, right: 20, top: 10, bottom: 20 },
-            xAxis: { type: 'value', max: 100, axisLabel: { color: this.fgColor, formatter: '{value}%' } },
-            yAxis: { type: 'category', data: sorted.map((r: FleetPrinterHealth) => r.printer_hostname), axisLabel: { color: this.fgColor, fontSize: 10 } },
+            xAxis: { type: 'value', max: 100, axisLabel: { color: this.fgColor(), formatter: '{value}%' } },
+            yAxis: { type: 'category', data: sorted.map((r: FleetPrinterHealth) => r.printer_hostname), axisLabel: { color: this.fgColor(), fontSize: 10 } },
             series: [{
                 type: 'bar',
                 data: sorted.map((r: FleetPrinterHealth) => ({
                     value: r.health_pct,
                     itemStyle: { color: r.health_pct >= 90 ? '#4caf50' : r.health_pct >= 70 ? '#ff9800' : '#f44336' },
                 })),
-                label: { show: true, position: 'right', formatter: '{c}%', color: this.fgColor },
+                label: { show: true, position: 'right', formatter: '{c}%', color: this.fgColor() },
             }],
         }
     }
@@ -391,12 +387,12 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         return {
             animation: false,
             tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor } },
+            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor() } },
             series: [{
                 type: 'pie',
                 radius: ['45%', '70%'],
                 data,
-                label: { color: this.fgColor },
+                label: { color: this.fgColor() },
             }],
         }
     }
@@ -407,9 +403,9 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         return {
             animation: false,
             tooltip: { trigger: 'axis' },
-            legend: { data: ['Success Rate %', '4-Week Avg'], textStyle: { color: this.fgColor } },
-            xAxis: { type: 'category', data: series.labels, axisLabel: { color: this.fgColor, rotate: 45, fontSize: 10 } },
-            yAxis: { type: 'value', max: 100, axisLabel: { color: this.fgColor, formatter: '{value}%' } },
+            legend: { data: ['Success Rate %', '4-Week Avg'], textStyle: { color: this.fgColor() } },
+            xAxis: { type: 'category', data: series.labels, axisLabel: { color: this.fgColor(), rotate: 45, fontSize: 10 } },
+            yAxis: { type: 'value', max: 100, axisLabel: { color: this.fgColor(), formatter: '{value}%' } },
             series: [
                 { name: 'Success Rate %', type: 'line', data: series.actual, smooth: true, areaStyle: { opacity: 0.15 }, itemStyle: { color: '#4caf50' } },
                 { name: '4-Week Avg', type: 'line', data: series.rolling, smooth: true, lineStyle: { type: 'dashed' }, itemStyle: { color: '#ff9800' } },

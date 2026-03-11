@@ -80,7 +80,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Mixins } from 'vue-property-decorator';
+    import { Component, Mixins, Watch } from 'vue-property-decorator';
     import BaseMixin from '@/components/mixins/base';
     import FarmPrinterPanel from '@/components/panels/FarmPrinterPanel.vue';
     import FarmPrinterMapPanel from '@/components/panels/FarmPrinterMapPanel.vue';
@@ -189,6 +189,12 @@
             this.loadPrinterPositions();
         }
 
+        // Re-load positions when the remoteprinters store updates (e.g. after async DB load)
+        @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
+        onRemotePrintersChanged() {
+            this.loadPrinterPositions();
+        }
+
         beforeDestroy() {
             this.cleanup();
         }
@@ -230,20 +236,22 @@
                             Vue.$toast.info(`Printer ${message.hostname} removed`);
                         } else if (message.hostname && message.update) {
                             // Handle printer update
+                            const position = this.getPrinterPosition(message.hostname);
+                            const model = this.getPrinterModel(message.hostname);
                             const printerData = {
+                                ...message.update,
                                 socket: {
                                     hostname: message.hostname,
                                     isConnected: true,
                                     webPort: 80,
-                                    position: this.positions[message.hostname] || { x: 400, y: 400 }
+                                    position: position,
+                                    printerModel: model,
                                 },
-                                ...message.update,
                                 current_file: {
                                     filename: message.update?.print_stats?.filename ?? '',
                                 },
                                 _namespace: message.hostname // Add namespace for compatibility
                             };
-                            //Vue.$toast.success('msg=' + JSON.stringify(message));
 
                             this.$store.commit('farm/SET_FLEET_DAEMON_PRINTER', {
                                 hostname: message.hostname,
@@ -287,7 +295,7 @@
             const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
             Object.entries(remotePrinters).forEach(([id, printer]: [string, any]) => {
                 if (printer.hostname && printer.position) {
-                    this.positions[printer.hostname] = printer.position;
+                    Vue.set(this.positions, printer.hostname.toLowerCase(), printer.position);
                 }
             });
         }
@@ -347,17 +355,13 @@
         startDrag(event: MouseEvent, printer: any, hostname: string) {
             this.draggingPrinter = printer;
             this.draggingHostname = hostname;
-            const currentPos = this.positions[hostname] || { x: 400, y: 400 };
+            const currentPos = this.getPrinterPosition(hostname);
 
             this.offsetX = (event.clientX - (currentPos.x * this.scale + this.panX)) / this.scale;
             this.offsetY = (event.clientY - (currentPos.y * this.scale + this.panY)) / this.scale;
 
             document.addEventListener('mousemove', this.onDrag);
             document.addEventListener('mouseup', this.stopDrag);
-            //this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
-            //this.$toast.error(printer);
-
-
         }
 
         onDrag(event: MouseEvent) {
@@ -365,8 +369,7 @@
                 let x = (event.clientX - this.panX) / this.scale - this.offsetX;
                 let y = (event.clientY - this.panY) / this.scale - this.offsetY;
 
-                this.positions[this.draggingHostname] = { x, y };
-                this.$forceUpdate(); // Force re-render
+                Vue.set(this.positions, this.draggingHostname.toLowerCase(), { x, y });
             }
         }
 
@@ -376,7 +379,7 @@
 
             if (this.draggingPrinter && this.draggingHostname) {
                 // Save position to remoteprinters config
-                const position = this.positions[this.draggingHostname];
+                const position = this.positions[this.draggingHostname.toLowerCase()];
                 if (position) {
                     this.updatePrinterPosition(this.draggingHostname, position.x, position.y);
                 }
@@ -391,8 +394,9 @@
             const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
             let printerId = null;
 
+            const key = hostname.toLowerCase();
             for (const [id, printer] of Object.entries(remotePrinters)) {
-                if ((printer as any).hostname === hostname) {
+                if ((printer as any).hostname?.toLowerCase() === key) {
                     printerId = id;
                     break;
                 }
@@ -404,14 +408,33 @@
                     port: 7125,
                     position: { x, y }
                 };
-                this.$store.dispatch('gui/remoteprinters/update', { id: printerId, values });
+                this.$store.dispatch('gui/remoteprinters/updateOnDrag', { id: printerId, values });
             }
         }
 
-        getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+        getPrinterPosition(hostname: string): { x: number, y: number } {
+            const key = hostname.toLowerCase();
+            // Check local cache first (updated by drag operations)
+            if (this.positions[key]) {
+                return this.positions[key];
+            }
+            // Fall back to store (database values) - case-insensitive match
             const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
             for (const printer of Object.values(remotePrinters)) {
-                if ((printer as any).hostname === hostname) {
+                if ((printer as any).hostname?.toLowerCase() === key && (printer as any).position) {
+                    // Cache it for future lookups
+                    Vue.set(this.positions, key, (printer as any).position);
+                    return (printer as any).position;
+                }
+            }
+            return { x: 400, y: 400 };
+        }
+
+        getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+            const key = hostname.toLowerCase();
+            const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
+            for (const printer of Object.values(remotePrinters)) {
+                if ((printer as any).hostname?.toLowerCase() === key) {
                     return (printer as any).printerModel ?? null;
                 }
             }
@@ -420,11 +443,12 @@
 
          getStyle(printer: any) {
             const hostname = printer.socket?.hostname || '';
-            const position = this.positions[hostname] || { x: 400, y: 400 };
+            // Local positions cache (updated by drag) takes priority, then socket data, then store lookup
+            const position = this.positions[hostname.toLowerCase()] || printer.socket?.position || this.getPrinterPosition(hostname);
             const size = "25px";
 
             // Determine style based on model
-            const model = this.getPrinterModel(hostname);
+            const model = printer.socket?.printerModel || this.getPrinterModel(hostname);
             const clip = model === 'HS-Pro' ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)' : 'circle(50%)';
 
             return {
@@ -442,7 +466,7 @@
 
         spinningBorderStyle(printer: any) {
             const hostname = printer.socket?.hostname || '';
-            const model = this.getPrinterModel(hostname);
+            const model = printer.socket?.printerModel || this.getPrinterModel(hostname);
             const isSquare = model === 'HS-Pro';
 
             const fleetDisconnected = printer.fleet_to_printer_ws === false;

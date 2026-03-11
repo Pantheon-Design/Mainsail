@@ -25,7 +25,12 @@ export const getters: GetterTree<FleetHistoryState, any> = {
     // Monthly utilization with 3-month rolling average
     getMonthlyUtilizationSeries(state) {
         const data = state.analytics?.monthly_summary ?? []
-        const actual = data.map((d) => d.utilization_pct)
+        // Backend utilization_pct sums all printers; divide by active_printers for avg per-printer %
+        const actual = data.map((d) =>
+            d.active_printers > 0
+                ? Math.round((d.utilization_pct / d.active_printers) * 10) / 10
+                : 0
+        )
         const rolling: (number | null)[] = data.map((_, i) => {
             if (i < 2) return null
             const slice = actual.slice(i - 2, i + 1)
