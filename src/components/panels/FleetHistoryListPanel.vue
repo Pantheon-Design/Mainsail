@@ -108,6 +108,8 @@
             :loading="isLoading"
             :items-per-page="50"
             :footer-props="{ 'items-per-page-options': [25, 50, 100, 200] }"
+            sort-by="start_time"
+            :sort-desc="true"
             dense
             class="fleet-history-table resizable-table"
         >
@@ -209,14 +211,14 @@
                 />
             </template>
 
-            <!-- QR code — click to edit -->
+            <!-- QR code — click to edit (dev mode only) -->
             <template #item.qr_code="{ item }">
                 <div
                     v-if="editingQrId !== item.id"
                     class="qr-code-cell"
-                    style="min-width: 120px; cursor: pointer"
-                    :title="item.qr_code || 'Click to add QR code'"
-                    @click="startEditQr(item)"
+                    :style="{ minWidth: '120px', cursor: devMode ? 'pointer' : 'default' }"
+                    :title="devMode ? (item.qr_code || 'Click to add QR code') : (item.qr_code || '')"
+                    @click="devMode && startEditQr(item)"
                 >
                     {{ item.qr_code || '—' }}
                 </div>
