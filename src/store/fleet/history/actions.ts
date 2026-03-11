@@ -37,7 +37,7 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         }
     },
 
-    async updateQC({ state, commit, rootGetters }, payload: { id: string; qc_status?: string; qc_inspector?: string; qc_note?: string; qr_code?: string; parts_passed?: number; parts_printed?: number }) {
+    async updateQC({ state, commit, rootGetters }, payload: { id: string; qc_status?: string; qc_inspector?: string; qc_date?: string; qc_note?: string; qr_code?: string; parts_passed?: number; parts_printed?: number }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
             if (state.devMode) console.log('updateQC request:', `PATCH ${baseUrl}/history/${payload.id}/qc`, payload)
@@ -48,6 +48,22 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
             console.error('Failed to update QC:', error)
             throw error
         }
+    },
+
+    async fetchInspectors({ rootGetters }): Promise<string[]> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const response = await axios.get(`${baseUrl}/history/inspectors`)
+        return response.data ?? []
+    },
+
+    async searchByQrCode({ rootGetters }, qrCode: string): Promise<any> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const params = new URLSearchParams()
+        params.set('qr_code', qrCode)
+        params.set('limit', '1')
+        const response = await axios.get(`${baseUrl}/history?${params}`)
+        const records = response.data.records ?? response.data
+        return records.length > 0 ? records[0] : null
     },
 
     async triggerCollect({ rootGetters }) {

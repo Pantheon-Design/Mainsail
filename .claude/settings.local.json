@@ -5,7 +5,12 @@
       "Bash(cd D:/gitlab/fleet3/Fleet_Mainsail && npx vite build 2>&1 | tail -30)",
       "Bash(cd D:/gitlab/fleet3/Fleet_Mainsail && npm run build 2>&1 | tail -30)",
       "Bash(cd D:/gitlab/fleet3/Fleet_Mainsail && npm run build 2>&1 | tail -10)",
-      "Bash(cd D:/gitlab/fleet3/Fleet_Mainsail && npm run build 2>&1 | tail -5)"
+      "Bash(cd D:/gitlab/fleet3/Fleet_Mainsail && npm run build 2>&1 | tail -5)",
+      "Bash(find /d/gitlab/fleet3/Fleet_Mainsail/src -type f \\\\\\( -name \"*.vue\" -o -name \"*.ts\" \\\\\\) | xargs grep -l \"qc_inspector\\\\|inspector.*list\" | head -20)",
+      "Bash(find /d/gitlab/fleet3/Fleet_Mainsail/src -type f -name \"*.vue\" | xargs grep -l \"qr_code\\\\|updateQC\\\\|qc_status\\\\|qc_inspector\" | head -20)",
+      "Bash(find /d/gitlab/fleet3/Fleet_Mainsail -type f \\\\\\( -name \"*.ts\" -o -name \"*.js\" -o -name \"*.vue\" \\\\\\) | xargs grep -l \"inspector\\\\|/history\\\\|fleet.*daemon\" | head -30)",
+      "Bash(find /d/gitlab/fleet3/Fleet_Mainsail/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.vue\" \\\\\\) | xargs grep -l \"fleetDaemonUrl\" | head -20)",
+      "Bash(find /d/gitlab/fleet3/Fleet_Mainsail/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.vue\" \\\\\\) | xargs grep -l \"parts_passed\\\\|parts_printed\" 2>/dev/null)"
     ]
   }
 }
