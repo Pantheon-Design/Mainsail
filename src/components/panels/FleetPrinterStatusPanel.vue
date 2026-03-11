@@ -472,21 +472,14 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     }
 
     clickPrinter(printer: any) {
-
-        //this.$toast.success(JSON.stringify(printer, null, 2));
-        //this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
-        console.log(this.$store.state)
-        /*
-        if (printer.socket.isConnected) {
-            const thisUrl = window.location.href.split('/')
-            const protocol = thisUrl[0]
-
+        if (printer.socket?.isConnected) {
+            const protocol = window.location.protocol
             let url = protocol + '//' + printer.socket.hostname
-            if (80 !== printer.socket.webPort) url += ':' + printer.socket.webPort
-
+            if (printer.socket.webPort && printer.socket.webPort !== 80) {
+                url += ':' + printer.socket.webPort
+            }
             window.open(url)
         }
-        */
     }
 
     reconnectAllFleetPrinters() {
