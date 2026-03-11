@@ -61,7 +61,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Mixins } from 'vue-property-decorator'
+import { Component, Mixins, Watch } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import Panel from '@/components/ui/Panel.vue'
 import SimplifiedPrinterMapPanel from '@/components/panels/SimplifiedPrinterMapPanel.vue'
@@ -133,6 +133,11 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         this.loadPrinterPositions()
     }
 
+    @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
+    onRemotePrintersChanged() {
+        this.loadPrinterPositions()
+    }
+
     beforeDestroy() {
         this.cleanup()
     }
@@ -173,14 +178,17 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
                         this.$store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname)
                     } else if (message.hostname && message.update) {
                         // Handle printer update
+                        const position = this.getPrinterPosition(message.hostname)
+                        const model = this.getPrinterModel(message.hostname)
                         const printerData = {
+                            ...message.update,
                             socket: {
                                 hostname: message.hostname,
                                 isConnected: true,
                                 webPort: 80,
-                                position: this.positions[message.hostname] || { x: 400, y: 400 }
+                                position: position,
+                                printerModel: model,
                             },
-                            ...message.update,
                             current_file: {
                                 filename: message.update?.print_stats?.filename ?? '',
                             },
@@ -222,13 +230,27 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     }
 
     loadPrinterPositions() {
-        // Load positions from remoteprinters config if available
         const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
         Object.entries(remotePrinters).forEach(([id, printer]: [string, any]) => {
             if (printer.hostname && printer.position) {
-                this.positions[printer.hostname] = printer.position
+                Vue.set(this.positions, printer.hostname.toLowerCase(), printer.position)
             }
         })
+    }
+
+    getPrinterPosition(hostname: string): { x: number, y: number } {
+        const key = hostname.toLowerCase()
+        if (this.positions[key]) {
+            return this.positions[key]
+        }
+        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
+        for (const printer of Object.values(remotePrinters)) {
+            if ((printer as any).hostname?.toLowerCase() === key && (printer as any).position) {
+                Vue.set(this.positions, key, (printer as any).position)
+                return (printer as any).position
+            }
+        }
+        return { x: 400, y: 400 }
     }
 
     getPrinterStatus(printer: any): 'disconnected' | 'error' | 'printing' | 'complete' | 'ready' {
@@ -266,9 +288,10 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     }
 
     getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+        const key = hostname.toLowerCase()
         const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
         for (const printer of Object.values(remotePrinters)) {
-            if ((printer as any).hostname === hostname) {
+            if ((printer as any).hostname?.toLowerCase() === key) {
                 return (printer as any).printerModel ?? null
             }
         }
@@ -277,11 +300,10 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
 
     getStyle(printer: any) {
         const hostname = printer.socket?.hostname || ''
-        const position = this.positions[hostname] || { x: 400, y: 400 }
-        const size = "20px" // Slightly smaller for the jobs page
+        const position = this.positions[hostname.toLowerCase()] || printer.socket?.position || this.getPrinterPosition(hostname)
+        const size = "20px"
 
-        // Determine style based on model
-        const model = this.getPrinterModel(hostname)
+        const model = printer.socket?.printerModel || this.getPrinterModel(hostname)
         const clip = model === 'HS-Pro' ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)' : 'circle(50%)'
 
         return {
@@ -299,7 +321,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
 
     spinningBorderStyle(printer: any) {
         const hostname = printer.socket?.hostname || ''
-        const model = this.getPrinterModel(hostname)
+        const model = printer.socket?.printerModel || this.getPrinterModel(hostname)
         const isSquare = model === 'HS-Pro'
 
         const fleetDisconnected = printer.fleet_to_printer_ws === false
@@ -419,7 +441,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
             if (!tooltipElement) return
 
             const hostname = printer.socket?.hostname || ''
-            const printerPosition = this.positions[hostname] || { x: 400, y: 400 }
+            const printerPosition = this.positions[hostname.toLowerCase()] || printer.socket?.position || { x: 400, y: 400 }
             const screenWidth = window.innerWidth
             const tooltipWidth = tooltipElement.offsetWidth
 
