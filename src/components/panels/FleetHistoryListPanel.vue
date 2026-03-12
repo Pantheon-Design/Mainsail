@@ -98,7 +98,7 @@
                         hide-details
                         :prepend-inner-icon="mdiQrcodeScan"
                         @input="applyFiltersDebounced"
-                        @keydown.enter="applyFilters"
+                        @keydown.enter="applyQrCodeFilter"
                     />
                 </v-col>
             </v-row>
@@ -258,7 +258,7 @@
 
         <!-- QC Mode Overlay -->
         <v-dialog v-model="qcMode" fullscreen persistent no-click-animation>
-            <v-card class="qc-mode-card d-flex flex-column" style="height: 100vh">
+            <v-card class="qc-mode-card d-flex flex-column" :style="{ height: '100vh', backgroundColor: qcFlashVisible ? (qcFlashResult === 'pass' ? '#C8E6C9' : '#FFCDD2') : undefined, transition: 'background-color 0.3s ease' }">
                 <!-- Header -->
                 <v-card-title class="d-flex align-center py-2">
                     <v-icon left color="primary">{{ mdiQrcodeScan }}</v-icon>
@@ -330,10 +330,10 @@
                         {{ qcStatusMessage }}
                     </v-alert>
 
-                    <v-row class="flex-grow-1">
+                    <v-row>
                         <!-- Left: Selected job info -->
                         <v-col cols="12" md="7">
-                            <v-card outlined class="fill-height">
+                            <v-card outlined>
                                 <v-card-title class="subtitle-2 py-2">
                                     {{ qcSelectedRecord ? 'Job Found' : 'Waiting for QR scan...' }}
                                 </v-card-title>
@@ -372,11 +372,11 @@
 
                         <!-- Right: Pass/Fail actions -->
                         <v-col cols="12" md="5">
-                            <v-card outlined class="fill-height d-flex flex-column align-center justify-center pa-4">
+                            <v-card outlined class="d-flex flex-column align-center justify-center pa-4">
                                 <p class="subtitle-2 mb-4">{{ qcSelectedRecord ? 'Scan or click to set QC result' : 'Select a job first' }}</p>
 
-                                <v-row class="mb-6" style="max-width: 420px">
-                                    <v-col cols="6" class="d-flex flex-column align-center">
+                                <v-row class="mb-6" justify="space-between" style="max-width: 600px">
+                                    <v-col cols="5" class="d-flex flex-column align-center">
                                         <v-card
                                             outlined
                                             class="pa-4 d-flex flex-column align-center qc-action-card"
@@ -388,7 +388,7 @@
                                             <v-chip small color="success" dark class="mt-2">PASS</v-chip>
                                         </v-card>
                                     </v-col>
-                                    <v-col cols="6" class="d-flex flex-column align-center">
+                                    <v-col cols="5" class="d-flex flex-column align-center">
                                         <v-card
                                             outlined
                                             class="pa-4 d-flex flex-column align-center qc-action-card"
@@ -447,7 +447,6 @@ export default class FleetHistoryListPanel extends Vue {
     mdiBug = mdiBug
     mdiClose = mdiClose
     mdiAccountCheck = mdiAccountCheck
-
     // QC Mode state
     qcMode = false
     qcStep: 'inspector' | 'scanning' = 'inspector'
@@ -458,6 +457,9 @@ export default class FleetHistoryListPanel extends Vue {
     qcSelectedRecord: FleetHistoryRecord | null = null
     qcStatusMessage = ''
     qcStatusType: 'success' | 'error' | 'info' | 'warning' = 'info'
+    qcFlashVisible = false
+    qcFlashResult: 'pass' | 'fail' = 'pass'
+    qcFlashTimer: ReturnType<typeof setTimeout> | null = null
     qcNoteVisible = false
     qcNoteText = ''
     filterPrinter = ''
@@ -465,6 +467,7 @@ export default class FleetHistoryListPanel extends Vue {
     filterFilename = ''
     filterModel = ''
     filterQrCode = ''
+    appliedQrCode = ''
     collecting = false
     editingNoteId: string | null = null
     editingNoteText = ''
@@ -669,8 +672,8 @@ export default class FleetHistoryListPanel extends Vue {
         if (this.filterModel) {
             data = data.filter((r) => r.printer_model === this.filterModel)
         }
-        if (this.filterQrCode) {
-            const q = this.filterQrCode.toLowerCase()
+        if (this.appliedQrCode) {
+            const q = this.appliedQrCode.toLowerCase()
             data = data.filter((r) => r.qr_code?.toLowerCase().includes(q))
         }
         return data
@@ -680,9 +683,15 @@ export default class FleetHistoryListPanel extends Vue {
         this.$store.dispatch('fleet/history/loadHistory', {
             printer: this.filterPrinter || undefined,
             status: this.filterStatus || undefined,
-            qr_code: this.filterQrCode || undefined,
+            qr_code: this.appliedQrCode || undefined,
             limit: 200,
         })
+    }
+
+    applyQrCodeFilter() {
+        this.appliedQrCode = this.filterQrCode
+        this.applyFilters()
+        this.$nextTick(() => { this.filterQrCode = '' })
     }
 
     applyFiltersDebounced() {
@@ -869,6 +878,10 @@ export default class FleetHistoryListPanel extends Vue {
 
             this.qcStatusMessage = `QC ${result.toUpperCase()} recorded for ${this.qcSelectedRecord?.qr_code}`
             this.qcStatusType = result === 'pass' ? 'success' : 'error'
+            this.qcFlashResult = result
+            this.qcFlashVisible = true
+            if (this.qcFlashTimer) clearTimeout(this.qcFlashTimer)
+            this.qcFlashTimer = setTimeout(() => { this.qcFlashVisible = false }, 2000)
             this.qcNoteVisible = true
             this.qcNoteText = ''
         } catch {
