@@ -66,8 +66,33 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         return records.length > 0 ? records[0] : null
     },
 
+    async fetchPartsForJob({ rootGetters }, payload: { printer_hostname: string; moonraker_job_id: string }): Promise<any[]> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const params = new URLSearchParams()
+        params.set('printer', payload.printer_hostname)
+        params.set('moonraker_job_id', payload.moonraker_job_id)
+        params.set('limit', '500')
+        const response = await axios.get(`${baseUrl}/history?${params}`)
+        const records = response.data.records ?? response.data
+        return records.filter((r: any) => r.qr_code != null)
+    },
+
     async triggerCollect({ rootGetters }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         await axios.post(`${baseUrl}/history/collect`)
+    },
+
+    async linkQrCode({ state, commit, rootGetters }, payload: { printer_hostname: string; moonraker_job_id: string; qr_code: string }) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            if (state.devMode) console.log('linkQrCode request:', `POST ${baseUrl}/history/qr-link`, payload)
+            const response = await axios.post(`${baseUrl}/history/qr-link`, payload)
+            if (state.devMode) console.log('linkQrCode response:', response.data)
+            commit('addRecord', response.data)
+            return response.data
+        } catch (error) {
+            console.error('Failed to link QR code:', error)
+            throw error
+        }
     },
 }

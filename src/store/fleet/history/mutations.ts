@@ -38,4 +38,15 @@ export const mutations: MutationTree<FleetHistoryState> = {
             Vue.set(state.records, index, updated)
         }
     },
+
+    addRecord(state, record: FleetHistoryRecord) {
+        state.records.unshift(record)
+    },
+
+    removeRecord(state, id: string) {
+        const index = state.records.findIndex((r) => r.id === id)
+        if (index !== -1) {
+            state.records.splice(index, 1)
+        }
+    },
 }
