@@ -689,7 +689,10 @@ export default class FleetHistoryListPanel extends Vue {
     }
 
     applyQrCodeFilter() {
-        this.appliedQrCode = this.filterQrCode
+        // Strip #1 or #0 prefix if present (from QC scanner codes)
+        let qr = this.filterQrCode || ''
+        if (qr.match(/^#[01]/)) qr = qr.slice(2)
+        this.appliedQrCode = qr
         this.applyFilters()
         this.$nextTick(() => { this.filterQrCode = '' })
     }
@@ -829,13 +832,48 @@ export default class FleetHistoryListPanel extends Vue {
 
         if (!scanned) return
 
-        // Check if it's a pass/fail code
+        // Check if it's a pass/fail code (plain "1"/"0")
         if (scanned === '1' || scanned === '0') {
             if (!this.qcSelectedRecord) {
                 // No job selected — ignore pass/fail scan
                 return
             }
             await this.submitQcResult(scanned === '1' ? 'pass' : 'fail')
+            return
+        }
+
+        // Check for #1 or #0 prefix — means "find QR code and apply pass/fail in one scan"
+        const prefixMatch = scanned.match(/^#([01])(.+)$/)
+        if (prefixMatch && (prefixMatch[2] === '0' || prefixMatch[2] === '1')) {
+            // Pass/fail code scanned with the wrong scanner — warn and ignore
+            this.qcStatusMessage = 'Pass/Fail codes should not be scanned with the QC scanner. Use the standard scanner instead.'
+            this.qcStatusType = 'warning'
+            this.refocusScanInput()
+            return
+        }
+        if (prefixMatch) {
+            const qcResult: 'pass' | 'fail' = prefixMatch[1] === '1' ? 'pass' : 'fail'
+            const qrCode = prefixMatch[2]
+
+            this.qcStatusMessage = ''
+            this.qcNoteVisible = false
+            this.qcNoteText = ''
+            try {
+                const record = await this.$store.dispatch('fleet/history/searchByQrCode', qrCode)
+                if (record) {
+                    this.qcSelectedRecord = record
+                    await this.submitQcResult(qcResult)
+                } else {
+                    this.qcSelectedRecord = null
+                    this.qcStatusMessage = `No job found for QR code: ${qrCode}`
+                    this.qcStatusType = 'warning'
+                }
+            } catch {
+                this.qcStatusMessage = `Error searching for QR code: ${qrCode}`
+                this.qcStatusType = 'error'
+            }
+
+            this.refocusScanInput()
             return
         }
 
