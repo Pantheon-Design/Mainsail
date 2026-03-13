@@ -285,7 +285,7 @@ export default class FilamentListPanel extends Vue {
             await this.$store.dispatch('fleet/spools/loadFilaments')
             this.editDialog = false
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Failed to save'
+            const msg = err?.message || 'Failed to save'
             this.showSnackbar(msg, 'error')
         } finally {
             this.saving = false
@@ -305,7 +305,7 @@ export default class FilamentListPanel extends Vue {
             this.showSnackbar('Filament deleted', 'success')
             this.deleteDialog = false
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Failed to delete'
+            const msg = err?.message || 'Failed to delete'
             this.showSnackbar(msg, 'error')
         } finally {
             this.saving = false

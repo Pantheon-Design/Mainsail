@@ -1,5 +1,10 @@
 <template>
     <v-container fluid class="pa-4">
+        <!-- Connection error banner -->
+        <v-alert v-if="loadError" type="error" dense dismissible class="mb-4" @input="loadError = ''">
+            {{ loadError }}
+        </v-alert>
+
         <v-tabs v-model="activeTab" background-color="transparent">
             <v-tab>Spools</v-tab>
             <v-tab>Filaments</v-tab>
@@ -36,11 +41,20 @@ import VendorListPanel from '@/components/panels/VendorListPanel.vue'
 })
 export default class SpoolManagement extends Vue {
     activeTab = 0
+    loadError = ''
 
-    mounted() {
-        this.$store.dispatch('fleet/spools/loadVendors')
-        this.$store.dispatch('fleet/spools/loadFilaments')
-        this.$store.dispatch('fleet/spools/loadSpools')
+    async mounted() {
+        const errors: string[] = []
+        await Promise.allSettled([
+            this.$store.dispatch('fleet/spools/loadVendors').catch((e: Error) => errors.push(e.message)),
+            this.$store.dispatch('fleet/spools/loadFilaments').catch((e: Error) => errors.push(e.message)),
+            this.$store.dispatch('fleet/spools/loadSpools').catch((e: Error) => errors.push(e.message)),
+        ])
+        if (errors.length > 0) {
+            // Deduplicate — if all three fail with the same network error, show it once
+            const unique = [...new Set(errors)]
+            this.loadError = unique.join(' | ')
+        }
     }
 }
 </script>

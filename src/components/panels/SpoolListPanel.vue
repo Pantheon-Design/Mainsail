@@ -322,11 +322,7 @@ export default class SpoolListPanel extends Vue {
             const spool = await this.$store.dispatch('fleet/spools/lookupByQr', qr)
             this.qrResult = spool
         } catch (err: any) {
-            if (err?.response?.status === 404) {
-                this.qrError = `No spool found for QR code "${qr}"`
-            } else {
-                this.qrError = err?.response?.data?.detail || 'Lookup failed'
-            }
+            this.qrError = err?.message || 'Lookup failed'
         }
     }
 
@@ -377,7 +373,7 @@ export default class SpoolListPanel extends Vue {
             this.reloadSpools()
             this.editDialog = false
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Failed to save'
+            const msg = err?.message || 'Failed to save'
             this.showSnackbar(msg, 'error')
         } finally {
             this.saving = false
@@ -397,7 +393,7 @@ export default class SpoolListPanel extends Vue {
             this.showSnackbar('Spool archived', 'success')
             this.archiveDialog = false
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Failed to archive'
+            const msg = err?.message || 'Failed to archive'
             this.showSnackbar(msg, 'error')
         } finally {
             this.saving = false

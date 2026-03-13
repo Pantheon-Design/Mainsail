@@ -141,7 +141,7 @@ export default class VendorListPanel extends Vue {
             }
             this.editDialog = false
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Failed to save'
+            const msg = err?.message || 'Failed to save'
             this.showSnackbar(msg, 'error')
         } finally {
             this.saving = false
@@ -161,7 +161,7 @@ export default class VendorListPanel extends Vue {
             this.showSnackbar('Vendor deleted', 'success')
             this.deleteDialog = false
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Failed to delete'
+            const msg = err?.message || 'Failed to delete'
             this.showSnackbar(msg, 'error')
         } finally {
             this.saving = false
