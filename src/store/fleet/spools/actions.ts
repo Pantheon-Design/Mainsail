@@ -176,6 +176,16 @@ export const actions: ActionTree<FleetSpoolsState, RootState> = {
         }
     },
 
+    async destroySpool({ commit, rootGetters }, id: number) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.delete(`${baseUrl}/spool/spools/${id}/destroy`)
+            commit('removeSpool', id)
+        } catch (error) {
+            throw new Error(extractError(error))
+        }
+    },
+
     async lookupByQr({ rootGetters }, qrCode: string) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {

@@ -12,10 +12,36 @@
                 style="max-width: 200px"
                 clearable
                 @keydown.enter="lookupQr"
-                @click:clear="qrResult = null" />
+                @click:clear="qrResult = null; qrError = ''" />
             <v-btn small color="primary" outlined class="mr-2" @click="openAddDialog">
                 <v-icon small left>{{ mdiPlus }}</v-icon> Add Spool
             </v-btn>
+            <!-- Dev mode toggle -->
+            <v-btn small :color="devMode ? 'orange' : 'grey'" :outlined="!devMode" @click="devMode = !devMode" class="mr-2" title="Toggle dev mode">
+                <v-icon small left>{{ mdiBug }}</v-icon>
+                Dev
+            </v-btn>
+            <!-- Column visibility -->
+            <v-menu offset-y :close-on-content-click="false" left>
+                <template #activator="{ on, attrs }">
+                    <v-btn small icon v-bind="attrs" v-on="on" title="Toggle columns">
+                        <v-icon small>{{ mdiCog }}</v-icon>
+                    </v-btn>
+                </template>
+                <v-card class="pa-2" style="max-height: 400px; overflow-y: auto">
+                    <v-card-subtitle class="pa-1 caption font-weight-bold">Visible Columns</v-card-subtitle>
+                    <v-checkbox
+                        v-for="col in allHeaders"
+                        :key="col.value"
+                        :label="col.text || col.value"
+                        :input-value="visibleColumns.includes(col.value)"
+                        dense
+                        hide-details
+                        class="mt-0 ml-1"
+                        @change="toggleColumn(col.value)"
+                    />
+                </v-card>
+            </v-menu>
         </v-card-title>
 
         <!-- QR Lookup Result -->
@@ -40,13 +66,13 @@
                         v-model="filterMaterial"
                         :items="materialOptions"
                         label="Material"
-                        clearable dense outlined />
+                        clearable dense outlined hide-details />
                 </v-col>
                 <v-col cols="12" sm="3">
                     <v-text-field
                         v-model="filterLocation"
                         label="Location"
-                        clearable dense outlined />
+                        clearable dense outlined hide-details />
                 </v-col>
                 <v-col cols="12" sm="3">
                     <v-checkbox
@@ -60,6 +86,7 @@
         </v-card-text>
 
         <v-data-table
+            ref="spoolTable"
             :headers="headers"
             :items="filteredSpools"
             :loading="loading"
@@ -68,7 +95,7 @@
             :sort-desc="true"
             :items-per-page="50"
             :footer-props="{ 'items-per-page-options': [25, 50, 100, 200] }"
-            class="spool-table"
+            class="spool-table resizable-table"
             @click:row="openDetailDialog">
             <template #item.color_hex="{ item }">
                 <div v-if="item.color_hex"
@@ -99,11 +126,20 @@
                 <v-chip v-if="item.archived" x-small color="grey">archived</v-chip>
             </template>
             <template #item.actions="{ item }">
-                <v-btn x-small icon @click.stop="openEditDialog(item)">
+                <v-btn x-small icon @click.stop="openEditDialog(item)" title="Edit">
                     <v-icon small>{{ mdiPencil }}</v-icon>
                 </v-btn>
-                <v-btn v-if="!item.archived" x-small icon @click.stop="confirmArchive(item)">
+                <v-btn v-if="!item.archived" x-small icon @click.stop="confirmArchive(item)" title="Archive">
                     <v-icon small>{{ mdiArchive }}</v-icon>
+                </v-btn>
+            </template>
+            <!-- Dev mode actions -->
+            <template #item.dev_actions="{ item }">
+                <v-btn x-small color="orange" outlined @click.stop="openQrEditDialog(item)" title="Edit QR code" class="mr-1">
+                    QR
+                </v-btn>
+                <v-btn x-small color="error" outlined @click.stop="confirmDestroy(item)" title="Permanently delete">
+                    <v-icon x-small>{{ mdiDelete }}</v-icon>
                 </v-btn>
             </template>
         </v-data-table>
@@ -111,11 +147,18 @@
         <!-- Detail Dialog -->
         <v-dialog v-model="detailDialog" max-width="500">
             <v-card v-if="detailSpool">
-                <v-card-title>Spool #{{ detailSpool.id }}</v-card-title>
-                <v-card-text>
+                <v-card-title class="d-flex align-center">
+                    Spool #{{ detailSpool.id }}
+                    <v-spacer />
+                    <v-btn icon small @click="detailDialog = false">
+                        <v-icon small>{{ mdiClose }}</v-icon>
+                    </v-btn>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pt-3">
                     <v-simple-table dense>
                         <tbody>
-                            <tr><td class="font-weight-bold">QR Code</td><td>{{ detailSpool.qr_code || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold" width="160">QR Code</td><td>{{ detailSpool.qr_code || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Filament</td><td>{{ [detailSpool.vendor_name, detailSpool.filament_name].filter(Boolean).join(' — ') }}</td></tr>
                             <tr><td class="font-weight-bold">Material</td><td>{{ detailSpool.material }}</td></tr>
                             <tr><td class="font-weight-bold">Initial Weight</td><td>{{ detailSpool.initial_weight != null ? detailSpool.initial_weight + ' g' : '—' }}</td></tr>
@@ -129,10 +172,6 @@
                         </tbody>
                     </v-simple-table>
                 </v-card-text>
-                <v-card-actions>
-                    <v-spacer />
-                    <v-btn text @click="detailDialog = false">Close</v-btn>
-                </v-card-actions>
             </v-card>
         </v-dialog>
 
@@ -172,6 +211,26 @@
             </v-card>
         </v-dialog>
 
+        <!-- QR Edit Dialog (dev mode) -->
+        <v-dialog v-model="qrEditDialog" max-width="420" persistent>
+            <v-card>
+                <v-card-title>Edit QR Code — Spool #{{ qrEditTarget?.id }}</v-card-title>
+                <v-card-text>
+                    <v-text-field
+                        v-model="qrEditValue"
+                        label="QR Code"
+                        dense outlined
+                        hint="Leave empty to clear"
+                        autofocus />
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="qrEditDialog = false">Cancel</v-btn>
+                    <v-btn color="orange" :loading="saving" @click="submitQrEdit">Save</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
         <!-- Archive Confirmation -->
         <v-dialog v-model="archiveDialog" max-width="400">
             <v-card>
@@ -188,6 +247,22 @@
             </v-card>
         </v-dialog>
 
+        <!-- Destroy Confirmation (dev mode) -->
+        <v-dialog v-model="destroyDialog" max-width="400">
+            <v-card>
+                <v-card-title class="error--text">Permanently Delete Spool</v-card-title>
+                <v-card-text>
+                    This will <strong>permanently delete</strong> spool <strong>#{{ destroyTarget?.id }}</strong>
+                    ({{ destroyTarget?.qr_code || 'no QR' }}). This cannot be undone.
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="destroyDialog = false">Cancel</v-btn>
+                    <v-btn color="error" :loading="saving" @click="doDestroy">Delete Forever</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
         <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" bottom>
             {{ snackbarText }}
         </v-snackbar>
@@ -197,7 +272,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiPlus, mdiPencil, mdiArchive } from '@mdi/js'
+import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 
 @Component
@@ -205,14 +280,25 @@ export default class SpoolListPanel extends Vue {
     mdiPlus = mdiPlus
     mdiPencil = mdiPencil
     mdiArchive = mdiArchive
+    mdiDelete = mdiDelete
+    mdiBug = mdiBug
+    mdiCog = mdiCog
+    mdiClose = mdiClose
+
+    devMode = false
 
     editDialog = false
     detailDialog = false
     archiveDialog = false
+    destroyDialog = false
+    qrEditDialog = false
     saving = false
     editingSpool: FleetSpool | null = null
     detailSpool: FleetSpool | null = null
     archiveTarget: FleetSpool | null = null
+    destroyTarget: FleetSpool | null = null
+    qrEditTarget: FleetSpool | null = null
+    qrEditValue = ''
 
     filterMaterial: string | null = null
     filterLocation: string | null = null
@@ -228,21 +314,89 @@ export default class SpoolListPanel extends Vue {
     snackbarText = ''
     snackbarColor = 'success'
 
-    headers = [
-        { text: 'ID', value: 'id', width: 60 },
-        { text: '', value: 'color_hex', width: 40, sortable: false },
-        { text: 'QR Code', value: 'qr_code', width: 120 },
-        { text: 'Filament', value: 'filament_label' },
-        { text: 'Material', value: 'material', width: 100 },
-        { text: 'Initial', value: 'initial_weight', width: 90 },
-        { text: 'Used', value: 'used_weight', width: 80 },
-        { text: 'Remaining', value: 'remaining_weight', width: 100 },
-        { text: 'Location', value: 'location', width: 100 },
-        { text: 'Last Printer', value: 'last_printer', width: 120 },
-        { text: 'Last Used', value: 'last_used', width: 110 },
-        { text: '', value: 'archived', width: 80, sortable: false },
-        { text: 'Actions', value: 'actions', sortable: false, width: 80 },
+    // Column visibility
+    readonly STORAGE_KEY = 'fleet_spool_visible_columns'
+    readonly WIDTHS_KEY = 'fleet_spool_column_widths'
+    readonly HIDE_THRESHOLD = 36
+    visibleColumns: string[] = []
+    columnWidths: Record<string, number> = {}
+    resizingCol = ''
+    resizeStartX = 0
+    resizeStartW = 0
+    private _onMouseMove: ((e: MouseEvent) => void) | null = null
+    private _onMouseUp: ((e: MouseEvent) => void) | null = null
+
+    readonly baseHeaders = [
+        { text: 'ID', value: 'id', sortable: true },
+        { text: '', value: 'color_hex', sortable: false },
+        { text: 'QR Code', value: 'qr_code', sortable: true },
+        { text: 'Filament', value: 'filament_label', sortable: false },
+        { text: 'Material', value: 'material', sortable: true },
+        { text: 'Initial', value: 'initial_weight', sortable: true },
+        { text: 'Used', value: 'used_weight', sortable: true },
+        { text: 'Remaining', value: 'remaining_weight', sortable: true },
+        { text: 'Location', value: 'location', sortable: true },
+        { text: 'Last Printer', value: 'last_printer', sortable: true },
+        { text: 'Last Used', value: 'last_used', sortable: true },
+        { text: '', value: 'archived', sortable: false },
+        { text: 'Actions', value: 'actions', sortable: false },
     ]
+
+    readonly devHeaders = [
+        { text: 'Dev', value: 'dev_actions', sortable: false },
+    ]
+
+    // --- Lifecycle ---
+
+    created() {
+        try {
+            const saved = localStorage.getItem(this.STORAGE_KEY)
+            if (saved) {
+                const parsed = JSON.parse(saved) as string[]
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    this.visibleColumns = parsed
+                }
+            }
+        } catch { /* ignore */ }
+        if (!this.visibleColumns.length) {
+            this.visibleColumns = this.allHeaders.map((h) => h.value)
+        }
+        try {
+            const w = localStorage.getItem(this.WIDTHS_KEY)
+            if (w) this.columnWidths = JSON.parse(w)
+        } catch { /* ignore */ }
+    }
+
+    mounted() {
+        this.$nextTick(() => this.attachResizeHandles())
+    }
+
+    updated() {
+        this.$nextTick(() => this.attachResizeHandles())
+    }
+
+    beforeDestroy() {
+        this.cleanupResizeListeners()
+    }
+
+    // --- Computed ---
+
+    get allHeaders() {
+        return this.devMode ? [...this.baseHeaders, ...this.devHeaders] : this.baseHeaders
+    }
+
+    get devColumnValues(): string[] {
+        return this.devHeaders.map((h) => h.value)
+    }
+
+    get headers() {
+        return this.allHeaders
+            .filter((h) => this.visibleColumns.includes(h.value) || this.devColumnValues.includes(h.value))
+            .map((h) => {
+                const w = this.columnWidths[h.value]
+                return w ? { ...h, width: `${w}px` } : h
+            })
+    }
 
     get spools(): FleetSpool[] {
         return this.$store.getters['fleet/spools/getSpools']
@@ -250,10 +404,6 @@ export default class SpoolListPanel extends Vue {
 
     get filaments(): FleetFilament[] {
         return this.$store.getters['fleet/spools/getFilaments']
-    }
-
-    get vendors(): FleetVendor[] {
-        return this.$store.getters['fleet/spools/getVendors']
     }
 
     get loading(): boolean {
@@ -280,6 +430,86 @@ export default class SpoolListPanel extends Vue {
             return true
         })
     }
+
+    // --- Column visibility ---
+
+    toggleColumn(value: string) {
+        const idx = this.visibleColumns.indexOf(value)
+        if (idx >= 0) {
+            if (this.visibleColumns.length <= 1) return
+            this.visibleColumns.splice(idx, 1)
+        } else {
+            this.visibleColumns.push(value)
+        }
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.visibleColumns))
+    }
+
+    // --- Column resize ---
+
+    attachResizeHandles() {
+        const table = (this.$refs.spoolTable as any)?.$el as HTMLElement | undefined
+        if (!table) return
+        const ths = table.querySelectorAll('thead th')
+        ths.forEach((th, idx) => {
+            const el = th as HTMLElement
+            if (el.querySelector('.col-resize-handle')) return
+            el.style.position = 'relative'
+            const handle = document.createElement('div')
+            handle.className = 'col-resize-handle'
+            handle.addEventListener('mousedown', (e) => {
+                const header = this.headers[idx]
+                if (!header) return
+                e.preventDefault()
+                e.stopPropagation()
+                this.resizingCol = header.value
+                this.resizeStartX = e.clientX
+                this.resizeStartW = el.offsetWidth
+                this._onMouseMove = (ev: MouseEvent) => this.onResizeMove(ev, el)
+                this._onMouseUp = (ev: MouseEvent) => this.onResizeEnd(ev, el)
+                document.addEventListener('mousemove', this._onMouseMove)
+                document.addEventListener('mouseup', this._onMouseUp)
+                document.body.style.cursor = 'col-resize'
+                document.body.style.userSelect = 'none'
+            })
+            el.appendChild(handle)
+        })
+    }
+
+    onResizeMove(e: MouseEvent, th: HTMLElement) {
+        const delta = e.clientX - this.resizeStartX
+        const newW = Math.max(20, this.resizeStartW + delta)
+        th.style.width = newW + 'px'
+        th.style.minWidth = newW + 'px'
+    }
+
+    onResizeEnd(e: MouseEvent, _th: HTMLElement) {
+        this.cleanupResizeListeners()
+        const delta = e.clientX - this.resizeStartX
+        const newW = Math.max(20, this.resizeStartW + delta)
+
+        if (newW < this.HIDE_THRESHOLD) {
+            this.toggleColumn(this.resizingCol)
+            delete this.columnWidths[this.resizingCol]
+            localStorage.setItem(this.WIDTHS_KEY, JSON.stringify(this.columnWidths))
+            const col = this.allHeaders.find((h) => h.value === this.resizingCol)
+            if (col?.text) this.showSnackbar(`"${col.text}" column hidden`, 'info')
+        } else {
+            this.$set(this.columnWidths, this.resizingCol, newW)
+            localStorage.setItem(this.WIDTHS_KEY, JSON.stringify(this.columnWidths))
+        }
+        this.resizingCol = ''
+    }
+
+    cleanupResizeListeners() {
+        if (this._onMouseMove) document.removeEventListener('mousemove', this._onMouseMove)
+        if (this._onMouseUp) document.removeEventListener('mouseup', this._onMouseUp)
+        this._onMouseMove = null
+        this._onMouseUp = null
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+    }
+
+    // --- Helpers ---
 
     emptyForm() {
         return {
@@ -313,6 +543,14 @@ export default class SpoolListPanel extends Vue {
         this.$store.dispatch('fleet/spools/loadSpools', filters)
     }
 
+    showSnackbar(text: string, color: string) {
+        this.snackbarText = text
+        this.snackbarColor = color
+        this.snackbar = true
+    }
+
+    // --- QR Lookup ---
+
     async lookupQr() {
         const qr = (this.qrSearch || '').trim()
         if (!qr) return
@@ -326,10 +564,14 @@ export default class SpoolListPanel extends Vue {
         }
     }
 
+    // --- Detail ---
+
     openDetailDialog(spool: FleetSpool) {
         this.detailSpool = spool
         this.detailDialog = true
     }
+
+    // --- Add / Edit ---
 
     openAddDialog() {
         this.editingSpool = null
@@ -356,11 +598,9 @@ export default class SpoolListPanel extends Vue {
         this.saving = true
         try {
             const payload: any = { ...this.form }
-            // Clean empty strings to null
             for (const key of ['qr_code', 'location', 'lot_nr', 'comment']) {
                 if (payload[key] === '') payload[key] = null
             }
-
             if (this.editingSpool) {
                 payload.id = this.editingSpool.id
                 await this.$store.dispatch('fleet/spools/updateSpool', payload)
@@ -369,16 +609,42 @@ export default class SpoolListPanel extends Vue {
                 await this.$store.dispatch('fleet/spools/createSpool', payload)
                 this.showSnackbar('Spool created', 'success')
             }
-            // Reload to get joined data
             this.reloadSpools()
             this.editDialog = false
         } catch (err: any) {
-            const msg = err?.message || 'Failed to save'
-            this.showSnackbar(msg, 'error')
+            this.showSnackbar(err?.message || 'Failed to save', 'error')
         } finally {
             this.saving = false
         }
     }
+
+    // --- QR Edit (dev mode) ---
+
+    openQrEditDialog(spool: FleetSpool) {
+        this.qrEditTarget = spool
+        this.qrEditValue = spool.qr_code || ''
+        this.qrEditDialog = true
+    }
+
+    async submitQrEdit() {
+        if (!this.qrEditTarget) return
+        this.saving = true
+        try {
+            await this.$store.dispatch('fleet/spools/updateSpool', {
+                id: this.qrEditTarget.id,
+                qr_code: this.qrEditValue.trim() || null,
+            })
+            this.showSnackbar('QR code updated', 'success')
+            this.reloadSpools()
+            this.qrEditDialog = false
+        } catch (err: any) {
+            this.showSnackbar(err?.message || 'Failed to update QR code', 'error')
+        } finally {
+            this.saving = false
+        }
+    }
+
+    // --- Archive ---
 
     confirmArchive(spool: FleetSpool) {
         this.archiveTarget = spool
@@ -393,17 +659,31 @@ export default class SpoolListPanel extends Vue {
             this.showSnackbar('Spool archived', 'success')
             this.archiveDialog = false
         } catch (err: any) {
-            const msg = err?.message || 'Failed to archive'
-            this.showSnackbar(msg, 'error')
+            this.showSnackbar(err?.message || 'Failed to archive', 'error')
         } finally {
             this.saving = false
         }
     }
 
-    showSnackbar(text: string, color: string) {
-        this.snackbarText = text
-        this.snackbarColor = color
-        this.snackbar = true
+    // --- Destroy (dev mode) ---
+
+    confirmDestroy(spool: FleetSpool) {
+        this.destroyTarget = spool
+        this.destroyDialog = true
+    }
+
+    async doDestroy() {
+        if (!this.destroyTarget) return
+        this.saving = true
+        try {
+            await this.$store.dispatch('fleet/spools/destroySpool', this.destroyTarget.id)
+            this.showSnackbar('Spool permanently deleted', 'success')
+            this.destroyDialog = false
+        } catch (err: any) {
+            this.showSnackbar(err?.message || 'Failed to delete', 'error')
+        } finally {
+            this.saving = false
+        }
     }
 }
 </script>
@@ -411,5 +691,37 @@ export default class SpoolListPanel extends Vue {
 <style scoped>
 .spool-table tbody tr {
     cursor: pointer;
+}
+</style>
+
+<style>
+.resizable-table table {
+    table-layout: fixed;
+}
+.resizable-table thead th {
+    position: relative !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+.resizable-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.resizable-table .col-resize-handle {
+    position: absolute !important;
+    right: -3px;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: col-resize !important;
+    z-index: 10;
+}
+.resizable-table .col-resize-handle:hover,
+.resizable-table .col-resize-handle:active {
+    background: rgba(33, 150, 243, 0.5);
 }
 </style>
