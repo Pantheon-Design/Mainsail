@@ -104,6 +104,7 @@
             :sort-desc="true"
             dense
             class="fleet-parts-table resizable-table"
+            @click:row="openDetail"
         >
             <!-- QR code — click to edit in dev mode -->
             <template #item.qr_code="{ item }">
@@ -242,11 +243,75 @@
 
             <!-- Delete part (dev mode) -->
             <template #item.actions="{ item }">
-                <v-btn icon x-small color="error" @click="confirmDeletePart(item)" title="Delete part">
+                <v-btn icon x-small color="error" @click.stop="confirmDeletePart(item)" title="Delete part">
                     <v-icon x-small>{{ mdiDelete }}</v-icon>
                 </v-btn>
             </template>
         </v-data-table>
+
+        <!-- Job Detail Dialog -->
+        <v-dialog v-model="detailDialog" max-width="700">
+            <v-card v-if="detailJob">
+                <v-card-title class="d-flex align-center">
+                    Job Detail
+                    <v-spacer />
+                    <v-btn icon small @click="detailDialog = false">
+                        <v-icon small>{{ mdiClose }}</v-icon>
+                    </v-btn>
+                </v-card-title>
+                <v-divider />
+                <v-card-text class="pt-3">
+                    <!-- Job info -->
+                    <span class="text-subtitle-2 font-weight-bold">Job</span>
+                    <v-simple-table dense class="mb-4">
+                        <tbody>
+                            <tr><td class="font-weight-bold" width="160">Printer</td><td>{{ detailJob.printer_hostname }}</td></tr>
+                            <tr><td class="font-weight-bold">Model</td><td>{{ detailJob.printer_model || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold">Filename</td><td>{{ detailJob.filename || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold">Filament</td><td>{{ detailJob.filament_type || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold">Status</td><td>
+                                <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
+                            </td></tr>
+                            <tr><td class="font-weight-bold">Start</td><td>{{ formatDate(detailJob.start_time) }}</td></tr>
+                            <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(detailJob.print_duration_secs) }}</td></tr>
+                            <tr><td class="font-weight-bold">Filament Used</td><td>{{ formatFilament(detailJob.filament_used_mm) }}</td></tr>
+                        </tbody>
+                    </v-simple-table>
+
+                    <!-- Parts list -->
+                    <div class="d-flex align-center mb-1">
+                        <span class="text-subtitle-2 font-weight-bold">Parts ({{ detailParts.length }})</span>
+                    </div>
+                    <v-progress-linear v-if="detailPartsLoading" indeterminate color="primary" class="mb-2" />
+                    <v-simple-table v-else-if="detailParts.length" dense>
+                        <thead>
+                            <tr>
+                                <th>QR Code</th>
+                                <th>QC Status</th>
+                                <th>QC Inspector</th>
+                                <th>QC Date</th>
+                                <th>QC Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="part in detailParts" :key="part.id" :class="{ 'primary--text font-weight-bold': detailClickedPart && part.id === detailClickedPart.id }">
+                                <td>{{ part.qr_code }}</td>
+                                <td>
+                                    <v-chip v-if="part.qc_status" x-small :color="part.qc_status === 'pass' ? 'success' : part.qc_status === 'fail' ? 'error' : 'warning'" dark>
+                                        {{ part.qc_status }}
+                                    </v-chip>
+                                    <span v-else>—</span>
+                                </td>
+                                <td>{{ part.qc_inspector || '—' }}</td>
+                                <td>{{ part.qc_date ? new Date(part.qc_date).toLocaleString() : '—' }}</td>
+                                <td>{{ part.qc_note || '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </v-simple-table>
+                    <p v-else class="caption grey--text">No parts linked to this job.</p>
+                </v-card-text>
+            </v-card>
+        </v-dialog>
 
         <!-- Snackbar -->
         <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" bottom>
@@ -479,6 +544,13 @@ export default class FleetPartsPanel extends Vue {
     snackbar = false
     snackbarText = ''
     snackbarColor = 'success'
+
+    // Job Detail dialog
+    detailDialog = false
+    detailJob: FleetHistoryRecord | null = null
+    detailClickedPart: FleetHistoryRecord | null = null
+    detailParts: FleetHistoryRecord[] = []
+    detailPartsLoading = false
 
     // Delete part
     deleteDialog = false
@@ -1009,6 +1081,35 @@ export default class FleetPartsPanel extends Vue {
         document.body.style.userSelect = ''
     }
 
+    // ---- Job Detail ----
+
+    async openDetail(item: FleetHistoryRecord) {
+        this.detailClickedPart = item
+        this.detailJob = null
+        this.detailParts = []
+        this.detailPartsLoading = true
+        this.detailDialog = true
+        try {
+            // Fetch all records for this job (base + parts)
+            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+            const params = new URLSearchParams()
+            params.set('printer', item.printer_hostname)
+            params.set('moonraker_job_id', item.moonraker_job_id)
+            params.set('limit', '500')
+            const response = await axios.get(`${baseUrl}/history?${params}`)
+            const records: FleetHistoryRecord[] = response.data.records ?? response.data
+            // Base job row is the one without a qr_code
+            this.detailJob = records.find((r) => r.qr_code == null) ?? item
+            this.detailParts = records.filter((r) => r.qr_code != null)
+        } catch {
+            // Fallback: show the clicked part's info as the job
+            this.detailJob = item
+            this.detailParts = []
+        } finally {
+            this.detailPartsLoading = false
+        }
+    }
+
     // ---- Delete Part ----
 
     confirmDeletePart(item: FleetHistoryRecord) {
@@ -1093,6 +1194,9 @@ export default class FleetPartsPanel extends Vue {
 <style scoped>
 .nozzle-bar {
     cursor: default;
+}
+.fleet-parts-table tbody tr {
+    cursor: pointer;
 }
 .qc-select :deep(.v-input__slot) {
     min-height: 28px !important;
