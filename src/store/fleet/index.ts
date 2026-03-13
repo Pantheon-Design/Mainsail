@@ -1,5 +1,6 @@
 import { Module } from 'vuex'
 import { history } from './history'
+import { spools } from './spools'
 
 const state = {}
 const getters = {}
@@ -14,5 +15,6 @@ export const fleet: Module<any, any> = {
     mutations,
     modules: {
         history,
+        spools,
     },
 }

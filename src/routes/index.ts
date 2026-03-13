@@ -19,6 +19,7 @@ import {
     mdiChartLine,
     mdiTimelapse,
     mdiWrench,
+    mdiPrinter3dNozzle,
 } from '@mdi/js'
 
 const routes: AppRoute[] = [
@@ -106,6 +107,16 @@ const routes: AppRoute[] = [
         alwaysShow: true,
         showInNavi: true,
         position: 65,
+    },
+    {
+        name: 'spool-management',
+        title: 'Spools',
+        path: '/spools',
+        icon: mdiPrinter3dNozzle,
+        component: () => import('../pages/SpoolManagement.vue'),
+        alwaysShow: true,
+        showInNavi: true,
+        position: 66,
     },
     {
         name: 'history',
