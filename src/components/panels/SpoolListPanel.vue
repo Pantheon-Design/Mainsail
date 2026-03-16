@@ -51,7 +51,8 @@
                 Spool #{{ qrResult.id }},
                 {{ qrResult.material }} ({{ qrResult.vendor_name || 'No vendor' }}),
                 Remaining: {{ qrResult.remaining_weight != null ? qrResult.remaining_weight.toFixed(0) + ' g' : '—' }},
-                Location: {{ qrResult.location || '—' }}
+                Location: {{ qrResult.location || '—' }},
+                Loaded on: {{ qrResult.loaded_on_printer || 'None' }}
             </v-alert>
         </v-card-text>
         <v-card-text v-if="qrError" class="pt-0 pb-2">
@@ -116,6 +117,10 @@
                     {{ item.remaining_weight != null ? item.remaining_weight.toFixed(0) + ' g' : '—' }}
                 </span>
             </template>
+            <template #item.loaded_on_printer="{ item }">
+                <v-chip v-if="item.loaded_on_printer" x-small color="success" dark>{{ item.loaded_on_printer }}</v-chip>
+                <span v-else>—</span>
+            </template>
             <template #item.last_used="{ item }">
                 {{ formatDate(item.last_used) }}
             </template>
@@ -166,6 +171,10 @@
                             <tr><td class="font-weight-bold">Remaining</td><td>{{ detailSpool.remaining_weight != null ? detailSpool.remaining_weight + ' g' : '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Location</td><td>{{ detailSpool.location || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Lot #</td><td>{{ detailSpool.lot_nr || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold">Loaded On</td><td>
+                                <v-chip v-if="detailSpool.loaded_on_printer" x-small color="success" dark>{{ detailSpool.loaded_on_printer }}</v-chip>
+                                <span v-else>Not loaded</span>
+                            </td></tr>
                             <tr><td class="font-weight-bold">Last Printer</td><td>{{ detailSpool.last_printer || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Last Used</td><td>{{ formatDate(detailSpool.last_used) }}</td></tr>
                             <tr><td class="font-weight-bold">Comment</td><td>{{ detailSpool.comment || '—' }}</td></tr>
@@ -336,6 +345,7 @@ export default class SpoolListPanel extends Vue {
         { text: 'Used', value: 'used_weight', sortable: true },
         { text: 'Remaining', value: 'remaining_weight', sortable: true },
         { text: 'Location', value: 'location', sortable: true },
+        { text: 'Loaded On', value: 'loaded_on_printer', sortable: true },
         { text: 'Last Printer', value: 'last_printer', sortable: true },
         { text: 'Last Used', value: 'last_used', sortable: true },
         { text: '', value: 'archived', sortable: false },

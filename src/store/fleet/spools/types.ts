@@ -37,6 +37,7 @@ export interface FleetSpool {
     first_used: string | null
     last_used: string | null
     last_printer: string | null
+    loaded_on_printer: string | null
     registered: string
     // Joined fields from the API
     filament_name: string | null

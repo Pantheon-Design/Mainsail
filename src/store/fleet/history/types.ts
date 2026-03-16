@@ -25,6 +25,7 @@ export interface FleetHistoryRecord {
     qc_date: string | null
     qc_note: string | null
     qr_code: string | null
+    spool_qr_code: string | null
     collected_at: string
 }
 

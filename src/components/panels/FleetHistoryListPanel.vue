@@ -124,6 +124,11 @@
                 {{ item.filament_remaining_weight != null ? `${item.filament_remaining_weight.toFixed(1)} g` : '—' }}
             </template>
 
+            <!-- Spool QR code -->
+            <template #item.spool_qr_code="{ item }">
+                {{ item.spool_qr_code || '—' }}
+            </template>
+
             <!-- Printer nozzle type -->
             <template #item.printer_nozzle_type="{ item }">
                 {{ item.printer_nozzle_type || '—' }}
@@ -204,6 +209,7 @@
                             <tr><td class="font-weight-bold">Start</td><td>{{ formatDate(detailJob.start_time) }}</td></tr>
                             <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(detailJob.print_duration_secs) }}</td></tr>
                             <tr><td class="font-weight-bold">Filament Used</td><td>{{ formatFilament(detailJob.filament_used_mm) }}</td></tr>
+                            <tr><td class="font-weight-bold">Spool QR</td><td>{{ detailJob.spool_qr_code || '—' }}</td></tr>
                         </tbody>
                     </v-simple-table>
 
@@ -333,6 +339,7 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'Duration', value: 'print_duration_secs', sortable: true },
         { text: 'Filament Used', value: 'filament_used_mm', sortable: true },
         { text: 'Remaining Wt', value: 'filament_remaining_weight', sortable: true },
+        { text: 'Spool QR', value: 'spool_qr_code', sortable: true },
         { text: 'Nozzle Type', value: 'printer_nozzle_type', sortable: true },
         { text: 'Nozzle Health', value: 'nozzle_health', sortable: false },
         { text: 'Parts', value: 'parts_count', sortable: false },
