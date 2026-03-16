@@ -66,6 +66,7 @@ import BaseMixin from '@/components/mixins/base'
 import Panel from '@/components/ui/Panel.vue'
 import SimplifiedPrinterMapPanel from '@/components/panels/SimplifiedPrinterMapPanel.vue'
 import Vue from 'vue'
+import { fleetDaemonClient } from '@/plugins/fleetDaemonClient'
 import {
     mdiViewDashboard,
     mdiReload,
@@ -91,8 +92,6 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     mdiAlertCircle = mdiAlertCircle
     mdiConnection = mdiConnection
 
-    private fleetSocket: WebSocket | null = null
-    private reconnectTimer: any = null
     private positions: { [id: string]: { x: number, y: number } } = {}
 
     // Tooltip
@@ -129,104 +128,12 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     }
 
     mounted() {
-        this.connectWebSocket()
         this.loadPrinterPositions()
     }
 
     @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
     onRemotePrintersChanged() {
         this.loadPrinterPositions()
-    }
-
-    beforeDestroy() {
-        this.cleanup()
-    }
-
-    cleanup() {
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer)
-            this.reconnectTimer = null
-        }
-        if (this.fleetSocket) {
-            this.fleetSocket.close()
-            this.fleetSocket = null
-        }
-    }
-
-    connectWebSocket() {
-        if (this.fleetSocket) {
-            this.fleetSocket.close()
-        }
-
-        try {
-            this.fleetSocket = new WebSocket(this.fleetDaemonUrl.replace(/^http/, 'ws') + '/ws')
-
-            this.fleetSocket.onopen = () => {
-                console.log('Fleet Daemon connected from Jobs page')
-                // Clear any reconnect timer
-                if (this.reconnectTimer) {
-                    clearTimeout(this.reconnectTimer)
-                    this.reconnectTimer = null
-                }
-            }
-
-            this.fleetSocket.onmessage = (event: MessageEvent) => {
-                try {
-                    const message = JSON.parse(event.data)
-                    if (message.removed && message.hostname) {
-                        // Handle printer removal
-                        this.$store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname)
-                    } else if (message.hostname && message.update) {
-                        // Handle printer update
-                        const position = this.getPrinterPosition(message.hostname)
-                        const model = this.getPrinterModel(message.hostname)
-                        const printerData = {
-                            ...message.update,
-                            socket: {
-                                hostname: message.hostname,
-                                isConnected: true,
-                                webPort: 80,
-                                position: position,
-                                printerModel: model,
-                            },
-                            current_file: {
-                                filename: message.update?.print_stats?.filename ?? '',
-                            },
-                            _namespace: message.hostname
-                        }
-
-                        this.$store.commit('farm/SET_FLEET_DAEMON_PRINTER', {
-                            hostname: message.hostname,
-                            data: printerData
-                        })
-                    }
-                } catch (e) {
-                    console.warn('Fleet daemon WS error:', e)
-                }
-            }
-
-            this.fleetSocket.onclose = () => {
-                console.warn('Fleet daemon WebSocket closed')
-                this.fleetSocket = null
-
-                // Attempt to reconnect after 5 seconds
-                this.reconnectTimer = setTimeout(() => {
-                    this.connectWebSocket()
-                }, 5000)
-            }
-
-            this.fleetSocket.onerror = (error) => {
-                console.error('Fleet daemon WebSocket error:', error)
-            }
-
-        } catch (e) {
-            console.error('Failed to create WebSocket:', e)
-
-            // Retry after 5 seconds
-            this.reconnectTimer = setTimeout(() => {
-                this.connectWebSocket()
-            }, 5000)
-        }
     }
 
     loadPrinterPositions() {
@@ -262,7 +169,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         }
 
         // 2. WebSocket or printer connection is down
-        if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+        if (!this.$store.state.farm.fleetDaemonConnected || !printer.socket?.isConnected) {
             return 'disconnected'
         }
 
@@ -342,7 +249,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         }
 
         // 2. WebSocket or printer connection is down = GRAY
-        if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+        if (!this.$store.state.farm.fleetDaemonConnected || !printer.socket?.isConnected) {
             return {
                 position: 'absolute',
                 top: 0,
@@ -485,9 +392,8 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     reconnectAllFleetPrinters() {
         this.$toast.info('Reconnecting all printers...')
 
-        // First reconnect WebSocket
-        this.cleanup()
-        this.connectWebSocket()
+        // Reconnect the shared fleet daemon WebSocket
+        fleetDaemonClient.reconnect()
 
         // Then trigger printer reconnect
         fetch(`${this.fleetDaemonUrl}/reconnect_all`, { method: 'POST' })

@@ -7,6 +7,7 @@ import Vue from 'vue'
 export const getDefaultState = (): FarmState => {
     return {
         fleetDaemonPrinters: {},
+        fleetDaemonConnected: false,
     }
 }
 
@@ -119,6 +120,11 @@ export const farm: Module<FarmState, RootState> = {
         // Clear all fleet daemon printers
         CLEAR_FLEET_DAEMON_PRINTERS(state) {
             Vue.set(state, 'fleetDaemonPrinters', {});
+        },
+
+        // Track fleet daemon WebSocket connection state
+        SET_FLEET_DAEMON_CONNECTED(state, connected: boolean) {
+            Vue.set(state, 'fleetDaemonConnected', connected);
         }
     },
 }

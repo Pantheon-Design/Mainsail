@@ -283,6 +283,7 @@ import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiBug, mdiPlus, mdiClose } from '@mdi/js'
 import axios from 'axios'
+import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 
 @Component
 export default class FleetHistoryListPanel extends Vue {
@@ -324,10 +325,6 @@ export default class FleetHistoryListPanel extends Vue {
 
     private _onMouseMove: ((e: MouseEvent) => void) | null = null
     private _onMouseUp: ((e: MouseEvent) => void) | null = null
-
-    // WebSocket for live history updates
-    private fleetHistoryWs: WebSocket | null = null
-    private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
 
     readonly baseHeaders = [
         { text: 'Printer', value: 'printer_hostname', sortable: true },
@@ -373,7 +370,8 @@ export default class FleetHistoryListPanel extends Vue {
 
     mounted() {
         this.$nextTick(() => this.attachResizeHandles())
-        this.connectFleetWs()
+        // Listen for history updates from the shared fleet daemon connection
+        fleetDaemonEvents.$on('history_updated', this.onHistoryUpdated)
     }
 
     updated() {
@@ -381,7 +379,7 @@ export default class FleetHistoryListPanel extends Vue {
     }
 
     beforeDestroy() {
-        this.disconnectFleetWs()
+        fleetDaemonEvents.$off('history_updated', this.onHistoryUpdated)
         this.cleanupResizeListeners()
     }
 
@@ -389,44 +387,8 @@ export default class FleetHistoryListPanel extends Vue {
         return this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
     }
 
-    connectFleetWs() {
-        this.disconnectFleetWs()
-        try {
-            const wsUrl = this.fleetDaemonUrl.replace(/^http/, 'ws') + '/ws'
-            this.fleetHistoryWs = new WebSocket(wsUrl)
-
-            this.fleetHistoryWs.onmessage = (event: MessageEvent) => {
-                try {
-                    const msg = JSON.parse(event.data)
-                    if (msg.event === 'history_updated') {
-                        this.applyFilters()
-                    }
-                } catch { /* ignore non-JSON */ }
-            }
-
-            this.fleetHistoryWs.onclose = () => {
-                this.fleetHistoryWs = null
-                this.wsReconnectTimer = setTimeout(() => this.connectFleetWs(), 5000)
-            }
-
-            this.fleetHistoryWs.onerror = () => {
-                this.fleetHistoryWs?.close()
-            }
-        } catch {
-            this.wsReconnectTimer = setTimeout(() => this.connectFleetWs(), 5000)
-        }
-    }
-
-    disconnectFleetWs() {
-        if (this.wsReconnectTimer) {
-            clearTimeout(this.wsReconnectTimer)
-            this.wsReconnectTimer = null
-        }
-        if (this.fleetHistoryWs) {
-            this.fleetHistoryWs.onclose = null
-            this.fleetHistoryWs.close()
-            this.fleetHistoryWs = null
-        }
+    onHistoryUpdated() {
+        this.applyFilters()
     }
 
     get allHeaders() {

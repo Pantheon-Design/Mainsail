@@ -86,6 +86,7 @@
     import FarmPrinterMapPanel from '@/components/panels/FarmPrinterMapPanel.vue';
     import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue';
     import Vue from 'vue';
+    import { fleetDaemonClient } from '@/plugins/fleetDaemonClient';
 
     @Component({
         components: {
@@ -97,8 +98,6 @@
     export default class PageFarm extends Mixins(BaseMixin) {
         isMapView = true;
         isEditing = false;
-        fleetSocket: WebSocket | null = null;
-        reconnectTimer: any = null;
 
         // Map view properties
         draggingPrinter: any = null;
@@ -157,8 +156,8 @@
                 return 'disconnected';
             }
 
-            // 2. WebSocket or printer connection is down
-            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+            // 2. Fleet daemon WebSocket is down or printer connection is down
+            if (!this.$store.state.farm.fleetDaemonConnected || !printer.socket?.isConnected) {
                 return 'disconnected';
             }
 
@@ -184,7 +183,6 @@
         }
 
         mounted() {
-            this.connectWebSocket();
             // Load saved positions from remoteprinters config
             this.loadPrinterPositions();
         }
@@ -193,101 +191,6 @@
         @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
         onRemotePrintersChanged() {
             this.loadPrinterPositions();
-        }
-
-        beforeDestroy() {
-            this.cleanup();
-        }
-
-        cleanup() {
-            if (this.reconnectTimer) {
-                clearTimeout(this.reconnectTimer);
-                this.reconnectTimer = null;
-            }
-            if (this.fleetSocket) {
-                this.fleetSocket.close();
-                this.fleetSocket = null;
-            }
-        }
-
-        connectWebSocket() {
-            if (this.fleetSocket) {
-                this.fleetSocket.close();
-            }
-
-            try {
-                this.fleetSocket = new WebSocket(this.fleetDaemonUrl.replace(/^http/, 'ws') + '/ws');
-
-                this.fleetSocket.onopen = () => {
-                    Vue.$toast.success('Connected to Fleet Daemon');
-                    // Clear any reconnect timer
-                    if (this.reconnectTimer) {
-                        clearTimeout(this.reconnectTimer);
-                        this.reconnectTimer = null;
-                    }
-                };
-
-                this.fleetSocket.onmessage = (event: MessageEvent) => {
-                    try {
-                        const message = JSON.parse(event.data);
-                        if (message.removed && message.hostname) {
-                            // Handle printer removal
-                            this.$store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname);
-                            Vue.$toast.info(`Printer ${message.hostname} removed`);
-                        } else if (message.hostname && message.update) {
-                            // Handle printer update
-                            const position = this.getPrinterPosition(message.hostname);
-                            const model = this.getPrinterModel(message.hostname);
-                            const printerData = {
-                                ...message.update,
-                                socket: {
-                                    hostname: message.hostname,
-                                    isConnected: true,
-                                    webPort: 80,
-                                    position: position,
-                                    printerModel: model,
-                                },
-                                current_file: {
-                                    filename: message.update?.print_stats?.filename ?? '',
-                                },
-                                _namespace: message.hostname // Add namespace for compatibility
-                            };
-
-                            this.$store.commit('farm/SET_FLEET_DAEMON_PRINTER', {
-                                hostname: message.hostname,
-                                data: printerData
-                            });
-                        }
-                    } catch (e) {
-                        console.warn('Fleet daemon WS error:', e);
-                    }
-                };
-
-                this.fleetSocket.onclose = () => {
-                    console.warn('Fleet daemon WebSocket closed');
-                    this.fleetSocket = null;
-                    Vue.$toast.warning('Disconnected from Fleet Daemon');
-
-                    // Attempt to reconnect after 5 seconds
-                    this.reconnectTimer = setTimeout(() => {
-                        this.connectWebSocket();
-                    }, 5000);
-                };
-
-                this.fleetSocket.onerror = (error) => {
-                    console.error('Fleet daemon WebSocket error:', error);
-                    Vue.$toast.error('Fleet Daemon connection error');
-                };
-
-            } catch (e) {
-                console.error('Failed to create WebSocket:', e);
-                Vue.$toast.error('Failed to connect to Fleet Daemon');
-
-                // Retry after 5 seconds
-                this.reconnectTimer = setTimeout(() => {
-                    this.connectWebSocket();
-                }, 5000);
-            }
         }
 
         loadPrinterPositions() {
@@ -322,21 +225,10 @@
         reconnectAllFleetPrinters() {
             Vue.$toast.info('Reconnecting all printers...');
 
-            // Run reconnect logic twice
-            this._reconnectAllFleetPrinters();
-            setTimeout(() => {
-                this._reconnectAllFleetPrinters();
-            }, 50); // Small delay to prevent websocket race
-        }
+            // Reconnect the shared fleet daemon WebSocket
+            fleetDaemonClient.reconnect();
 
-        _reconnectAllFleetPrinters() {
-            // First reconnect WebSocket
-            this.cleanup();
-            this.connectWebSocket();
-
-            // Then trigger printer reconnect
-            Vue.$toast.info('Reconnecting all printers...');
-
+            // Then trigger printer reconnect on the daemon
             fetch(`${this.fleetDaemonUrl}/reconnect_all`, { method: 'POST' })
                 .then(res => {
                     if (res.ok) {
@@ -486,8 +378,8 @@
                 };
             }
 
-            // ✅ 2. WebSocket or printer connection is down = GRAY
-            if (!this.fleetSocket || this.fleetSocket.readyState !== WebSocket.OPEN || !printer.socket?.isConnected) {
+            // ✅ 2. Fleet daemon WebSocket or printer connection is down = GRAY
+            if (!this.$store.state.farm.fleetDaemonConnected || !printer.socket?.isConnected) {
                 return {
                     position: 'absolute',
                     top: 0,

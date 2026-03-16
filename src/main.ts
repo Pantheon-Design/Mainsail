@@ -7,6 +7,7 @@ import i18n, { setAndLoadLocale } from '@/plugins/i18n'
 import store from '@/store'
 import router from '@/plugins/router'
 import { WebSocketPlugin } from '@/plugins/webSocketClient'
+import { fleetDaemonClient } from '@/plugins/fleetDaemonClient'
 // vue-observe-visibility
 import { ObserveVisibility } from 'vue-observe-visibility'
 //vue-meta
@@ -88,6 +89,9 @@ const initLoad = async () => {
     const url = store.getters['socket/getWebsocketUrl']
     Vue.use(WebSocketPlugin, { url, store })
     if (store?.state?.instancesDB === 'moonraker') Vue.$socket.connect()
+
+    // Start persistent fleet daemon WebSocket connection
+    fleetDaemonClient.start()
 }
 
 initLoad().then(() =>
