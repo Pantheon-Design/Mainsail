@@ -275,8 +275,33 @@
                             <tr><td class="font-weight-bold">Start</td><td>{{ formatDate(detailJob.start_time) }}</td></tr>
                             <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(detailJob.print_duration_secs) }}</td></tr>
                             <tr><td class="font-weight-bold">Filament Used</td><td>{{ formatFilament(detailJob.filament_used_mm) }}</td></tr>
+                            <tr><td class="font-weight-bold">Spool QR</td><td>{{ detailJob.spool_qr_code || '—' }}</td></tr>
                         </tbody>
                     </v-simple-table>
+
+                    <!-- Spool info -->
+                    <div v-if="detailSpool" class="mb-4">
+                        <span class="text-subtitle-2 font-weight-bold">Spool</span>
+                        <v-simple-table dense>
+                            <tbody>
+                                <tr><td class="font-weight-bold" width="160">Spool ID</td><td>#{{ detailSpool.id }}</td></tr>
+                                <tr><td class="font-weight-bold">Vendor</td><td>{{ (detailSpool.filament && detailSpool.filament.vendor && detailSpool.filament.vendor.name) || '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Filament</td><td>{{ (detailSpool.filament && detailSpool.filament.name) || '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Material</td><td>{{ (detailSpool.filament && detailSpool.filament.material) || '—' }}</td></tr>
+                                <tr v-if="detailSpool.filament && detailSpool.filament.color_hex"><td class="font-weight-bold">Color</td><td>
+                                    <div :style="{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#' + detailSpool.filament.color_hex, border: '1px solid rgba(255,255,255,0.3)', display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }" />
+                                    #{{ detailSpool.filament.color_hex }}
+                                </td></tr>
+                                <tr><td class="font-weight-bold">Initial Weight</td><td>{{ detailSpool.initial_weight != null ? detailSpool.initial_weight.toFixed(0) + ' g' : '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Remaining</td><td>{{ detailSpool.remaining_weight != null ? detailSpool.remaining_weight.toFixed(0) + ' g' : '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Loaded On</td><td>
+                                    <v-chip v-if="detailSpool.loaded_on_printer" x-small color="success" dark>{{ detailSpool.loaded_on_printer }}</v-chip>
+                                    <span v-else>Not loaded</span>
+                                </td></tr>
+                                <tr><td class="font-weight-bold">Location</td><td>{{ detailSpool.location || '—' }}</td></tr>
+                            </tbody>
+                        </v-simple-table>
+                    </div>
 
                     <!-- Parts list -->
                     <div class="d-flex align-center mb-1">
@@ -551,6 +576,7 @@ export default class FleetPartsPanel extends Vue {
     detailClickedPart: FleetHistoryRecord | null = null
     detailParts: FleetHistoryRecord[] = []
     detailPartsLoading = false
+    detailSpool: any = null
 
     // Delete part
     deleteDialog = false
@@ -1088,6 +1114,7 @@ export default class FleetPartsPanel extends Vue {
         this.detailJob = null
         this.detailParts = []
         this.detailPartsLoading = true
+        this.detailSpool = null
         this.detailDialog = true
         try {
             // Fetch all records for this job (base + parts)
@@ -1101,6 +1128,14 @@ export default class FleetPartsPanel extends Vue {
             // Base job row is the one without a qr_code
             this.detailJob = records.find((r) => r.qr_code == null) ?? item
             this.detailParts = records.filter((r) => r.qr_code != null)
+
+            // Fetch spool info if spool_qr_code is set
+            const spoolQr = this.detailJob.spool_qr_code || item.spool_qr_code
+            if (spoolQr) {
+                try {
+                    this.detailSpool = await this.$store.dispatch('fleet/spools/lookupByQr', spoolQr)
+                } catch { /* spool may have been deleted */ }
+            }
         } catch {
             // Fallback: show the clicked part's info as the job
             this.detailJob = item

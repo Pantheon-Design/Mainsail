@@ -213,6 +213,30 @@
                         </tbody>
                     </v-simple-table>
 
+                    <!-- Spool info (if spool_qr_code is linked) -->
+                    <div v-if="detailSpool" class="mb-4">
+                        <span class="text-subtitle-2 font-weight-bold">Spool</span>
+                        <v-simple-table dense>
+                            <tbody>
+                                <tr><td class="font-weight-bold" width="160">Spool ID</td><td>#{{ detailSpool.id }}</td></tr>
+                                <tr><td class="font-weight-bold">Vendor</td><td>{{ (detailSpool.filament && detailSpool.filament.vendor && detailSpool.filament.vendor.name) || '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Filament</td><td>{{ (detailSpool.filament && detailSpool.filament.name) || '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Material</td><td>{{ (detailSpool.filament && detailSpool.filament.material) || '—' }}</td></tr>
+                                <tr v-if="detailSpool.filament && detailSpool.filament.color_hex"><td class="font-weight-bold">Color</td><td>
+                                    <div :style="{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#' + detailSpool.filament.color_hex, border: '1px solid rgba(255,255,255,0.3)', display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }" />
+                                    #{{ detailSpool.filament.color_hex }}
+                                </td></tr>
+                                <tr><td class="font-weight-bold">Initial Weight</td><td>{{ detailSpool.initial_weight != null ? detailSpool.initial_weight.toFixed(0) + ' g' : '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Remaining</td><td>{{ detailSpool.remaining_weight != null ? detailSpool.remaining_weight.toFixed(0) + ' g' : '—' }}</td></tr>
+                                <tr><td class="font-weight-bold">Loaded On</td><td>
+                                    <v-chip v-if="detailSpool.loaded_on_printer" x-small color="success" dark>{{ detailSpool.loaded_on_printer }}</v-chip>
+                                    <span v-else>Not loaded</span>
+                                </td></tr>
+                                <tr><td class="font-weight-bold">Location</td><td>{{ detailSpool.location || '—' }}</td></tr>
+                            </tbody>
+                        </v-simple-table>
+                    </div>
+
                     <!-- Parts list -->
                     <div class="d-flex align-center mb-1">
                         <span class="text-subtitle-2 font-weight-bold">Parts ({{ detailParts.length }})</span>
@@ -307,6 +331,7 @@ export default class FleetHistoryListPanel extends Vue {
     detailJob: FleetHistoryRecord | null = null
     detailParts: FleetHistoryRecord[] = []
     detailPartsLoading = false
+    detailSpool: any = null
 
     // Add Part dialog
     addPartDialog = false
@@ -514,12 +539,21 @@ export default class FleetHistoryListPanel extends Vue {
         this.detailJob = item
         this.detailParts = []
         this.detailPartsLoading = true
+        this.detailSpool = null
         this.detailDialog = true
         try {
-            this.detailParts = await this.$store.dispatch('fleet/history/fetchPartsForJob', {
-                printer_hostname: item.printer_hostname,
-                moonraker_job_id: item.moonraker_job_id,
-            })
+            const [parts] = await Promise.all([
+                this.$store.dispatch('fleet/history/fetchPartsForJob', {
+                    printer_hostname: item.printer_hostname,
+                    moonraker_job_id: item.moonraker_job_id,
+                }),
+                item.spool_qr_code
+                    ? this.$store.dispatch('fleet/spools/lookupByQr', item.spool_qr_code)
+                        .then((spool: any) => { this.detailSpool = spool })
+                        .catch(() => { this.detailSpool = null })
+                    : Promise.resolve(),
+            ])
+            this.detailParts = parts
         } catch {
             this.detailParts = []
         } finally {
