@@ -153,7 +153,7 @@
         </v-data-table>
 
         <!-- Detail Dialog -->
-        <v-dialog v-model="detailDialog" max-width="500">
+        <v-dialog v-model="detailDialog" max-width="750">
             <v-card v-if="detailSpool">
                 <v-card-title class="d-flex align-center">
                     Spool #{{ detailSpool.id }}
@@ -164,7 +164,7 @@
                 </v-card-title>
                 <v-divider />
                 <v-card-text class="pt-3">
-                    <v-simple-table dense>
+                    <v-simple-table dense class="mb-4">
                         <tbody>
                             <tr><td class="font-weight-bold" width="160">QR Code</td><td>{{ detailSpool.qr_code || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Filament</td><td>{{ [detailSpool.vendor_name, detailSpool.filament_name].filter(Boolean).join(' — ') }}</td></tr>
@@ -183,6 +183,78 @@
                             <tr><td class="font-weight-bold">Comment</td><td>{{ detailSpool.comment || '—' }}</td></tr>
                         </tbody>
                     </v-simple-table>
+
+                    <v-progress-linear v-if="detailSpoolJobsLoading" indeterminate color="primary" class="mb-2" />
+                    <template v-else>
+                        <!-- Print jobs that used this spool -->
+                        <div class="d-flex align-center mb-1">
+                            <span class="text-subtitle-2 font-weight-bold">Print Jobs ({{ detailSpoolJobs.length }})</span>
+                        </div>
+                        <v-simple-table v-if="detailSpoolJobs.length" dense class="mb-4">
+                            <thead>
+                                <tr>
+                                    <th>Printer</th>
+                                    <th>Filename</th>
+                                    <th>Status</th>
+                                    <th>Start</th>
+                                    <th>Spool QR</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="job in detailSpoolJobs" :key="job.id">
+                                    <td>{{ job.printer_hostname }}</td>
+                                    <td class="text-truncate" style="max-width: 200px">{{ job.filename || '—' }}</td>
+                                    <td>
+                                        <v-chip x-small :color="job.status === 'completed' ? 'success' : job.status === 'error' ? 'error' : 'grey'" dark>
+                                            {{ job.status || '—' }}
+                                        </v-chip>
+                                    </td>
+                                    <td>{{ formatDate(job.start_time) }}</td>
+                                    <td>{{ job.spool_qr_code || '—' }}</td>
+                                </tr>
+                            </tbody>
+                        </v-simple-table>
+                        <p v-else class="caption grey--text mb-4">No print jobs linked to this spool.</p>
+
+                        <!-- Parts printed with this spool -->
+                        <div class="d-flex align-center mb-1">
+                            <span class="text-subtitle-2 font-weight-bold">Parts ({{ detailSpoolParts.length }})</span>
+                        </div>
+                        <v-simple-table v-if="detailSpoolParts.length" dense>
+                            <thead>
+                                <tr>
+                                    <th>Part QR</th>
+                                    <th>Printer</th>
+                                    <th>Filename</th>
+                                    <th>Status</th>
+                                    <th>Start</th>
+                                    <th>QC</th>
+                                    <th>Spool QR</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="part in detailSpoolParts" :key="part.id">
+                                    <td>{{ part.qr_code }}</td>
+                                    <td>{{ part.printer_hostname }}</td>
+                                    <td class="text-truncate" style="max-width: 180px">{{ part.filename || '—' }}</td>
+                                    <td>
+                                        <v-chip x-small :color="part.status === 'completed' ? 'success' : part.status === 'error' ? 'error' : 'grey'" dark>
+                                            {{ part.status || '—' }}
+                                        </v-chip>
+                                    </td>
+                                    <td>{{ formatDate(part.start_time) }}</td>
+                                    <td>
+                                        <v-chip v-if="part.qc_status" x-small :color="part.qc_status === 'pass' ? 'success' : part.qc_status === 'fail' ? 'error' : 'warning'" dark>
+                                            {{ part.qc_status }}
+                                        </v-chip>
+                                        <span v-else>—</span>
+                                    </td>
+                                    <td>{{ part.spool_qr_code || '—' }}</td>
+                                </tr>
+                            </tbody>
+                        </v-simple-table>
+                        <p v-else class="caption grey--text">No parts linked to this spool.</p>
+                    </template>
                 </v-card-text>
             </v-card>
         </v-dialog>
@@ -444,6 +516,9 @@ export default class SpoolListPanel extends Vue {
 
     editDialog = false
     detailDialog = false
+    detailSpoolJobs: any[] = []
+    detailSpoolParts: any[] = []
+    detailSpoolJobsLoading = false
     archiveDialog = false
     destroyDialog = false
     qrEditDialog = false
@@ -730,7 +805,31 @@ export default class SpoolListPanel extends Vue {
 
     openDetailDialog(spool: FleetSpool) {
         this.detailSpool = spool
+        this.detailSpoolJobs = []
+        this.detailSpoolParts = []
+        this.detailSpoolJobsLoading = false
         this.detailDialog = true
+
+        // Fetch jobs/parts that used this spool
+        if (spool.qr_code) {
+            this.detailSpoolJobsLoading = true
+            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+            import('axios').then(({ default: axios }) => {
+                axios.get(`${baseUrl}/history`, {
+                    params: { spool_qr_code: spool.qr_code, limit: 500 }
+                })
+                    .then((resp: any) => {
+                        const all = resp.data.records ?? []
+                        this.detailSpoolJobs = all.filter((r: any) => r.qr_code == null)
+                        this.detailSpoolParts = all.filter((r: any) => r.qr_code != null)
+                    })
+                    .catch(() => {
+                        this.detailSpoolJobs = []
+                        this.detailSpoolParts = []
+                    })
+                    .finally(() => { this.detailSpoolJobsLoading = false })
+            })
+        }
     }
 
     // --- Add / Edit ---
