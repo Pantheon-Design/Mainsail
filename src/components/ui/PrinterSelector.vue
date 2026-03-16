@@ -26,7 +26,6 @@
 <script lang="ts">
 import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '../mixins/base'
-import router from '@/plugins/router'
 import { FarmPrinterState } from '@/store/farm/printer/types'
 import { mdiChevronDown } from '@mdi/js'
 
@@ -57,7 +56,7 @@ export default class PrinterSelector extends Mixins(BaseMixin) {
     }
 
     switchToPrinters() {
-        router.push('/allPrinters')
+        this.$router.push('/allPrinters')
     }
 
     getPrinterName(namespace: string) {

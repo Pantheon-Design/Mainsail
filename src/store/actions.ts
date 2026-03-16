@@ -1,9 +1,9 @@
-import router from '@/plugins/router'
 import { ActionTree } from 'vuex'
 import { ConfigJson, RootState } from './types'
 
 export const actions: ActionTree<RootState, RootState> = {
     switchToDashboard() {
+        const router = require('@/plugins/router').default
         if (router.currentRoute.fullPath !== '/') router.push('/')
     },
 

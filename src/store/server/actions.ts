@@ -1,5 +1,4 @@
 import Vue from 'vue'
-import router from '@/plugins/router'
 import { ActionTree } from 'vuex'
 import { ServerState, ServerStateEvent } from '@/store/server/types'
 import { camelize, formatConsoleMessage } from '@/plugins/helpers'
@@ -281,7 +280,7 @@ export const actions: ActionTree<ServerState, RootState> = {
 
             if (
                 ['error', 'response'].includes(type) &&
-                !['/', '/console'].includes(router.currentRoute.path) &&
+                !['/', '/console'].includes(require('@/plugins/router').default.currentRoute.path) &&
                 message.startsWith('!! ')
             ) {
                 Vue.$toast.error(formatMessage)
