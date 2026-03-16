@@ -13,7 +13,7 @@
 
         <v-tabs-items v-model="activeTab">
             <v-tab-item>
-                <spool-list-panel />
+                <spool-list-panel ref="spoolPanel" />
             </v-tab-item>
             <v-tab-item>
                 <filament-list-panel />
@@ -28,6 +28,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
+import { Watch } from 'vue-property-decorator'
 import SpoolListPanel from '@/components/panels/SpoolListPanel.vue'
 import FilamentListPanel from '@/components/panels/FilamentListPanel.vue'
 import VendorListPanel from '@/components/panels/VendorListPanel.vue'
@@ -51,9 +52,27 @@ export default class SpoolManagement extends Vue {
             this.$store.dispatch('fleet/spools/loadSpools').catch((e: Error) => errors.push(e.message)),
         ])
         if (errors.length > 0) {
-            // Deduplicate — if all three fail with the same network error, show it once
             const unique = [...new Set(errors)]
             this.loadError = unique.join(' | ')
+        }
+        this.checkAddSpoolMode()
+    }
+
+    @Watch('$route')
+    onRouteChange() {
+        this.checkAddSpoolMode()
+    }
+
+    checkAddSpoolMode() {
+        if (this.$route.query.addSpoolMode === '1') {
+            this.activeTab = 0 // Spools tab
+            this.$nextTick(() => {
+                const panel = this.$refs.spoolPanel as any
+                if (panel && typeof panel.enterAddSpoolMode === 'function') {
+                    panel.enterAddSpoolMode()
+                }
+                this.$router.replace({ path: '/spools' }).catch(() => {})
+            })
         }
     }
 }

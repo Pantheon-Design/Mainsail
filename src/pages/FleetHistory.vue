@@ -21,7 +21,7 @@
             <v-tab-item>
                 <fleet-history-list-panel />
             </v-tab-item>
-            <v-tab-item>
+            <v-tab-item eager>
                 <fleet-parts-panel ref="partsPanel" />
             </v-tab-item>
             <v-tab-item>

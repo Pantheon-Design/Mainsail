@@ -16,6 +16,9 @@
             <v-btn small color="primary" outlined class="mr-2" @click="openAddDialog">
                 <v-icon small left>{{ mdiPlus }}</v-icon> Add Spool
             </v-btn>
+            <v-btn small color="primary" class="mr-2" @click="enterAddSpoolMode" title="Add Spool Mode (scan QR codes)">
+                <v-icon small left>{{ mdiQrcodeScan }}</v-icon> Add Spool Mode
+            </v-btn>
             <!-- Dev mode toggle -->
             <v-btn small :color="devMode ? 'orange' : 'grey'" :outlined="!devMode" @click="devMode = !devMode" class="mr-2" title="Toggle dev mode">
                 <v-icon small left>{{ mdiBug }}</v-icon>
@@ -275,13 +278,134 @@
         <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" bottom>
             {{ snackbarText }}
         </v-snackbar>
+
+        <!-- Add Spool Mode Fullscreen -->
+        <v-dialog v-model="addSpoolMode" fullscreen persistent no-click-animation>
+            <v-card class="d-flex flex-column" style="height: 100vh" @click="onAddSpoolCardClick">
+                <!-- Header -->
+                <v-card-title class="d-flex align-center py-2">
+                    <v-icon left color="primary">{{ mdiQrcodeScan }}</v-icon>
+                    <span>Add Spool Mode</span>
+                    <v-chip v-if="addSpoolReady" small class="ml-3" color="success" outlined>Ready — scan QR to create</v-chip>
+                    <v-chip v-else small class="ml-3" color="warning" outlined>Select filament first</v-chip>
+                    <v-spacer />
+                    <v-btn icon @click="exitAddSpoolMode">
+                        <v-icon>{{ mdiClose }}</v-icon>
+                    </v-btn>
+                </v-card-title>
+                <v-divider />
+
+                <v-card-text class="d-flex flex-column flex-grow-1 pa-4" style="overflow-y: auto">
+                    <!-- Hidden scan input -->
+                    <input
+                        ref="addSpoolScanInput"
+                        v-model="addSpoolScanBuffer"
+                        class="qc-hidden-input"
+                        @keydown.enter="processAddSpoolScan"
+                        autofocus
+                    />
+
+                    <!-- Status alert -->
+                    <v-alert
+                        v-if="addSpoolStatusMessage"
+                        :type="addSpoolStatusType"
+                        dense
+                        class="mb-4"
+                        dismissible
+                        @input="addSpoolStatusMessage = ''"
+                    >
+                        {{ addSpoolStatusMessage }}
+                    </v-alert>
+
+                    <!-- Top: Preset form -->
+                    <v-card outlined class="mb-4">
+                        <v-card-title class="subtitle-2 py-2">Spool Preset</v-card-title>
+                        <v-divider />
+                        <v-card-text class="pt-3">
+                            <v-row dense>
+                                <v-col cols="12" sm="6">
+                                    <v-select
+                                        v-model="addSpoolForm.filament_id"
+                                        :items="filamentItems"
+                                        label="Filament *"
+                                        dense outlined hide-details
+                                        :rules="[v => v != null || 'Required']"
+                                    />
+                                </v-col>
+                                <v-col cols="12" sm="6">
+                                    <v-text-field v-model="addSpoolForm.location" label="Location" dense outlined hide-details />
+                                </v-col>
+                            </v-row>
+                            <v-row dense>
+                                <v-col cols="4">
+                                    <v-text-field v-model.number="addSpoolForm.initial_weight" label="Initial (g)" dense outlined hide-details type="number" />
+                                </v-col>
+                                <v-col cols="4">
+                                    <v-text-field v-model.number="addSpoolForm.spool_weight" label="Empty spool (g)" dense outlined hide-details type="number" />
+                                </v-col>
+                                <v-col cols="4">
+                                    <v-text-field v-model="addSpoolForm.lot_nr" label="Lot #" dense outlined hide-details />
+                                </v-col>
+                            </v-row>
+                            <v-row dense>
+                                <v-col cols="12">
+                                    <v-text-field v-model="addSpoolForm.comment" label="Comment" dense outlined hide-details />
+                                </v-col>
+                            </v-row>
+                            <p class="caption grey--text mt-2 mb-0">
+                                Scan a QR code to create a spool with these settings. QR code becomes the spool's QR identifier.
+                            </p>
+                        </v-card-text>
+                    </v-card>
+
+                    <!-- Bottom: Existing spools table (click to prefill) -->
+                    <v-card outlined class="flex-grow-1">
+                        <v-card-title class="subtitle-2 py-2">
+                            Existing Spools
+                            <span class="caption grey--text ml-2">(click a row to prefill the form above)</span>
+                        </v-card-title>
+                        <v-divider />
+                        <v-data-table
+                            :headers="addSpoolTableHeaders"
+                            :items="spools"
+                            dense
+                            sort-by="id"
+                            :sort-desc="true"
+                            :items-per-page="25"
+                            :footer-props="{ 'items-per-page-options': [25, 50, 100] }"
+                            class="spool-table"
+                            @click:row="prefillFromSpool"
+                        >
+                            <template #item.color_hex="{ item }">
+                                <div v-if="item.color_hex"
+                                    :style="{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: '#' + item.color_hex, border: '1px solid rgba(255,255,255,0.3)', display: 'inline-block' }" />
+                                <span v-else>—</span>
+                            </template>
+                            <template #item.filament_label="{ item }">
+                                {{ [item.vendor_name, item.filament_name].filter(Boolean).join(' — ') || item.material }}
+                            </template>
+                            <template #item.initial_weight="{ item }">
+                                {{ item.initial_weight != null ? item.initial_weight.toFixed(0) + ' g' : '—' }}
+                            </template>
+                            <template #item.remaining_weight="{ item }">
+                                {{ item.remaining_weight != null ? item.remaining_weight.toFixed(0) + ' g' : '—' }}
+                            </template>
+                            <template #item.loaded_on_printer="{ item }">
+                                <v-chip v-if="item.loaded_on_printer" x-small color="success" dark>{{ item.loaded_on_printer }}</v-chip>
+                                <span v-else>—</span>
+                            </template>
+                        </v-data-table>
+                    </v-card>
+                </v-card-text>
+            </v-card>
+        </v-dialog>
     </v-card>
 </template>
 
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose } from '@mdi/js'
+import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, mdiQrcodeScan } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 
@@ -294,8 +418,29 @@ export default class SpoolListPanel extends Vue {
     mdiBug = mdiBug
     mdiCog = mdiCog
     mdiClose = mdiClose
+    mdiQrcodeScan = mdiQrcodeScan
 
     devMode = false
+
+    // Add Spool Mode state
+    addSpoolMode = false
+    addSpoolScanBuffer = ''
+    addSpoolStatusMessage = ''
+    addSpoolStatusType: 'success' | 'error' | 'warning' | 'info' = 'info'
+    addSpoolSaving = false
+    addSpoolForm = this.emptyAddSpoolForm()
+
+    readonly addSpoolTableHeaders = [
+        { text: 'ID', value: 'id', sortable: true },
+        { text: '', value: 'color_hex', sortable: false },
+        { text: 'QR Code', value: 'qr_code', sortable: true },
+        { text: 'Filament', value: 'filament_label', sortable: false },
+        { text: 'Material', value: 'material', sortable: true },
+        { text: 'Initial', value: 'initial_weight', sortable: true },
+        { text: 'Remaining', value: 'remaining_weight', sortable: true },
+        { text: 'Location', value: 'location', sortable: true },
+        { text: 'Loaded On', value: 'loaded_on_printer', sortable: true },
+    ]
 
     editDialog = false
     detailDialog = false
@@ -679,6 +824,106 @@ export default class SpoolListPanel extends Vue {
             this.showSnackbar(err?.message || 'Failed to archive', 'error')
         } finally {
             this.saving = false
+        }
+    }
+
+    // --- Add Spool Mode ---
+
+    get addSpoolReady(): boolean {
+        return this.addSpoolForm.filament_id != null
+    }
+
+    emptyAddSpoolForm() {
+        return {
+            filament_id: null as number | null,
+            initial_weight: null as number | null,
+            spool_weight: null as number | null,
+            location: '',
+            lot_nr: '',
+            comment: '',
+        }
+    }
+
+    enterAddSpoolMode() {
+        this.addSpoolMode = true
+        this.addSpoolForm = this.emptyAddSpoolForm()
+        this.addSpoolScanBuffer = ''
+        this.addSpoolStatusMessage = ''
+        this.$nextTick(() => {
+            const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
+            if (input) input.focus()
+        })
+    }
+
+    exitAddSpoolMode() {
+        this.addSpoolMode = false
+        this.addSpoolScanBuffer = ''
+        this.addSpoolStatusMessage = ''
+        this.reloadSpools()
+    }
+
+    onAddSpoolCardClick(event: MouseEvent) {
+        const target = event.target as HTMLElement
+        // Don't steal focus from form inputs, selects, buttons, or table rows
+        if (target.closest('input, textarea, select, button, .v-input, .v-select, .v-btn, .v-data-table, .v-menu')) return
+        const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
+        if (input) input.focus()
+    }
+
+    prefillFromSpool(spool: FleetSpool) {
+        this.addSpoolForm.filament_id = spool.filament_id
+        this.addSpoolForm.initial_weight = spool.initial_weight
+        this.addSpoolForm.spool_weight = spool.spool_weight
+        this.addSpoolForm.location = spool.location || ''
+        this.addSpoolForm.lot_nr = spool.lot_nr || ''
+        this.addSpoolForm.comment = spool.comment || ''
+        this.addSpoolStatusMessage = `Preset filled from spool #${spool.id} (${spool.material})`
+        this.addSpoolStatusType = 'info'
+        // Re-focus scan input
+        this.$nextTick(() => {
+            const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
+            if (input) input.focus()
+        })
+    }
+
+    async processAddSpoolScan() {
+        const qrCode = (this.addSpoolScanBuffer || '').trim()
+        this.addSpoolScanBuffer = ''
+        if (!qrCode) return
+
+        if (!this.addSpoolReady) {
+            this.addSpoolStatusMessage = 'Select a filament first before scanning'
+            this.addSpoolStatusType = 'warning'
+            return
+        }
+
+        if (this.addSpoolSaving) return
+        this.addSpoolSaving = true
+
+        try {
+            const payload: any = {
+                filament_id: this.addSpoolForm.filament_id,
+                qr_code: qrCode,
+                initial_weight: this.addSpoolForm.initial_weight,
+                used_weight: 0,
+                spool_weight: this.addSpoolForm.spool_weight,
+                location: this.addSpoolForm.location || null,
+                lot_nr: this.addSpoolForm.lot_nr || null,
+                comment: this.addSpoolForm.comment || null,
+            }
+            await this.$store.dispatch('fleet/spools/createSpool', payload)
+            this.addSpoolStatusMessage = `Spool created with QR: ${qrCode}`
+            this.addSpoolStatusType = 'success'
+            this.reloadSpools()
+        } catch (err: any) {
+            this.addSpoolStatusMessage = err?.message || 'Failed to create spool'
+            this.addSpoolStatusType = 'error'
+        } finally {
+            this.addSpoolSaving = false
+            this.$nextTick(() => {
+                const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
+                if (input) input.focus()
+            })
         }
     }
 
