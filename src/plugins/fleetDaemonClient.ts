@@ -90,6 +90,9 @@ class FleetDaemonClient {
                     if (message.event === 'history_updated') {
                         fleetDaemonEvents.$emit('history_updated')
                     }
+                    if (message.event === 'spool_updated') {
+                        fleetDaemonEvents.$emit('spool_updated')
+                    }
                 } catch (e) {
                     console.warn('[FleetDaemon] WS parse error:', e)
                 }

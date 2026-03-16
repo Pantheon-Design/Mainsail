@@ -283,6 +283,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component'
 import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
+import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 
 @Component
 export default class SpoolListPanel extends Vue {
@@ -379,6 +380,7 @@ export default class SpoolListPanel extends Vue {
 
     mounted() {
         this.$nextTick(() => this.attachResizeHandles())
+        fleetDaemonEvents.$on('spool_updated', this.onSpoolUpdated)
     }
 
     updated() {
@@ -386,7 +388,12 @@ export default class SpoolListPanel extends Vue {
     }
 
     beforeDestroy() {
+        fleetDaemonEvents.$off('spool_updated', this.onSpoolUpdated)
         this.cleanupResizeListeners()
+    }
+
+    onSpoolUpdated() {
+        this.reloadSpools()
     }
 
     // --- Computed ---
