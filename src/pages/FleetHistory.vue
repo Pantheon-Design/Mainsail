@@ -53,7 +53,6 @@ export default class FleetHistory extends Vue {
     activeTab = 0
 
     mounted() {
-        this.$store.dispatch('fleet/history/loadHistory')
         this.$store.dispatch('fleet/history/loadAnalytics')
         this.checkQcMode()
     }

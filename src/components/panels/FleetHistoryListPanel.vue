@@ -397,6 +397,8 @@ export default class FleetHistoryListPanel extends Vue {
         this.$nextTick(() => this.attachResizeHandles())
         // Listen for history updates from the shared fleet daemon connection
         fleetDaemonEvents.$on('history_updated', this.onHistoryUpdated)
+        // Initial load
+        this.applyFilters()
     }
 
     updated() {
@@ -413,7 +415,9 @@ export default class FleetHistoryListPanel extends Vue {
     }
 
     onHistoryUpdated() {
-        this.applyFilters()
+        // Debounce WebSocket-triggered reloads to avoid duplicate fetches
+        if (this.debounceTimer) clearTimeout(this.debounceTimer)
+        this.debounceTimer = setTimeout(() => this.applyFilters(), 500)
     }
 
     get allHeaders() {
