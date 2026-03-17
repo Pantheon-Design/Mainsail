@@ -58,6 +58,9 @@ class FleetDaemonClient {
 
             this.socket.onmessage = (event: MessageEvent) => {
                 try {
+                    // Ignore text-level ping/pong keep-alive messages
+                    if (event.data === 'ping' || event.data === 'pong') return
+
                     const message = JSON.parse(event.data)
 
                     if (message.removed && message.hostname) {
