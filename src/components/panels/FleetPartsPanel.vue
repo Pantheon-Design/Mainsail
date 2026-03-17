@@ -113,7 +113,7 @@
                     class="qr-code-cell"
                     :style="{ minWidth: '120px', cursor: devMode ? 'pointer' : 'default' }"
                     :title="devMode ? (item.qr_code || 'Click to edit QR code') : (item.qr_code || '')"
-                    @click="devMode && startEditQr(item)"
+                    @click.stop="devMode && startEditQr(item)"
                 >
                     {{ item.qr_code || '—' }}
                 </div>
@@ -125,6 +125,7 @@
                     autofocus
                     style="max-width: 200px"
                     placeholder="Scan or type QR..."
+                    @click.stop
                     @blur="saveQr(item)"
                     @keydown.enter="saveQr(item)"
                     @keydown.escape="cancelEditQr"
@@ -156,6 +157,7 @@
                     hide-details
                     class="qc-select"
                     style="max-width: 110px"
+                    @click.stop
                     @change="saveQC(item, $event)"
                 />
                 <template v-else>
@@ -223,7 +225,7 @@
                     class="qc-note-cell"
                     style="min-width: 120px; cursor: pointer"
                     :title="item.qc_note || 'Click to add note'"
-                    @click="startEditNote(item)"
+                    @click.stop="startEditNote(item)"
                 >
                     {{ item.qc_note || '—' }}
                 </div>
@@ -235,6 +237,7 @@
                     autofocus
                     style="max-width: 200px"
                     placeholder="Enter note..."
+                    @click.stop
                     @blur="saveNote(item)"
                     @keydown.enter="saveNote(item)"
                     @keydown.escape="cancelEditNote"

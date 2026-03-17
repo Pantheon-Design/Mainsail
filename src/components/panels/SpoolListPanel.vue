@@ -1000,12 +1000,13 @@ export default class SpoolListPanel extends Vue {
         this.addSpoolSaving = true
 
         try {
+            const toNum = (v: any) => (v === '' || v === null || v === undefined || Number.isNaN(v)) ? null : Number(v)
             const payload: any = {
                 filament_id: this.addSpoolForm.filament_id,
                 qr_code: qrCode,
-                initial_weight: this.addSpoolForm.initial_weight,
+                initial_weight: toNum(this.addSpoolForm.initial_weight),
                 used_weight: 0,
-                spool_weight: this.addSpoolForm.spool_weight,
+                spool_weight: toNum(this.addSpoolForm.spool_weight),
                 location: this.addSpoolForm.location || null,
                 lot_nr: this.addSpoolForm.lot_nr || null,
                 comment: this.addSpoolForm.comment || null,
