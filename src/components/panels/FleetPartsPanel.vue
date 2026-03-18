@@ -412,8 +412,10 @@
                 </v-card-text>
 
                 <!-- Step 2: Scanning -->
-                <v-card-text v-else-if="qcStep === 'scanning'" class="d-flex flex-column flex-grow-1 pa-4">
+                <v-card-text v-else-if="qcStep === 'scanning'" class="d-flex flex-column flex-grow-1 pa-4" :class="{ 'qc-mobile-scanning': isMobile }">
+                    <!-- Desktop: hidden input for barcode scanner -->
                     <input
+                        v-if="!isMobile"
                         ref="qcScanInput"
                         v-model="qcScanBuffer"
                         class="qc-hidden-input"
@@ -433,11 +435,47 @@
                         {{ qcStatusMessage }}
                     </v-alert>
 
-                    <!-- Pass/Fail actions (top, full width) -->
+                    <!-- Mobile: Camera capture + manual input -->
+                    <div v-if="isMobile" class="d-flex flex-column align-center mb-4" style="width: 100%">
+                        <input
+                            ref="qcCameraInput"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            class="qc-hidden-input"
+                            @change="onCameraCapture"
+                        />
+                        <v-btn
+                            color="primary"
+                            :loading="qcCameraProcessing"
+                            @click="openCameraCapture"
+                            class="mb-3"
+                        >
+                            <v-icon left>{{ mdiCamera }}</v-icon>
+                            Scan with Camera
+                        </v-btn>
+                        <v-text-field
+                            v-model="qcManualCode"
+                            label="Or type code manually"
+                            dense
+                            outlined
+                            hide-details
+                            style="max-width: 300px; width: 100%"
+                            @keydown.enter="submitManualCode"
+                        >
+                            <template #append>
+                                <v-btn icon small :disabled="!qcManualCode.trim()" @click="submitManualCode">
+                                    <v-icon small>{{ mdiQrcodeScan }}</v-icon>
+                                </v-btn>
+                            </template>
+                        </v-text-field>
+                    </div>
+
+                    <!-- Pass/Fail actions -->
                     <v-card outlined class="d-flex flex-column align-center justify-center pa-4 mb-4">
                         <p class="subtitle-2 mb-4">{{ qcSelectedRecord ? 'Scan or click to set QC result' : 'Select a part first' }}</p>
 
-                        <div class="d-flex justify-space-between mb-6" style="width: 100%; padding-left: 256px; padding-right: 256px">
+                        <div class="d-flex justify-space-between mb-6 qc-pass-fail-row" :style="isMobile ? { paddingLeft: '16px', paddingRight: '16px' } : { paddingLeft: '256px', paddingRight: '256px' }" style="width: 100%">
                             <v-card
                                 outlined
                                 class="pa-4 d-flex flex-column align-center qc-action-card"
@@ -445,7 +483,7 @@
                                 @click="qcSelectedRecord && submitQcResult('pass')"
                                 style="cursor: pointer"
                             >
-                                <img src="/img/icons/qr_code_1.png" alt="PASS" style="width: 120px; height: 120px" />
+                                <img src="/img/icons/qr_code_1.png" alt="PASS" :style="isMobile ? 'width: 80px; height: 80px' : 'width: 120px; height: 120px'" />
                                 <v-chip small color="success" dark class="mt-2">PASS</v-chip>
                             </v-card>
                             <v-card
@@ -455,12 +493,12 @@
                                 @click="qcSelectedRecord && submitQcResult('fail')"
                                 style="cursor: pointer"
                             >
-                                <img src="/img/icons/qr_code_0.png" alt="FAIL" style="width: 120px; height: 120px" />
+                                <img src="/img/icons/qr_code_0.png" alt="FAIL" :style="isMobile ? 'width: 80px; height: 80px' : 'width: 120px; height: 120px'" />
                                 <v-chip small color="error" dark class="mt-2">FAIL</v-chip>
                             </v-card>
                         </div>
 
-                        <p class="caption grey--text text-center">
+                        <p v-if="!isMobile" class="caption grey--text text-center">
                             Scan <strong>1</strong> for PASS or <strong>0</strong> for FAIL<br/>
                             Or click the buttons above
                         </p>
@@ -530,7 +568,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
-import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete } from '@mdi/js'
+import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera } from '@mdi/js'
 import axios from 'axios'
 
 @Component
@@ -541,6 +579,7 @@ export default class FleetPartsPanel extends Vue {
     mdiClose = mdiClose
     mdiAccountCheck = mdiAccountCheck
     mdiDelete = mdiDelete
+    mdiCamera = mdiCamera
 
     // Filters
     filterQrCode = ''
@@ -606,6 +645,10 @@ export default class FleetPartsPanel extends Vue {
     qcFlashTimer: ReturnType<typeof setTimeout> | null = null
     qcNoteVisible = false
     qcNoteText = ''
+
+    // Mobile camera scanning
+    qcCameraProcessing = false
+    qcManualCode = ''
 
     readonly baseHeaders = [
         { text: 'QR Code', value: 'qr_code', sortable: true },
@@ -689,6 +732,10 @@ export default class FleetPartsPanel extends Vue {
 
     beforeDestroy() {
         this.cleanupResizeListeners()
+    }
+
+    get isMobile(): boolean {
+        return 'ontouchstart' in window && window.innerWidth < 768
     }
 
     readonly qcOptions = [
@@ -1031,6 +1078,54 @@ export default class FleetPartsPanel extends Vue {
         this.refocusScanInput()
     }
 
+    // ---- Mobile camera scanning ----
+
+    openCameraCapture() {
+        const input = this.$refs.qcCameraInput as HTMLInputElement | undefined
+        if (input) {
+            input.value = ''
+            input.click()
+        }
+    }
+
+    async submitManualCode() {
+        const code = this.qcManualCode.trim()
+        if (!code) return
+        this.qcManualCode = ''
+        this.qcScanBuffer = code
+        await this.processScan()
+    }
+
+    async onCameraCapture(e: Event) {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+        this.qcCameraProcessing = true
+        try {
+            const { readBarcodesFromImageFile } = await import('zxing-wasm')
+            const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+            const results = await readBarcodesFromImageFile(blob, {
+                formats: ['DataMatrix', 'QRCode'],
+                tryHarder: true,
+                tryRotate: true,
+                tryInvert: true,
+                tryDownscale: true,
+                maxNumberOfSymbols: 1,
+            })
+            if (results.length && results[0].text) {
+                this.qcScanBuffer = results[0].text
+                await this.processScan()
+            } else {
+                this.qcStatusMessage = 'No code found in photo. Ensure the Data Matrix is clearly visible and well-lit.'
+                this.qcStatusType = 'warning'
+            }
+        } catch {
+            this.qcStatusMessage = 'Failed to process photo. Please try again.'
+            this.qcStatusType = 'error'
+        } finally {
+            this.qcCameraProcessing = false
+        }
+    }
+
     // ---- Column resize ----
 
     attachResizeHandles() {
@@ -1250,6 +1345,9 @@ export default class FleetPartsPanel extends Vue {
 .qc-action-disabled {
     opacity: 0.4;
     cursor: not-allowed !important;
+}
+.qc-mobile-scanning {
+    overflow-y: auto;
 }
 </style>
 
