@@ -432,103 +432,93 @@
                         {{ qcStatusMessage }}
                     </v-alert>
 
-                    <v-row>
-                        <!-- Left: Selected job info -->
-                        <v-col cols="12" md="7">
-                            <v-card outlined>
-                                <v-card-title class="subtitle-2 py-2">
-                                    {{ qcSelectedRecord ? 'Part Found' : 'Waiting for QR scan...' }}
-                                </v-card-title>
-                                <v-divider />
-                                <v-card-text v-if="qcSelectedRecord" class="pt-3">
-                                    <v-simple-table dense>
-                                        <tbody>
-                                            <tr><td class="font-weight-bold" width="150">QR Code</td><td>{{ qcSelectedRecord.qr_code }}</td></tr>
-                                            <tr><td class="font-weight-bold">Printer</td><td>{{ qcSelectedRecord.printer_hostname }}</td></tr>
-                                            <tr><td class="font-weight-bold">Model</td><td>{{ qcSelectedRecord.printer_model || '—' }}</td></tr>
-                                            <tr><td class="font-weight-bold">Filename</td><td>{{ qcSelectedRecord.filename || '—' }}</td></tr>
-                                            <tr><td class="font-weight-bold">Filament</td><td>{{ qcSelectedRecord.filament_type || '—' }}</td></tr>
-                                            <tr><td class="font-weight-bold">Status</td><td>
-                                                <v-chip x-small :color="statusColor(qcSelectedRecord.status)" dark>{{ qcSelectedRecord.status || 'unknown' }}</v-chip>
-                                            </td></tr>
-                                            <tr><td class="font-weight-bold">Start Time</td><td>{{ formatDate(qcSelectedRecord.start_time) }}</td></tr>
-                                            <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(qcSelectedRecord.print_duration_secs) }}</td></tr>
-                                            <tr><td class="font-weight-bold">QC Status</td><td>
-                                                <v-chip v-if="qcSelectedRecord.qc_status" x-small :color="qcSelectedRecord.qc_status === 'pass' ? 'success' : qcSelectedRecord.qc_status === 'fail' ? 'error' : 'warning'" dark>
-                                                    {{ qcSelectedRecord.qc_status }}
-                                                </v-chip>
-                                                <span v-else>Pending</span>
-                                            </td></tr>
-                                            <tr><td class="font-weight-bold">QC Inspector</td><td>{{ qcSelectedRecord.qc_inspector || '—' }}</td></tr>
-                                            <tr><td class="font-weight-bold">QC Date</td><td>{{ qcSelectedRecord.qc_date ? new Date(qcSelectedRecord.qc_date).toLocaleString() : '—' }}</td></tr>
-                                            <tr><td class="font-weight-bold">QC Note</td><td>{{ qcSelectedRecord.qc_note || '—' }}</td></tr>
-                                        </tbody>
-                                    </v-simple-table>
-                                </v-card-text>
-                                <v-card-text v-else class="d-flex flex-column align-center justify-center" style="min-height: 300px">
-                                    <v-icon size="80" color="grey lighten-1">{{ mdiQrcodeScan }}</v-icon>
-                                    <p class="text-h6 grey--text mt-4">Scan a part QR code to begin</p>
-                                </v-card-text>
+                    <!-- Pass/Fail actions (top, full width) -->
+                    <v-card outlined class="d-flex flex-column align-center justify-center pa-4 mb-4">
+                        <p class="subtitle-2 mb-4">{{ qcSelectedRecord ? 'Scan or click to set QC result' : 'Select a part first' }}</p>
+
+                        <div class="d-flex justify-space-between mb-6" style="width: 100%; padding-left: 256px; padding-right: 256px">
+                            <v-card
+                                outlined
+                                class="pa-4 d-flex flex-column align-center qc-action-card"
+                                :class="{ 'qc-action-disabled': !qcSelectedRecord }"
+                                @click="qcSelectedRecord && submitQcResult('pass')"
+                                style="cursor: pointer"
+                            >
+                                <img src="/img/icons/qr_code_1.png" alt="PASS" style="width: 120px; height: 120px" />
+                                <v-chip small color="success" dark class="mt-2">PASS</v-chip>
                             </v-card>
-                        </v-col>
-
-                        <!-- Right: Pass/Fail actions -->
-                        <v-col cols="12" md="5">
-                            <v-card outlined class="d-flex flex-column align-center justify-center pa-4">
-                                <p class="subtitle-2 mb-4">{{ qcSelectedRecord ? 'Scan or click to set QC result' : 'Select a part first' }}</p>
-
-                                <v-row class="mb-6" justify="space-between" style="max-width: 600px">
-                                    <v-col cols="5" class="d-flex flex-column align-center">
-                                        <v-card
-                                            outlined
-                                            class="pa-4 d-flex flex-column align-center qc-action-card"
-                                            :class="{ 'qc-action-disabled': !qcSelectedRecord }"
-                                            @click="qcSelectedRecord && submitQcResult('pass')"
-                                            style="cursor: pointer; width: 100%"
-                                        >
-                                            <img src="/img/icons/qr_code_1.png" alt="PASS" style="width: 120px; height: 120px" />
-                                            <v-chip small color="success" dark class="mt-2">PASS</v-chip>
-                                        </v-card>
-                                    </v-col>
-                                    <v-col cols="5" class="d-flex flex-column align-center">
-                                        <v-card
-                                            outlined
-                                            class="pa-4 d-flex flex-column align-center qc-action-card"
-                                            :class="{ 'qc-action-disabled': !qcSelectedRecord }"
-                                            @click="qcSelectedRecord && submitQcResult('fail')"
-                                            style="cursor: pointer; width: 100%"
-                                        >
-                                            <img src="/img/icons/qr_code_0.png" alt="FAIL" style="width: 120px; height: 120px" />
-                                            <v-chip small color="error" dark class="mt-2">FAIL</v-chip>
-                                        </v-card>
-                                    </v-col>
-                                </v-row>
-
-                                <p class="caption grey--text text-center">
-                                    Scan <strong>1</strong> for PASS or <strong>0</strong> for FAIL<br/>
-                                    Or click the buttons above
-                                </p>
-
-                                <v-expand-transition>
-                                    <div v-if="qcNoteVisible" style="width: 100%; max-width: 360px" class="mt-4">
-                                        <v-divider class="mb-3" />
-                                        <v-text-field
-                                            v-model="qcNoteText"
-                                            label="QC Note (optional)"
-                                            dense
-                                            outlined
-                                            hide-details
-                                            placeholder="Add a note for this inspection..."
-                                            @keydown.enter="saveQcNote"
-                                        />
-                                        <v-btn small color="primary" class="mt-2" @click="saveQcNote" :disabled="!qcNoteText.trim()">
-                                            Save Note
-                                        </v-btn>
-                                    </div>
-                                </v-expand-transition>
+                            <v-card
+                                outlined
+                                class="pa-4 d-flex flex-column align-center qc-action-card"
+                                :class="{ 'qc-action-disabled': !qcSelectedRecord }"
+                                @click="qcSelectedRecord && submitQcResult('fail')"
+                                style="cursor: pointer"
+                            >
+                                <img src="/img/icons/qr_code_0.png" alt="FAIL" style="width: 120px; height: 120px" />
+                                <v-chip small color="error" dark class="mt-2">FAIL</v-chip>
                             </v-card>
-                        </v-col>
-                    </v-row>
+                        </div>
+
+                        <p class="caption grey--text text-center">
+                            Scan <strong>1</strong> for PASS or <strong>0</strong> for FAIL<br/>
+                            Or click the buttons above
+                        </p>
+
+                        <v-expand-transition>
+                            <div v-if="qcNoteVisible" style="width: 100%; max-width: 360px" class="mt-4">
+                                <v-divider class="mb-3" />
+                                <v-text-field
+                                    v-model="qcNoteText"
+                                    label="QC Note (optional)"
+                                    dense
+                                    outlined
+                                    hide-details
+                                    placeholder="Add a note for this inspection..."
+                                    @keydown.enter="saveQcNote"
+                                />
+                                <v-btn small color="primary" class="mt-2" @click="saveQcNote" :disabled="!qcNoteText.trim()">
+                                    Save Note
+                                </v-btn>
+                            </div>
+                        </v-expand-transition>
+                    </v-card>
+
+                    <!-- Part info (below) -->
+                    <v-card outlined>
+                        <v-card-title class="subtitle-2 py-2">
+                            {{ qcSelectedRecord ? 'Part Found' : 'Waiting for QR scan...' }}
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text v-if="qcSelectedRecord" class="pt-3">
+                            <v-simple-table dense>
+                                <tbody>
+                                    <tr><td class="font-weight-bold" width="150">QR Code</td><td>{{ qcSelectedRecord.qr_code }}</td></tr>
+                                    <tr><td class="font-weight-bold">Printer</td><td>{{ qcSelectedRecord.printer_hostname }}</td></tr>
+                                    <tr><td class="font-weight-bold">Model</td><td>{{ qcSelectedRecord.printer_model || '—' }}</td></tr>
+                                    <tr><td class="font-weight-bold">Filename</td><td>{{ qcSelectedRecord.filename || '—' }}</td></tr>
+                                    <tr><td class="font-weight-bold">Filament</td><td>{{ qcSelectedRecord.filament_type || '—' }}</td></tr>
+                                    <tr><td class="font-weight-bold">Status</td><td>
+                                        <v-chip x-small :color="statusColor(qcSelectedRecord.status)" dark>{{ qcSelectedRecord.status || 'unknown' }}</v-chip>
+                                    </td></tr>
+                                    <tr><td class="font-weight-bold">Start Time</td><td>{{ formatDate(qcSelectedRecord.start_time) }}</td></tr>
+                                    <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(qcSelectedRecord.print_duration_secs) }}</td></tr>
+                                    <tr><td class="font-weight-bold">QC Status</td><td>
+                                        <v-chip v-if="qcSelectedRecord.qc_status" x-small :color="qcSelectedRecord.qc_status === 'pass' ? 'success' : qcSelectedRecord.qc_status === 'fail' ? 'error' : 'warning'" dark>
+                                            {{ qcSelectedRecord.qc_status }}
+                                        </v-chip>
+                                        <span v-else>Pending</span>
+                                    </td></tr>
+                                    <tr><td class="font-weight-bold">QC Inspector</td><td>{{ qcSelectedRecord.qc_inspector || '—' }}</td></tr>
+                                    <tr><td class="font-weight-bold">QC Date</td><td>{{ qcSelectedRecord.qc_date ? new Date(qcSelectedRecord.qc_date).toLocaleString() : '—' }}</td></tr>
+                                    <tr><td class="font-weight-bold">QC Note</td><td>{{ qcSelectedRecord.qc_note || '—' }}</td></tr>
+                                </tbody>
+                            </v-simple-table>
+                        </v-card-text>
+                        <v-card-text v-else class="d-flex flex-column align-center justify-center" style="min-height: 200px">
+                            <v-icon size="80" color="grey lighten-1">{{ mdiQrcodeScan }}</v-icon>
+                            <p class="text-h6 grey--text mt-4">Scan a part QR code to begin</p>
+                        </v-card-text>
+                    </v-card>
                 </v-card-text>
             </v-card>
         </v-dialog>
