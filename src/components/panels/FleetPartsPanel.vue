@@ -55,7 +55,7 @@
                     </v-text-field>
                 </v-col>
                 <v-col cols="12" sm="3">
-                    <v-select
+                    <v-combobox
                         v-model="filterPrinter"
                         :items="printerOptions"
                         label="Printer"
@@ -63,6 +63,7 @@
                         dense
                         outlined
                         hide-details
+                        :search-input.sync="printerSearch"
                         @change="applyFilters"
                     />
                 </v-col>
@@ -545,12 +546,14 @@ export default class FleetPartsPanel extends Vue {
     filterQrCode = ''
     appliedQrCode = ''
     filterPrinter = ''
+    printerSearch = ''
     filterQcStatus = ''
     filterFilename = ''
     debounceTimer: ReturnType<typeof setTimeout> | null = null
 
-    // Local results when QR filter is active (avoids overwriting shared store)
-    localQrRecords: FleetHistoryRecord[] | null = null
+    // Local results — parts panel fetches independently to avoid sharing state with Jobs panel
+    localRecords: FleetHistoryRecord[] = []
+    localLoading = false
 
     // Inline editing
     editingQrId: string | null = null
@@ -677,6 +680,7 @@ export default class FleetPartsPanel extends Vue {
 
     mounted() {
         this.$nextTick(() => this.attachResizeHandles())
+        this.applyFilters()
     }
 
     updated() {
@@ -704,18 +708,13 @@ export default class FleetPartsPanel extends Vue {
         this.$store.commit('fleet/history/setDevMode', !this.devMode)
     }
 
-    get records(): FleetHistoryRecord[] {
-        return this.$store.getters['fleet/history/getRecords']
-    }
-
     get isLoading(): boolean {
-        return this.$store.getters['fleet/history/isLoading']
+        return this.localLoading
     }
 
     /** Only show QR-linked rows (parts) */
     get partRecords(): FleetHistoryRecord[] {
-        const source = this.localQrRecords ?? this.records
-        return source.filter((r) => r.qr_code != null)
+        return this.localRecords.filter((r) => r.qr_code != null)
     }
 
     get printerOptions(): string[] {
@@ -729,7 +728,11 @@ export default class FleetPartsPanel extends Vue {
             const q = this.appliedQrCode.toLowerCase()
             data = data.filter((r) => r.qr_code?.toLowerCase().includes(q))
         }
-        if (this.filterPrinter) {
+        // Client-side partial printer name filter (while typing in combobox)
+        const pSearch = (this.printerSearch || '').trim().toLowerCase()
+        if (pSearch && pSearch !== (this.filterPrinter || '').toLowerCase()) {
+            data = data.filter((r) => r.printer_hostname?.toLowerCase().includes(pSearch))
+        } else if (this.filterPrinter) {
             data = data.filter((r) => r.printer_hostname === this.filterPrinter)
         }
         if (this.filterQcStatus) {
@@ -747,25 +750,19 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async applyFilters() {
-        if (this.appliedQrCode) {
-            // Fetch into local array to avoid overwriting the shared store (which Jobs tab uses)
-            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
-            const params = new URLSearchParams()
-            params.set('qr_code', this.appliedQrCode)
-            if (this.filterPrinter) params.set('printer', this.filterPrinter)
-            params.set('limit', '200')
-            try {
-                const response = await axios.get(`${baseUrl}/history?${params}`)
-                this.localQrRecords = response.data.records ?? response.data
-            } catch {
-                this.localQrRecords = []
-            }
-        } else {
-            this.localQrRecords = null
-            this.$store.dispatch('fleet/history/loadHistory', {
-                printer: this.filterPrinter || undefined,
-                limit: 200,
-            })
+        const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        const params = new URLSearchParams()
+        if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
+        if (this.filterPrinter) params.set('printer', this.filterPrinter)
+        params.set('limit', '200')
+        this.localLoading = true
+        try {
+            const response = await axios.get(`${baseUrl}/history?${params}`)
+            this.localRecords = response.data.records ?? response.data
+        } catch {
+            this.localRecords = []
+        } finally {
+            this.localLoading = false
         }
     }
 
@@ -788,7 +785,6 @@ export default class FleetPartsPanel extends Vue {
     clearQrFilter() {
         this.appliedQrCode = ''
         this.filterQrCode = ''
-        this.localQrRecords = null
         this.applyFilters()
         this.$nextTick(() => {
             const input = this.$refs.qrSearchInput as any
@@ -1153,11 +1149,7 @@ export default class FleetPartsPanel extends Vue {
             await axios.delete(`${baseUrl}/history/part/${this.deleteTarget.id}`)
             this.showSnackbar(`Part deleted: ${this.deleteTarget.qr_code}`, 'success')
             this.deleteDialog = false
-            // Remove from local QR records if active, otherwise refresh from store
-            if (this.localQrRecords) {
-                this.localQrRecords = this.localQrRecords.filter((r) => r.id !== this.deleteTarget!.id)
-            }
-            this.$store.commit('fleet/history/removeRecord', this.deleteTarget.id)
+            this.localRecords = this.localRecords.filter((r) => r.id !== this.deleteTarget!.id)
             this.deleteTarget = null
         } catch (err: any) {
             if (err?.response?.status === 400) {

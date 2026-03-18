@@ -36,7 +36,7 @@
         <v-card-text class="py-1">
             <v-row dense>
                 <v-col cols="12" sm="3">
-                    <v-select
+                    <v-combobox
                         v-model="filterPrinter"
                         :items="printerOptions"
                         label="Printer"
@@ -44,6 +44,7 @@
                         dense
                         outlined
                         hide-details
+                        :search-input.sync="printerSearch"
                         @change="applyFilters"
                     />
                 </v-col>
@@ -317,6 +318,7 @@ export default class FleetHistoryListPanel extends Vue {
     mdiClose = mdiClose
 
     filterPrinter = ''
+    printerSearch = ''
     filterStatus = ''
     filterFilename = ''
     filterModel = ''
@@ -486,6 +488,11 @@ export default class FleetHistoryListPanel extends Vue {
 
     get filteredRecords(): FleetHistoryRecord[] {
         let data = this.jobRecords
+        // Client-side partial printer name filter (while typing in combobox)
+        const pSearch = (this.printerSearch || '').trim().toLowerCase()
+        if (pSearch && pSearch !== (this.filterPrinter || '').toLowerCase()) {
+            data = data.filter((r) => r.printer_hostname?.toLowerCase().includes(pSearch))
+        }
         if (this.filterFilename) {
             const q = this.filterFilename.toLowerCase()
             data = data.filter((r) => r.filename?.toLowerCase().includes(q))
