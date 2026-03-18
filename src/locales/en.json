@@ -812,7 +812,9 @@
         "Printers": "Printers",
         "Timelapse": "Timelapse",
         "Webcam": "Webcam",
-        "Jobs": "Jobs"
+        "Jobs": "Jobs",
+        "Fleet History": "Fleet History",
+        "Spools": "Spools"
     },
     "ScrewsTiltAdjust": {
         "Accept": "accept",
