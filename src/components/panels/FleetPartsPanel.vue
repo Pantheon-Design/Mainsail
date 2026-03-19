@@ -253,6 +253,13 @@
             </template>
         </v-data-table>
 
+        <!-- Load More -->
+        <div v-if="hasMore" class="text-center py-2">
+            <v-btn small outlined color="primary" :loading="loadingMore" @click="loadMore">
+                Load More ({{ localRecords.length }} / {{ localTotal }})
+            </v-btn>
+        </div>
+
         <!-- Job Detail Dialog -->
         <v-dialog v-model="detailDialog" max-width="700">
             <v-card v-if="detailJob">
@@ -761,7 +768,7 @@ export default class FleetPartsPanel extends Vue {
 
     /** Only show QR-linked rows (parts) */
     get partRecords(): FleetHistoryRecord[] {
-        return this.localRecords.filter((r) => r.qr_code != null)
+        return this.localRecords
     }
 
     get printerOptions(): string[] {
@@ -796,20 +803,50 @@ export default class FleetPartsPanel extends Vue {
         return data
     }
 
+    localTotal = 0
+    loadingMore = false
+
+    get hasMore(): boolean {
+        return this.localRecords.length < this.localTotal
+    }
+
     async applyFilters() {
         const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
         const params = new URLSearchParams()
         if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
         if (this.filterPrinter) params.set('printer', this.filterPrinter)
+        params.set('has_qr_code', 'true')
         params.set('limit', '200')
         this.localLoading = true
         try {
             const response = await axios.get(`${baseUrl}/history?${params}`)
             this.localRecords = response.data.records ?? response.data
+            this.localTotal = response.data.total ?? this.localRecords.length
         } catch {
             this.localRecords = []
+            this.localTotal = 0
         } finally {
             this.localLoading = false
+        }
+    }
+
+    async loadMore() {
+        const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        const params = new URLSearchParams()
+        if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
+        if (this.filterPrinter) params.set('printer', this.filterPrinter)
+        params.set('has_qr_code', 'true')
+        params.set('limit', '200')
+        params.set('offset', String(this.localRecords.length))
+        this.loadingMore = true
+        try {
+            const response = await axios.get(`${baseUrl}/history?${params}`)
+            const records: FleetHistoryRecord[] = response.data.records ?? response.data
+            const existing = new Set(this.localRecords.map((r) => r.id))
+            this.localRecords = [...this.localRecords, ...records.filter((r) => !existing.has(r.id))]
+            this.localTotal = response.data.total ?? this.localTotal
+        } finally {
+            this.loadingMore = false
         }
     }
 

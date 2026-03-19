@@ -14,6 +14,10 @@ export const getters: GetterTree<FleetHistoryState, any> = {
         return state.loading
     },
 
+    getTotal(state): number {
+        return state.total
+    },
+
     isAnalyticsLoading(state): boolean {
         return state.analyticsLoading
     },

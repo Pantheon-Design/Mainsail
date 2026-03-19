@@ -20,6 +20,12 @@ export const mutations: MutationTree<FleetHistoryState> = {
         Vue.set(state, 'records', records)
     },
 
+    appendRecords(state, records: FleetHistoryRecord[]) {
+        const existing = new Set(state.records.map((r) => r.id))
+        const novel = records.filter((r) => !existing.has(r.id))
+        Vue.set(state, 'records', [...state.records, ...novel])
+    },
+
     setTotal(state, total: number) {
         Vue.set(state, 'total', total)
     },

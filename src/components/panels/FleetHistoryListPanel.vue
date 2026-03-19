@@ -179,6 +179,13 @@
             </template>
         </v-data-table>
 
+        <!-- Load More -->
+        <div v-if="hasMore" class="text-center py-2">
+            <v-btn small outlined color="primary" :loading="loadingMore" @click="loadMore">
+                Load More ({{ records.length }} / {{ totalRecords }})
+            </v-btn>
+        </div>
+
         <!-- Snackbar -->
         <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000" bottom>
             {{ snackbarText }}
@@ -516,8 +523,34 @@ export default class FleetHistoryListPanel extends Vue {
         this.$store.dispatch('fleet/history/loadHistory', {
             printer: this.filterPrinter || undefined,
             status: this.filterStatus || undefined,
+            has_qr_code: false,
             limit: 200,
         })
+    }
+
+    loadingMore = false
+
+    get totalRecords(): number {
+        return this.$store.getters['fleet/history/getTotal']
+    }
+
+    get hasMore(): boolean {
+        return this.records.length < this.totalRecords
+    }
+
+    async loadMore() {
+        this.loadingMore = true
+        try {
+            await this.$store.dispatch('fleet/history/loadMoreHistory', {
+                printer: this.filterPrinter || undefined,
+                status: this.filterStatus || undefined,
+                has_qr_code: false,
+                limit: 200,
+                offset: this.records.length,
+            })
+        } finally {
+            this.loadingMore = false
+        }
     }
 
     applyFiltersDebounced() {

@@ -4,7 +4,7 @@ import { RootState } from '@/store/types'
 import axios from 'axios'
 
 export const actions: ActionTree<FleetHistoryState, RootState> = {
-    async loadHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; limit?: number; offset?: number } = {}) {
+    async loadHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; has_qr_code?: boolean; limit?: number; offset?: number } = {}) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setLoading', true)
         try {
@@ -12,6 +12,7 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
             if (filters.printer) params.set('printer', filters.printer)
             if (filters.status) params.set('status', filters.status)
             if (filters.qr_code) params.set('qr_code', filters.qr_code)
+            if (filters.has_qr_code !== undefined) params.set('has_qr_code', String(filters.has_qr_code))
             params.set('limit', String(filters.limit ?? 200))
             params.set('offset', String(filters.offset ?? 0))
             const response = await axios.get(`${baseUrl}/history?${params}`)
@@ -21,6 +22,27 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
             console.error('Failed to load fleet history:', error)
         } finally {
             commit('setLoading', false)
+        }
+    },
+
+    async loadMoreHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; has_qr_code?: boolean; limit?: number; offset?: number } = {}) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const params = new URLSearchParams()
+            if (filters.printer) params.set('printer', filters.printer)
+            if (filters.status) params.set('status', filters.status)
+            if (filters.qr_code) params.set('qr_code', filters.qr_code)
+            if (filters.has_qr_code !== undefined) params.set('has_qr_code', String(filters.has_qr_code))
+            params.set('limit', String(filters.limit ?? 200))
+            params.set('offset', String(filters.offset ?? 0))
+            const response = await axios.get(`${baseUrl}/history?${params}`)
+            const records = response.data.records ?? response.data
+            commit('appendRecords', records)
+            commit('setTotal', response.data.total ?? 0)
+            return records.length
+        } catch (error) {
+            console.error('Failed to load more fleet history:', error)
+            return 0
         }
     },
 
