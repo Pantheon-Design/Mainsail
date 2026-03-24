@@ -1,6 +1,6 @@
 import Vue from 'vue'
 import { MutationTree } from 'vuex'
-import { FleetHistoryState, FleetHistoryRecord, FleetAnalytics } from './types'
+import { FleetHistoryState, FleetHistoryRecord, FleetAnalytics, FleetPartAnalytics } from './types'
 import { getDefaultState } from './index'
 
 export const mutations: MutationTree<FleetHistoryState> = {
@@ -32,6 +32,14 @@ export const mutations: MutationTree<FleetHistoryState> = {
 
     setAnalytics(state, analytics: FleetAnalytics) {
         Vue.set(state, 'analytics', analytics)
+    },
+
+    setPartAnalytics(state, data: FleetPartAnalytics) {
+        Vue.set(state, 'partAnalytics', data)
+    },
+
+    setPartAnalyticsLoading(state, loading: boolean) {
+        Vue.set(state, 'partAnalyticsLoading', loading)
     },
 
     setDevMode(state, enabled: boolean) {

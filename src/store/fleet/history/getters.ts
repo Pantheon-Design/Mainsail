@@ -22,6 +22,14 @@ export const getters: GetterTree<FleetHistoryState, any> = {
         return state.analyticsLoading
     },
 
+    getPartAnalytics(state) {
+        return state.partAnalytics
+    },
+
+    isPartAnalyticsLoading(state): boolean {
+        return state.partAnalyticsLoading
+    },
+
     isDevMode(state): boolean {
         return state.devMode
     },

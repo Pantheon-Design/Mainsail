@@ -720,7 +720,7 @@ export default class FleetPartsPanel extends Vue {
             }
         } catch { /* ignore */ }
         if (!this.visibleColumns.length) {
-            this.visibleColumns = this.allHeaders.map((h) => h.value)
+            this.visibleColumns = ['qr_code', 'printer_hostname', 'filename', 'filament_type', 'status', 'start_time', 'qc_status', 'qc_note']
         }
         try {
             const w = localStorage.getItem(this.WIDTHS_KEY)

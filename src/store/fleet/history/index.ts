@@ -7,8 +7,10 @@ import { getters } from './getters'
 export const getDefaultState = (): FleetHistoryState => ({
     records: [],
     analytics: null,
+    partAnalytics: null,
     loading: false,
     analyticsLoading: false,
+    partAnalyticsLoading: false,
     total: 0,
     devMode: false,
 })

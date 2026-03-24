@@ -111,11 +111,107 @@ export interface FleetAnalytics {
     model_summary: FleetModelSummary[]
 }
 
+export interface FleetPartAnalyticsKpis {
+    total_inspected: number
+    passed: number
+    failed: number
+    pending: number
+    pass_rate: number
+    fail_rate: number
+    coverage_pct: number
+    avg_turnaround_hours: number
+}
+
+export interface FleetWeeklyQcTrend {
+    week: string
+    total: number
+    passed: number
+    failed: number
+    pass_rate: number
+}
+
+export interface FleetFailRateByPrinter {
+    printer_hostname: string
+    total: number
+    failed: number
+    fail_rate: number
+}
+
+export interface FleetFailRateByFilament {
+    filament_type: string
+    total: number
+    failed: number
+    fail_rate: number
+}
+
+export interface FleetFailRateBySpool {
+    spool_qr_code: string
+    total: number
+    failed: number
+    fail_rate: number
+}
+
+export interface FleetInspectorActivity {
+    inspector: string
+    inspected: number
+    passed: number
+    failed: number
+    pass_rate: number
+}
+
+export interface FleetQcStatusSummary {
+    status: string
+    count: number
+}
+
+export interface FleetFailRateByNozzle {
+    nozzle_size: number
+    total: number
+    failed: number
+    fail_rate: number
+}
+
+export interface FleetTopFailingFile {
+    filename: string
+    total: number
+    failed: number
+    fail_rate: number
+}
+
+export interface FleetMonthlyQcSummary {
+    year_month: string
+    total: number
+    passed: number
+    failed: number
+    pass_rate: number
+}
+
+export interface FleetQcTurnaround {
+    week: string
+    avg_hours: number
+}
+
+export interface FleetPartAnalytics {
+    kpis: FleetPartAnalyticsKpis
+    weekly_qc_trend: FleetWeeklyQcTrend[]
+    fail_rate_by_printer: FleetFailRateByPrinter[]
+    fail_rate_by_filament: FleetFailRateByFilament[]
+    fail_rate_by_spool: FleetFailRateBySpool[]
+    inspector_activity: FleetInspectorActivity[]
+    qc_status_summary: FleetQcStatusSummary[]
+    fail_rate_by_nozzle: FleetFailRateByNozzle[]
+    top_failing_files: FleetTopFailingFile[]
+    monthly_qc_summary: FleetMonthlyQcSummary[]
+    qc_turnaround: FleetQcTurnaround[]
+}
+
 export interface FleetHistoryState {
     records: FleetHistoryRecord[]
     analytics: FleetAnalytics | null
+    partAnalytics: FleetPartAnalytics | null
     loading: boolean
     analyticsLoading: boolean
+    partAnalyticsLoading: boolean
     total: number
     devMode: boolean
 }

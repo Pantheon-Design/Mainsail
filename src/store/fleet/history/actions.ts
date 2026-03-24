@@ -99,6 +99,19 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         return records.filter((r: any) => r.qr_code != null)
     },
 
+    async loadPartAnalytics({ commit, rootGetters }, days = 365) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        commit('setPartAnalyticsLoading', true)
+        try {
+            const response = await axios.get(`${baseUrl}/history/analytics/parts?days=${days}`)
+            commit('setPartAnalytics', response.data)
+        } catch (error) {
+            console.error('Failed to load part analytics:', error)
+        } finally {
+            commit('setPartAnalyticsLoading', false)
+        }
+    },
+
     async triggerCollect({ rootGetters }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         await axios.post(`${baseUrl}/history/collect`)

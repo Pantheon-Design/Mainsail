@@ -394,7 +394,7 @@ export default class FleetHistoryListPanel extends Vue {
             }
         } catch { /* ignore */ }
         if (!this.visibleColumns.length) {
-            this.visibleColumns = this.allHeaders.map((h) => h.value)
+            this.visibleColumns = ['printer_hostname', 'filename', 'filament_type', 'status', 'start_time', 'nozzle_health', 'parts_count']
         }
         try {
             const w = localStorage.getItem(this.WIDTHS_KEY)
