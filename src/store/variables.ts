@@ -100,7 +100,7 @@ export const thumbnailSmallMin = 30
 export const thumbnailSmallMax = 64
 export const thumbnailBigMin = 128
 
-export const navigationWidth = 220
+export const navigationWidth = 180
 export const navigationItemHeight = 48
 export const panelToolbarHeight = 48
 export const topbarHeight = 48

@@ -45,6 +45,7 @@ import TheScrewsTiltAdjustDialog from '@/components/dialogs/TheScrewsTiltAdjustD
 import { setAndLoadLocale } from './plugins/i18n'
 import TheMacroPrompt from '@/components/dialogs/TheMacroPrompt.vue'
 import { AppRoute } from '@/routes'
+import { navigationWidth } from '@/store/variables'
 
 Component.registerHooks(['metaInfo'])
 
@@ -107,7 +108,7 @@ export default class App extends Mixins(BaseMixin, ThemeMixin) {
 
         // overwrite padding left for the sidebar
         if (this.naviDrawer && !this.$vuetify.breakpoint.mdAndDown) {
-            if (this.navigationStyle === 'iconsAndText') style.paddingLeft = '220px'
+            if (this.navigationStyle === 'iconsAndText') style.paddingLeft = navigationWidth + 'px'
             if (this.navigationStyle === 'iconsOnly') style.paddingLeft = '56px'
         }
 
