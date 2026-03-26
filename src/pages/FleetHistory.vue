@@ -17,7 +17,7 @@
             <v-tab>Analytics</v-tab>
         </v-tabs>
 
-        <v-tabs-items v-model="activeTab">
+        <v-tabs-items v-model="activeTab" touchless>
             <v-tab-item>
                 <fleet-history-list-panel />
             </v-tab-item>

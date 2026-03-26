@@ -1392,6 +1392,20 @@ export default class FleetPartsPanel extends Vue {
 .resizable-table table {
     table-layout: fixed;
 }
+@media (max-width: 600px) {
+    .resizable-table table {
+        table-layout: auto !important;
+    }
+    .resizable-table .col-resize-handle {
+        display: none;
+    }
+    .v-data-table__mobile-row__cell {
+        max-width: 60vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
 .resizable-table thead th {
     position: relative !important;
     overflow: hidden;
