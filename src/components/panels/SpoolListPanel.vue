@@ -724,6 +724,10 @@ export default class SpoolListPanel extends Vue {
         const delta = e.clientX - this.resizeStartX
         const newW = Math.max(20, this.resizeStartW + delta)
 
+        // Block the click event that fires after mouseup to prevent sort toggle
+        const blockClick = (ev: Event) => { ev.stopPropagation(); ev.preventDefault() }
+        _th.addEventListener('click', blockClick, { capture: true, once: true })
+
         if (newW < this.HIDE_THRESHOLD) {
             this.toggleColumn(this.resizingCol)
             delete this.columnWidths[this.resizingCol]

@@ -1206,6 +1206,10 @@ export default class FleetPartsPanel extends Vue {
         const delta = e.clientX - this.resizeStartX
         const newW = Math.max(20, this.resizeStartW + delta)
 
+        // Block the click event that fires after mouseup to prevent sort toggle
+        const blockClick = (ev: Event) => { ev.stopPropagation(); ev.preventDefault() }
+        th.addEventListener('click', blockClick, { capture: true, once: true })
+
         if (newW < this.HIDE_THRESHOLD) {
             const col = this.allHeaders.find((h) => h.value === this.resizingCol)
             this.toggleColumn(this.resizingCol)
