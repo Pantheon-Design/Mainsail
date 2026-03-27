@@ -23,4 +23,8 @@ export const mutations: MutationTree<FleetGcodesState> = {
             Vue.delete(state.pushing, key)
         }
     },
+
+    setCurrentPath(state, path: string) {
+        Vue.set(state, 'currentPath', path)
+    },
 }

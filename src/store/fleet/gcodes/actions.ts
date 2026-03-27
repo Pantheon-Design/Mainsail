@@ -1,7 +1,7 @@
 import { ActionTree } from 'vuex'
 import { FleetGcodesState } from './types'
 import { RootState } from '@/store/types'
-import axios from 'axios'
+import axios, { AxiosProgressEvent } from 'axios'
 
 function extractError(err: any): string {
     if (axios.isAxiosError(err)) {
@@ -18,11 +18,12 @@ function extractError(err: any): string {
 }
 
 export const actions: ActionTree<FleetGcodesState, RootState> = {
-    async loadFiles({ commit, rootGetters }) {
+    async loadFiles({ commit, rootGetters }, path?: string) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setLoading', true)
         try {
-            const response = await axios.get(`${baseUrl}/gcodes?include_cache_status=true`)
+            const p = path ?? ''
+            const response = await axios.get(`${baseUrl}/gcodes?path=${encodeURIComponent(p)}&include_cache_status=true`)
             commit('setFiles', response.data.files ?? [])
         } catch (error) {
             const msg = extractError(error)
@@ -58,16 +59,35 @@ export const actions: ActionTree<FleetGcodesState, RootState> = {
         }
     },
 
-    async uploadFile({ rootGetters }, file: File) {
+    async uploadFile({ rootGetters, commit, state }, payload: File | { file: File; path?: string }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const file = payload instanceof File ? payload : payload.file
+        const explicitPath = payload instanceof File ? undefined : payload.path
+        // Use explicit path if provided, otherwise fall back to current browsed path
+        const path = explicitPath !== undefined ? explicitPath : state.currentPath
+        console.log(`[Fleet GCode Upload] file=${file.name}, path='${path}'`)
         const formData = new FormData()
         formData.append('file', file)
+        if (path) formData.append('path', path)
+
+        // Drive the existing upload progress snackbar via root mutations
+        commit('files/uploadClearState', null, { root: true })
+        commit('files/uploadSetFilename', file.name, { root: true })
+        commit('files/uploadSetShow', true, { root: true })
+
         try {
             await axios.post(`${baseUrl}/gcodes/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 timeout: 600000,
+                onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+                    const percent = (progressEvent.progress ?? 0) * 100
+                    commit('files/uploadSetPercent', percent, { root: true })
+                    commit('files/uploadSetSpeed', progressEvent.rate ?? 0, { root: true })
+                },
             })
+            commit('files/uploadSetShow', false, { root: true })
         } catch (error) {
+            commit('files/uploadSetShow', false, { root: true })
             const msg = extractError(error)
             throw new Error(`Upload failed: ${msg}`)
         }
@@ -90,6 +110,26 @@ export const actions: ActionTree<FleetGcodesState, RootState> = {
         } catch (error) {
             const msg = extractError(error)
             throw new Error(`Sync failed: ${msg}`)
+        }
+    },
+
+    async createDirectory({ rootGetters }, path: string) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.post(`${baseUrl}/gcodes/mkdir`, { path })
+        } catch (error) {
+            const msg = extractError(error)
+            throw new Error(`Create directory failed: ${msg}`)
+        }
+    },
+
+    async moveFile({ rootGetters }, payload: { source: string; destination: string }) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.post(`${baseUrl}/gcodes/move`, payload)
+        } catch (error) {
+            const msg = extractError(error)
+            throw new Error(`Move failed: ${msg}`)
         }
     },
 }

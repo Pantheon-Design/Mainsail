@@ -76,44 +76,55 @@ export default class TheFullscreenUpload extends Mixins(BaseMixin) {
 
         if (e.dataTransfer?.files?.length) {
             const files = [...e.dataTransfer.files]
-            const uploadedFiles = []
 
-            await this.$store.dispatch('socket/addLoading', { name: 'gcodeUpload' })
-            await this.$store.dispatch('files/uploadSetCurrentNumber', 0)
-            await this.$store.dispatch('files/uploadSetMaxNumber', files.length)
+            // Route GCode files to fleet storage instead of Moonraker
+            const gcodeFiles: File[] = []
+            const otherFiles: File[] = []
 
             for (const file of files) {
                 const extensionPos = file.name.lastIndexOf('.')
                 const extension = file.name.slice(extensionPos)
-                const isGcode = validGcodeExtensions.includes(extension)
-
-                let path = ''
-                if (this.currentRoute === '/files' && isGcode) path = this.currentPathGcodes
-                else if (this.currentRoute === '/config' && !isGcode) path = this.currentPathConfig
-
-                const root = isGcode ? 'gcodes' : 'config'
-                await this.$store.dispatch('files/uploadIncrementCurrentNumber')
-                const result = await this.$store.dispatch('files/uploadFile', { file, path, root })
-
-                if (result !== false) {
-                    this.$toast.success(this.$t('Files.SuccessfullyUploaded', { filename: result }).toString())
-
-                    // Track uploaded files
-                    uploadedFiles.push({
-                        name: result,
-                        originalFile: file,
-                        isGcode: isGcode,
-                        path: path,
-                        root: root
-                    })
+                if (validGcodeExtensions.includes(extension)) {
+                    gcodeFiles.push(file)
+                } else {
+                    otherFiles.push(file)
                 }
             }
 
-            await this.$store.dispatch('socket/removeLoading', { name: 'gcodeUpload' })
+            // Upload GCode files to fleet central storage (with progress)
+            if (gcodeFiles.length > 0) {
+                await this.$store.dispatch('files/uploadSetCurrentNumber', 0)
+                await this.$store.dispatch('files/uploadSetMaxNumber', gcodeFiles.length)
 
-            // Emit event for other components to listen to
-            if (uploadedFiles.length > 0) {
-                this.$root.$emit('fullscreen-files-uploaded', uploadedFiles)
+                for (const file of gcodeFiles) {
+                    await this.$store.dispatch('files/uploadIncrementCurrentNumber')
+                    try {
+                        await this.$store.dispatch('fleet/gcodes/uploadFile', file)
+                        this.$toast.success(this.$t('Files.SuccessfullyUploaded', { filename: file.name }).toString())
+                    } catch (err) {
+                        console.error('Fleet upload failed:', err)
+                    }
+                }
+                await this.$store.dispatch('fleet/gcodes/loadFiles')
+            }
+
+            // Upload non-GCode files to Moonraker as before
+            if (otherFiles.length > 0) {
+                await this.$store.dispatch('socket/addLoading', { name: 'gcodeUpload' })
+                await this.$store.dispatch('files/uploadSetCurrentNumber', 0)
+                await this.$store.dispatch('files/uploadSetMaxNumber', otherFiles.length)
+
+                for (const file of otherFiles) {
+                    const path = this.currentRoute === '/config' ? this.currentPathConfig : ''
+                    await this.$store.dispatch('files/uploadIncrementCurrentNumber')
+                    const result = await this.$store.dispatch('files/uploadFile', { file, path, root: 'config' })
+
+                    if (result !== false) {
+                        this.$toast.success(this.$t('Files.SuccessfullyUploaded', { filename: result }).toString())
+                    }
+                }
+
+                await this.$store.dispatch('socket/removeLoading', { name: 'gcodeUpload' })
             }
         }
     }

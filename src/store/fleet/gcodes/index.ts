@@ -8,6 +8,7 @@ export const getDefaultState = (): FleetGcodesState => ({
     files: [],
     loading: false,
     pushing: {},
+    currentPath: '',
 })
 
 const state = getDefaultState()

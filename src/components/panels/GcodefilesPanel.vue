@@ -29,6 +29,12 @@
                             <v-icon>{{ mdiCloudUploadOutline }}</v-icon>
                         </v-btn>
                         <v-btn
+                            title="Create New Folder"
+                            class="px-2 minwidth-0 ml-3"
+                            @click="fleetMkdirDialog.show = true">
+                            <v-icon>{{ mdiFolderPlus }}</v-icon>
+                        </v-btn>
+                        <v-btn
                             title="Sync Now"
                             class="px-2 minwidth-0 ml-3"
                             @click="triggerFleetSync">
@@ -43,45 +49,69 @@
                     </v-col>
                 </v-row>
             </v-card-text>
+            <!-- Path navigation -->
+            <v-card-text class="py-1">
+                <b class="mr-1">Path:</b>
+                <a class="text-decoration-none" @click="navigateToFleetPath('')">/home/hs3/Fleetdaemon/gcodes</a>
+                <template v-for="(segment, i) in fleetPathSegments">
+                    <span :key="'sep-' + i"> / </span>
+                    <a :key="'seg-' + i" class="text-decoration-none" @click="navigateToFleetPath(fleetPathUpTo(i))">{{ segment }}</a>
+                </template>
+            </v-card-text>
+            <v-divider></v-divider>
             <!-- Fleet Files Table -->
-                <v-card-text v-if="fleetFilesLoading" class="text-center py-6">
-                    <v-progress-circular indeterminate color="primary" />
-                    <div class="mt-2">Loading fleet files...</div>
-                </v-card-text>
-                <v-data-table
-                    v-else
-                    :items="fleetFilesFiltered"
-                    :headers="fleetHeaders"
-                    class="files-table"
-                    :items-per-page="25"
-                    :footer-props="{
-                        itemsPerPageOptions: [10, 25, 50, 100, -1],
-                    }"
-                    item-key="filename"
-                    sort-by="modified_epoch"
-                    :sort-desc="true"
-                    mobile-breakpoint="0">
-                    <template #no-data>
-                        <div class="text-center">No fleet files found</div>
-                    </template>
-                    <template #item="{ item }">
-                        <tr>
-                            <td>{{ item.filename }}</td>
-                            <td class="text-no-wrap">{{ formatFilesize(item.size) }}</td>
-                            <td class="text-no-wrap">{{ new Date(item.modified).toLocaleDateString() }}</td>
-                            <td class="text-no-wrap">{{ Math.round(item.age_days) }}d</td>
-                            <td class="text-center">
+            <v-card-text v-if="fleetFilesLoading" class="text-center py-6">
+                <v-progress-circular indeterminate color="primary" />
+                <div class="mt-2">Loading fleet files...</div>
+            </v-card-text>
+            <v-data-table
+                v-else
+                :items="fleetFilesFiltered"
+                :headers="fleetHeaders"
+                class="files-table"
+                :items-per-page="25"
+                :footer-props="{
+                    itemsPerPageOptions: [10, 25, 50, 100, -1],
+                }"
+                item-key="filename"
+                :sort-desc="true"
+                mobile-breakpoint="0"
+                :custom-sort="fleetSortItems">
+                <template #no-data>
+                    <div class="text-center">No fleet files found</div>
+                </template>
+                <template v-if="fleetCurrentPath !== ''" #body.prepend>
+                    <tr class="file-list-cursor" @click="navigateFleetUp">
+                        <td class="px-0 text-center" style="width: 32px">
+                            <v-icon>{{ mdiFolderUpload }}</v-icon>
+                        </td>
+                        <td colspan="5">..</td>
+                    </tr>
+                </template>
+                <template #item="{ item }">
+                    <tr :class="{ 'file-list-cursor': item.is_directory }" @click="onFleetRowClick(item)">
+                        <td class="px-0 text-center" style="width: 32px">
+                            <v-icon v-if="item.is_directory">{{ mdiFolder }}</v-icon>
+                            <v-icon v-else>{{ mdiFile }}</v-icon>
+                        </td>
+                        <td>{{ fleetDisplayName(item.filename) }}</td>
+                        <td class="text-no-wrap">{{ item.is_directory ? '--' : formatFilesize(item.size) }}</td>
+                        <td class="text-no-wrap">{{ item.modified ? new Date(item.modified).toLocaleDateString() : '--' }}</td>
+                        <td class="text-center">
+                            <template v-if="!item.is_directory">
                                 <v-tooltip top>
                                     <template #activator="{ on, attrs }">
                                         <v-chip x-small v-bind="attrs" v-on="on">
-                                            {{ item.cached_on.length }} printers
+                                            {{ (item.cached_on || []).length }} printers
                                         </v-chip>
                                     </template>
-                                    <span v-if="item.cached_on.length">{{ item.cached_on.join(', ') }}</span>
+                                    <span v-if="(item.cached_on || []).length">{{ item.cached_on.join(', ') }}</span>
                                     <span v-else>Not cached on any printer</span>
                                 </v-tooltip>
-                            </td>
-                            <td class="text-no-wrap">
+                            </template>
+                        </td>
+                        <td class="text-no-wrap">
+                            <template v-if="!item.is_directory">
                                 <v-btn
                                     x-small
                                     color="primary"
@@ -91,31 +121,76 @@
                                     <v-icon x-small class="mr-1">{{ mdiCloudUploadOutline }}</v-icon>
                                     Push
                                 </v-btn>
-                                <v-btn
-                                    x-small
-                                    color="error"
-                                    title="Delete from fleet storage"
-                                    @click.stop="fleetDeleteDialog = { show: true, filename: item.filename }">
-                                    <v-icon x-small>{{ mdiDelete }}</v-icon>
-                                </v-btn>
-                            </td>
-                        </tr>
-                    </template>
-                </v-data-table>
-                <!-- Fleet delete confirmation dialog -->
-                <v-dialog v-model="fleetDeleteDialog.show" max-width="400">
-                    <v-card>
-                        <v-card-title>Delete Fleet File</v-card-title>
-                        <v-card-text>
-                            Delete <b>{{ fleetDeleteDialog.filename }}</b> from central storage and all printers?
-                        </v-card-text>
-                        <v-card-actions>
-                            <v-spacer></v-spacer>
-                            <v-btn text @click="fleetDeleteDialog.show = false">Cancel</v-btn>
-                            <v-btn color="error" text @click="deleteFleetFile">Delete</v-btn>
-                        </v-card-actions>
-                    </v-card>
-                </v-dialog>
+                            </template>
+                            <v-btn
+                                x-small
+                                class="mr-1"
+                                title="Move / Rename"
+                                @click.stop="openFleetMoveDialog(item)">
+                                <v-icon x-small>{{ mdiRenameBox }}</v-icon>
+                            </v-btn>
+                            <v-btn
+                                x-small
+                                color="error"
+                                title="Delete"
+                                @click.stop="fleetDeleteDialog = { show: true, filename: item.filename }">
+                                <v-icon x-small>{{ mdiDelete }}</v-icon>
+                            </v-btn>
+                        </td>
+                    </tr>
+                </template>
+            </v-data-table>
+            <!-- Fleet delete confirmation dialog -->
+            <v-dialog v-model="fleetDeleteDialog.show" max-width="400">
+                <v-card>
+                    <v-card-title>Delete Fleet File</v-card-title>
+                    <v-card-text>
+                        Delete <b>{{ fleetDeleteDialog.filename }}</b> from central storage and all printers?
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn text @click="fleetDeleteDialog.show = false">Cancel</v-btn>
+                        <v-btn color="error" text @click="deleteFleetFile">Delete</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+            <!-- Fleet create directory dialog -->
+            <v-dialog v-model="fleetMkdirDialog.show" max-width="400">
+                <v-card>
+                    <v-card-title>Create Folder</v-card-title>
+                    <v-card-text>
+                        <v-text-field
+                            v-model="fleetMkdirDialog.name"
+                            label="Folder name"
+                            autofocus
+                            @keypress.enter="createFleetDirectory"></v-text-field>
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn text @click="fleetMkdirDialog.show = false">Cancel</v-btn>
+                        <v-btn color="primary" text :disabled="!fleetMkdirDialog.name" @click="createFleetDirectory">Create</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+            <!-- Fleet move/rename dialog -->
+            <v-dialog v-model="fleetMoveDialog.show" max-width="500">
+                <v-card>
+                    <v-card-title>Move / Rename</v-card-title>
+                    <v-card-text>
+                        <div class="mb-2"><b>From:</b> {{ fleetMoveDialog.source }}</div>
+                        <v-text-field
+                            v-model="fleetMoveDialog.destination"
+                            label="New path"
+                            autofocus
+                            @keypress.enter="executeFleetMove"></v-text-field>
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn text @click="fleetMoveDialog.show = false">Cancel</v-btn>
+                        <v-btn color="primary" text :disabled="!fleetMoveDialog.destination || fleetMoveDialog.destination === fleetMoveDialog.source" @click="executeFleetMove">Move</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
         </panel>
         <start-print-dialog
             :bool="dialogPrintFile.show"
@@ -590,8 +665,10 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     // Fleet file mode (always on in Fleet_Mainsail)
     private fleetMode = true
     private fleetSearch = ''
+    private fleetCurrentPath = ''
     private fleetDeleteDialog = { show: false, filename: '' }
-    private fleetSendDialog = { show: false, filename: '' }
+    private fleetMkdirDialog = { show: false, name: '' }
+    private fleetMoveDialog = { show: false, source: '', destination: '' }
 
     private isInvalidName = true
     private nameInputRules = [
@@ -1348,13 +1425,68 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     get fleetHeaders() {
         return [
-            { text: 'Filename', value: 'filename' },
+            { text: '', value: 'icon', sortable: false, width: '32px' },
+            { text: 'Name', value: 'filename' },
             { text: 'Size', value: 'size', width: '100px' },
             { text: 'Modified', value: 'modified', width: '180px' },
-            { text: 'Age', value: 'age_days', width: '80px' },
             { text: 'Cached On', value: 'cached_on', sortable: false, width: '130px' },
-            { text: 'Actions', value: 'actions', sortable: false, width: '150px' },
+            { text: 'Actions', value: 'actions', sortable: false, width: '200px' },
         ]
+    }
+
+    get fleetPathSegments(): string[] {
+        if (!this.fleetCurrentPath) return []
+        return this.fleetCurrentPath.split('/').filter(Boolean)
+    }
+
+    fleetPathUpTo(index: number): string {
+        return this.fleetPathSegments.slice(0, index + 1).join('/')
+    }
+
+    fleetDisplayName(fullPath: string): string {
+        const parts = fullPath.split('/')
+        return parts[parts.length - 1]
+    }
+
+    fleetSortItems(items: FleetGcodeFile[], sortBy: string[], sortDesc: boolean[]) {
+        // Always directories first, then sort by the requested column
+        return [...items].sort((a, b) => {
+            if (a.is_directory !== b.is_directory) return a.is_directory ? -1 : 1
+            // Default sort: name ascending
+            const nameA = a.filename.toLowerCase()
+            const nameB = b.filename.toLowerCase()
+            return nameA.localeCompare(nameB)
+        })
+    }
+
+    navigateToFleetPath(path: string) {
+        this.fleetCurrentPath = path
+        this.$store.commit('fleet/gcodes/setCurrentPath', path)
+        this.loadFleetFiles()
+    }
+
+    navigateFleetUp() {
+        const segments = this.fleetPathSegments
+        segments.pop()
+        this.fleetCurrentPath = segments.join('/')
+        this.$store.commit('fleet/gcodes/setCurrentPath', this.fleetCurrentPath)
+        this.loadFleetFiles()
+    }
+
+    onFleetRowClick(item: FleetGcodeFile) {
+        if (item.is_directory) {
+            this.fleetCurrentPath = item.filename
+            this.$store.commit('fleet/gcodes/setCurrentPath', this.fleetCurrentPath)
+            this.loadFleetFiles()
+        }
+    }
+
+    openFleetMoveDialog(item: FleetGcodeFile) {
+        this.fleetMoveDialog = {
+            show: true,
+            source: item.filename,
+            destination: item.filename,
+        }
     }
 
     isFleetFileCached(item: FleetGcodeFile): boolean {
@@ -1369,7 +1501,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     async loadFleetFiles() {
         try {
-            await this.$store.dispatch('fleet/gcodes/loadFiles')
+            await this.$store.dispatch('fleet/gcodes/loadFiles', this.fleetCurrentPath)
         } catch (e) {
             console.error('Failed to load fleet files:', e)
         }
@@ -1395,6 +1527,32 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         }
     }
 
+    async createFleetDirectory() {
+        const name = this.fleetMkdirDialog.name.trim()
+        if (!name) return
+        this.fleetMkdirDialog.show = false
+        const fullPath = this.fleetCurrentPath ? `${this.fleetCurrentPath}/${name}` : name
+        try {
+            await this.$store.dispatch('fleet/gcodes/createDirectory', fullPath)
+            this.fleetMkdirDialog.name = ''
+            await this.loadFleetFiles()
+        } catch (e) {
+            console.error('Create directory failed:', e)
+        }
+    }
+
+    async executeFleetMove() {
+        const { source, destination } = this.fleetMoveDialog
+        if (!destination || destination === source) return
+        this.fleetMoveDialog.show = false
+        try {
+            await this.$store.dispatch('fleet/gcodes/moveFile', { source, destination })
+            await this.loadFleetFiles()
+        } catch (e) {
+            console.error('Move failed:', e)
+        }
+    }
+
     async deleteFleetFile() {
         const filename = this.fleetDeleteDialog.filename
         this.fleetDeleteDialog.show = false
@@ -1411,7 +1569,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         if (!target.files?.length) return
         for (const file of Array.from(target.files)) {
             try {
-                await this.$store.dispatch('fleet/gcodes/uploadFile', file)
+                await this.$store.dispatch('fleet/gcodes/uploadFile', { file, path: this.fleetCurrentPath })
             } catch (err) {
                 console.error('Fleet upload failed:', err)
             }
