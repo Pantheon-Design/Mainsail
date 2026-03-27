@@ -4,30 +4,7 @@
             <v-card-text>
                 <v-row>
                     <v-col class="col-12 d-flex align-center">
-                        <v-btn-toggle v-model="fleetMode" mandatory dense class="mr-3" @change="onFleetModeToggle">
-                            <v-btn :value="false" small>
-                                <v-icon small class="mr-1">{{ mdiHarddisk }}</v-icon>
-                                Local
-                            </v-btn>
-                            <v-btn :value="true" small>
-                                <v-icon small class="mr-1">{{ mdiCloud }}</v-icon>
-                                Fleet
-                            </v-btn>
-                        </v-btn-toggle>
                         <v-text-field
-                            v-if="!fleetMode"
-                            v-model="search"
-                            :append-icon="mdiMagnify"
-                            :label="$t('Files.Search')"
-                            single-line
-                            outlined
-                            clearable
-                            hide-details
-                            dense
-                            style="max-width: 300px"></v-text-field>
-                        <!-- Fleet mode: search + toolbar -->
-                        <v-text-field
-                            v-if="fleetMode"
                             v-model="fleetSearch"
                             :append-icon="mdiMagnify"
                             label="Search Fleet Files"
@@ -38,166 +15,35 @@
                             dense
                             style="max-width: 300px"></v-text-field>
                         <v-spacer></v-spacer>
-                        <!-- Fleet mode buttons -->
-                        <template v-if="fleetMode">
-                            <input
-                                ref="fleetFileUpload"
-                                type="file"
-                                accept=".gcode,.g,.gc"
-                                style="display: none"
-                                multiple
-                                @change="uploadFleetFile" />
-                            <v-btn
-                                title="Upload to Fleet Storage"
-                                class="primary--text px-2 minwidth-0 ml-3"
-                                @click="$refs.fleetFileUpload.click()">
-                                <v-icon>{{ mdiCloudUploadOutline }}</v-icon>
-                            </v-btn>
-                            <v-btn
-                                title="Sync Now"
-                                class="px-2 minwidth-0 ml-3"
-                                @click="triggerFleetSync">
-                                <v-icon>{{ mdiSync }}</v-icon>
-                            </v-btn>
-                            <v-btn
-                                title="Refresh"
-                                class="px-2 minwidth-0 ml-3"
-                                @click="loadFleetFiles">
-                                <v-icon>{{ mdiRefresh }}</v-icon>
-                            </v-btn>
-                        </template>
-                        <!-- Local mode buttons -->
-                        <v-btn
-                            v-if="!fleetMode && selectedFiles.length"
-                            :title="$t('Files.Download')"
-                            color="primary"
-                            class="px-2 minwidth-0 ml-3"
-                            :loading="loadings.includes('gcodeDownloadZip')"
-                            @click="downloadSelectedFiles">
-                            <v-icon>{{ mdiCloudDownload }}</v-icon>
-                        </v-btn>
-                        <v-btn
-                            v-if="!fleetMode && selectedFiles.length"
-                            :title="$t('Files.Delete')"
-                            color="error"
-                            class="px-2 minwidth-0 ml-3"
-                            @click="deleteSelectedDialog = true">
-                            <v-icon>{{ mdiDelete }}</v-icon>
-                        </v-btn>
                         <input
-                            ref="fileUpload"
+                            ref="fleetFileUpload"
                             type="file"
-                            :accept="gcodeInputFileAccept.join(', ')"
+                            accept=".gcode,.g,.gc"
                             style="display: none"
                             multiple
-                            @change="uploadFile" />
+                            @change="uploadFleetFile" />
                         <v-btn
-                            v-if="!fleetMode"
-                            :title="$t('Files.UploadNewGcode')"
+                            title="Upload to Fleet Storage"
                             class="primary--text px-2 minwidth-0 ml-3"
-                            :loading="loadings.includes('gcodeUpload')"
-                            @click="clickUploadButton">
-                            <v-icon>{{ mdiUpload }}</v-icon>
+                            @click="$refs.fleetFileUpload.click()">
+                            <v-icon>{{ mdiCloudUploadOutline }}</v-icon>
                         </v-btn>
                         <v-btn
-                            v-if="!fleetMode"
-                            :title="$t('Files.CreateNewDirectory')"
+                            title="Sync Now"
                             class="px-2 minwidth-0 ml-3"
-                            @click="createDirectory">
-                            <v-icon>{{ mdiFolderPlus }}</v-icon>
+                            @click="triggerFleetSync">
+                            <v-icon>{{ mdiSync }}</v-icon>
                         </v-btn>
                         <v-btn
-                            v-if="!fleetMode"
-                            :title="$t('Files.RefreshCurrentDirectory')"
+                            title="Refresh"
                             class="px-2 minwidth-0 ml-3"
-                            @click="refreshFileList">
+                            @click="loadFleetFiles">
                             <v-icon>{{ mdiRefresh }}</v-icon>
                         </v-btn>
-                        <v-menu offset-y left :close-on-content-click="false" :title="$t('Files.SetupCurrentList')">
-                            <template #activator="{ on, attrs }">
-                                <v-btn class="px-2 minwidth-0 ml-3" v-bind="attrs" v-on="on">
-                                    <v-icon>{{ mdiCog }}</v-icon>
-                                </v-btn>
-                            </template>
-                            <v-list>
-                                <v-list-item class="minHeight36" link>
-                                    <v-row>
-                                        <v-col class="pr-0">
-                                            {{ $t('Files.HiddenFiles') }}
-                                        </v-col>
-                                        <v-col class="col-auto pl-0">
-                                            <v-icon
-                                                v-if="showHiddenFiles"
-                                                color="primary"
-                                                @click.stop="showHiddenFiles = false">
-                                                {{ mdiCheckboxMarked }}
-                                            </v-icon>
-                                            <v-icon v-else color="grey lighten-1" @click.stop="showHiddenFiles = true">
-                                                {{ mdiCheckboxBlankOutline }}
-                                            </v-icon>
-                                        </v-col>
-                                    </v-row>
-                                </v-list-item>
-                                <v-list-item class="minHeight36" link>
-                                    <v-row>
-                                        <v-col class="pr-0">
-                                            {{ $t('Files.PrintedFiles') }}
-                                        </v-col>
-                                        <v-col class="col-auto pl-0">
-                                            <v-icon
-                                                v-if="showPrintedFiles"
-                                                color="primary"
-                                                @click.stop="showPrintedFiles = false">
-                                                {{ mdiCheckboxMarked }}
-                                            </v-icon>
-                                            <v-icon v-else color="grey lighten-1" @click.stop="showPrintedFiles = true">
-                                                {{ mdiCheckboxBlankOutline }}
-                                            </v-icon>
-                                        </v-col>
-                                    </v-row>
-                                </v-list-item>
-                                <v-divider></v-divider>
-                                <draggable
-                                    v-model="configurableHeaders"
-                                    handle=".handle"
-                                    class="v-list-item-group"
-                                    ghost-class="ghost"
-                                    group="gcodeFilesColumnOrder">
-                                    <v-list-item
-                                        v-for="header of configurableHeaders"
-                                        :key="header.value"
-                                        class="minHeight36">
-                                        <v-row>
-                                            <v-col class="col-auto pr-0">
-                                                <v-icon class="handle">{{ mdiDragVertical }}</v-icon>
-                                            </v-col>
-                                            <v-col>
-                                                {{ header.text }}
-                                            </v-col>
-                                            <v-col class="col-auto pl-0">
-                                                <v-icon
-                                                    v-if="!header.visible"
-                                                    color="grey lighten-1"
-                                                    @click.stop="changeMetadataVisible(header.value, true)">
-                                                    {{ mdiCheckboxBlankOutline }}
-                                                </v-icon>
-                                                <v-icon
-                                                    v-else
-                                                    color="primary"
-                                                    @click.stop="changeMetadataVisible(header.value, false)">
-                                                    {{ mdiCheckboxMarked }}
-                                                </v-icon>
-                                            </v-col>
-                                        </v-row>
-                                    </v-list-item>
-                                </draggable>
-                            </v-list>
-                        </v-menu>
                     </v-col>
                 </v-row>
             </v-card-text>
             <!-- Fleet Files Table -->
-            <template v-if="fleetMode">
                 <v-card-text v-if="fleetFilesLoading" class="text-center py-6">
                     <v-progress-circular indeterminate color="primary" />
                     <div class="mt-2">Loading fleet files...</div>
@@ -270,171 +116,6 @@
                         </v-card-actions>
                     </v-card>
                 </v-dialog>
-            </template>
-            <!-- Local Files (existing) -->
-            <v-card-text v-if="!fleetMode">
-                <v-row>
-                    <v-col class="col-12 py-2 d-flex align-center">
-                        <span>
-                            <b class="mr-1">{{ $t('Files.CurrentPath') }}:</b>
-                            <path-navigation
-                                :path="currentPath"
-                                :base-directory-label="'/gcodes'"
-                                :on-segment-click="clickPathNavGoToDirectory" />
-                        </span>
-                        <v-spacer></v-spacer>
-                        <template v-if="disk_usage !== null">
-                            <v-tooltip top>
-                                <template #activator="{ on, attrs }">
-                                    <span v-bind="attrs" v-on="on">
-                                        <b>{{ $t('Files.FreeDisk') }}:</b>
-                                        {{ formatFilesize(disk_usage.free) }}
-                                    </span>
-                                </template>
-                                <span>
-                                    {{ $t('Files.Used') }}: {{ formatFilesize(disk_usage.used) }}
-                                    <br />
-                                    {{ $t('Files.Free') }}: {{ formatFilesize(disk_usage.free) }}
-                                    <br />
-                                    {{ $t('Files.Total') }}: {{ formatFilesize(disk_usage.total) }}
-                                </span>
-                            </v-tooltip>
-                        </template>
-                    </v-col>
-                </v-row>
-            </v-card-text>
-            <v-divider v-if="!fleetMode" class="mb-3"></v-divider>
-            <v-data-table
-                v-if="!fleetMode"
-                v-model="selectedFiles"
-                :items="files"
-                class="files-table"
-                :headers="filteredHeaders"
-                :custom-sort="sortFiles"
-                :sort-by.sync="sortBy"
-                :sort-desc.sync="sortDesc"
-                :items-per-page.sync="countPerPage"
-                :footer-props="{
-                    itemsPerPageText: $t('Files.Files'),
-                    itemsPerPageAllText: $t('Files.AllFiles'),
-                    itemsPerPageOptions: [10, 25, 50, 100, -1],
-                }"
-                item-key="filename"
-                :search="search"
-                :custom-filter="advancedSearch"
-                mobile-breakpoint="0"
-                show-select
-                @current-items="refreshMetadata">
-                <template #no-data>
-                    <div class="text-center">{{ $t('Files.Empty') }}</div>
-                </template>
-
-                <template v-if="currentPath !== ''" #body.prepend>
-                    <tr
-                        class="file-list-cursor"
-                        @click="clickRowGoBack"
-                        @dragover="dragOverFilelist($event, { isDirectory: true, filename: '..' })"
-                        @dragleave="dragLeaveFilelist"
-                        @drop.prevent.stop="dragDropFilelist($event, { isDirectory: true, filename: '..' })">
-                        <td class="file-list__select-td pr-0">
-                            <v-simple-checkbox v-ripple disabled class="pa-0 mr-0"></v-simple-checkbox>
-                        </td>
-                        <td class="px-0 text-center" style="width: 32px">
-                            <v-icon>{{ mdiFolderUpload }}</v-icon>
-                        </td>
-                        <td class=" " :colspan="filteredHeaders.length">..</td>
-                    </tr>
-                </template>
-
-                <template #item="{ index, item, isSelected, select }">
-                    <tr
-                        :key="`${index} ${item.filename}`"
-                        v-longpress:600="(e) => showContextMenu(e, item)"
-                        class="file-list-cursor user-select-none"
-                        draggable="true"
-                        :data-name="item.filename"
-                        @contextmenu="showContextMenu($event, item)"
-                        @click="clickRow(item)"
-                        @drag="dragFile($event, item)"
-                        @dragend="dragendFile($event)"
-                        @dragover="dragOverFilelist($event, item)"
-                        @dragleave="dragLeaveFilelist"
-                        @drop.prevent.stop="dragDropFilelist($event, item)">
-                        <td class="file-list__select-td pr-0">
-                            <v-simple-checkbox
-                                v-ripple
-                                :value="isSelected"
-                                class="pa-0 mr-0"
-                                @click.stop="select(!isSelected)"></v-simple-checkbox>
-                        </td>
-                        <td class="px-0 text-center" style="width: 32px">
-                            <template v-if="item.isDirectory">
-                                <v-icon>{{ mdiFolder }}</v-icon>
-                            </template>
-                            <template v-else-if="item.small_thumbnail">
-                                <v-tooltip
-                                    top
-                                    content-class="tooltip__content-opacity1"
-                                    :color="bigThumbnailTooltipColor"
-                                    :disabled="!item.big_thumbnail">
-                                    <template #activator="{ on, attrs }">
-                                        <vue-load-image>
-                                            <img
-                                                slot="image"
-                                                :src="item.small_thumbnail"
-                                                width="32"
-                                                height="32"
-                                                :alt="item.filename"
-                                                v-bind="attrs"
-                                                v-on="on" />
-                                            <div slot="preloader">
-                                                <v-progress-circular indeterminate color="primary" />
-                                            </div>
-                                            <div slot="error">
-                                                <v-icon>{{ mdiFile }}</v-icon>
-                                            </div>
-                                        </vue-load-image>
-                                    </template>
-                                    <span>
-                                        <img :src="item.big_thumbnail" width="250" :alt="item.filename" />
-                                    </span>
-                                </v-tooltip>
-                            </template>
-                            <template v-else>
-                                <v-icon>{{ mdiFile }}</v-icon>
-                            </template>
-                        </td>
-                        <td class=" ">{{ item.filename }}</td>
-                        <td class="text-right text-no-wrap">
-                            <v-tooltip v-if="item.last_status" top>
-                                <template #activator="{ on, attrs }">
-                                    <span v-bind="attrs" v-on="on">
-                                        <span
-                                            v-if="item.count_printed > 0"
-                                            :class="`file-list__count_printed ${getStatusTextColor(item.last_status)}`">
-                                            {{ item.count_printed }}
-                                        </span>
-                                        <v-icon small :color="getStatusColor(item.last_status)">
-                                            {{ getStatusIcon(item.last_status) }}
-                                        </v-icon>
-                                    </span>
-                                </template>
-                                <span>{{ item.last_status.replace(/_/g, ' ') }}</span>
-                            </v-tooltip>
-                        </td>
-                        <td
-                            v-for="col in tableColumns"
-                            :key="col.value"
-                            :class="col.outputType !== 'date' ? 'text-no-wrap' : ''">
-                            {{ outputValue(col, item) }}
-                            <template v-if="col.value === 'slicer'">
-                                <br />
-                                <small v-if="item.slicer_version">{{ item.slicer_version }}</small>
-                            </template>
-                        </td>
-                    </tr>
-                </template>
-            </v-data-table>
         </panel>
         <start-print-dialog
             :bool="dialogPrintFile.show"
@@ -906,8 +587,8 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     private deleteDialog = false
     private deleteSelectedDialog = false
 
-    // Fleet file mode
-    private fleetMode = false
+    // Fleet file mode (always on in Fleet_Mainsail)
+    private fleetMode = true
     private fleetSearch = ''
     private fleetDeleteDialog = { show: false, filename: '' }
     private fleetSendDialog = { show: false, filename: '' }
@@ -1748,13 +1429,8 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         }
     }
 
-    onFleetModeToggle() {
-        if (this.fleetMode) {
-            this.loadFleetFiles()
-        }
-    }
-
     mounted() {
+        this.loadFleetFiles()
         fleetDaemonEvents.$on('gcodes_updated', this.loadFleetFiles)
     }
 
