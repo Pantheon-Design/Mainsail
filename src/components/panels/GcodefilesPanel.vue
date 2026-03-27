@@ -4,7 +4,18 @@
             <v-card-text>
                 <v-row>
                     <v-col class="col-12 d-flex align-center">
+                        <v-btn-toggle v-model="fleetMode" mandatory dense class="mr-3" @change="onFleetModeToggle">
+                            <v-btn :value="false" small>
+                                <v-icon small class="mr-1">{{ mdiHarddisk }}</v-icon>
+                                Local
+                            </v-btn>
+                            <v-btn :value="true" small>
+                                <v-icon small class="mr-1">{{ mdiCloud }}</v-icon>
+                                Fleet
+                            </v-btn>
+                        </v-btn-toggle>
                         <v-text-field
+                            v-if="!fleetMode"
                             v-model="search"
                             :append-icon="mdiMagnify"
                             :label="$t('Files.Search')"
@@ -14,9 +25,50 @@
                             hide-details
                             dense
                             style="max-width: 300px"></v-text-field>
+                        <!-- Fleet mode: search + toolbar -->
+                        <v-text-field
+                            v-if="fleetMode"
+                            v-model="fleetSearch"
+                            :append-icon="mdiMagnify"
+                            label="Search Fleet Files"
+                            single-line
+                            outlined
+                            clearable
+                            hide-details
+                            dense
+                            style="max-width: 300px"></v-text-field>
                         <v-spacer></v-spacer>
+                        <!-- Fleet mode buttons -->
+                        <template v-if="fleetMode">
+                            <input
+                                ref="fleetFileUpload"
+                                type="file"
+                                accept=".gcode,.g,.gc"
+                                style="display: none"
+                                multiple
+                                @change="uploadFleetFile" />
+                            <v-btn
+                                title="Upload to Fleet Storage"
+                                class="primary--text px-2 minwidth-0 ml-3"
+                                @click="$refs.fleetFileUpload.click()">
+                                <v-icon>{{ mdiCloudUploadOutline }}</v-icon>
+                            </v-btn>
+                            <v-btn
+                                title="Sync Now"
+                                class="px-2 minwidth-0 ml-3"
+                                @click="triggerFleetSync">
+                                <v-icon>{{ mdiSync }}</v-icon>
+                            </v-btn>
+                            <v-btn
+                                title="Refresh"
+                                class="px-2 minwidth-0 ml-3"
+                                @click="loadFleetFiles">
+                                <v-icon>{{ mdiRefresh }}</v-icon>
+                            </v-btn>
+                        </template>
+                        <!-- Local mode buttons -->
                         <v-btn
-                            v-if="selectedFiles.length"
+                            v-if="!fleetMode && selectedFiles.length"
                             :title="$t('Files.Download')"
                             color="primary"
                             class="px-2 minwidth-0 ml-3"
@@ -25,7 +77,7 @@
                             <v-icon>{{ mdiCloudDownload }}</v-icon>
                         </v-btn>
                         <v-btn
-                            v-if="selectedFiles.length"
+                            v-if="!fleetMode && selectedFiles.length"
                             :title="$t('Files.Delete')"
                             color="error"
                             class="px-2 minwidth-0 ml-3"
@@ -40,6 +92,7 @@
                             multiple
                             @change="uploadFile" />
                         <v-btn
+                            v-if="!fleetMode"
                             :title="$t('Files.UploadNewGcode')"
                             class="primary--text px-2 minwidth-0 ml-3"
                             :loading="loadings.includes('gcodeUpload')"
@@ -47,12 +100,14 @@
                             <v-icon>{{ mdiUpload }}</v-icon>
                         </v-btn>
                         <v-btn
+                            v-if="!fleetMode"
                             :title="$t('Files.CreateNewDirectory')"
                             class="px-2 minwidth-0 ml-3"
                             @click="createDirectory">
                             <v-icon>{{ mdiFolderPlus }}</v-icon>
                         </v-btn>
                         <v-btn
+                            v-if="!fleetMode"
                             :title="$t('Files.RefreshCurrentDirectory')"
                             class="px-2 minwidth-0 ml-3"
                             @click="refreshFileList">
@@ -141,7 +196,83 @@
                     </v-col>
                 </v-row>
             </v-card-text>
-            <v-card-text>
+            <!-- Fleet Files Table -->
+            <template v-if="fleetMode">
+                <v-card-text v-if="fleetFilesLoading" class="text-center py-6">
+                    <v-progress-circular indeterminate color="primary" />
+                    <div class="mt-2">Loading fleet files...</div>
+                </v-card-text>
+                <v-data-table
+                    v-else
+                    :items="fleetFilesFiltered"
+                    :headers="fleetHeaders"
+                    class="files-table"
+                    :items-per-page="25"
+                    :footer-props="{
+                        itemsPerPageOptions: [10, 25, 50, 100, -1],
+                    }"
+                    item-key="filename"
+                    sort-by="modified_epoch"
+                    :sort-desc="true"
+                    mobile-breakpoint="0">
+                    <template #no-data>
+                        <div class="text-center">No fleet files found</div>
+                    </template>
+                    <template #item="{ item }">
+                        <tr>
+                            <td>{{ item.filename }}</td>
+                            <td class="text-no-wrap">{{ formatFilesize(item.size) }}</td>
+                            <td class="text-no-wrap">{{ new Date(item.modified).toLocaleDateString() }}</td>
+                            <td class="text-no-wrap">{{ Math.round(item.age_days) }}d</td>
+                            <td class="text-center">
+                                <v-tooltip top>
+                                    <template #activator="{ on, attrs }">
+                                        <v-chip x-small v-bind="attrs" v-on="on">
+                                            {{ item.cached_on.length }} printers
+                                        </v-chip>
+                                    </template>
+                                    <span v-if="item.cached_on.length">{{ item.cached_on.join(', ') }}</span>
+                                    <span v-else>Not cached on any printer</span>
+                                </v-tooltip>
+                            </td>
+                            <td class="text-no-wrap">
+                                <v-btn
+                                    x-small
+                                    color="primary"
+                                    class="mr-1"
+                                    title="Send to all printers"
+                                    @click.stop="pushFleetFileToAll(item.filename)">
+                                    <v-icon x-small class="mr-1">{{ mdiCloudUploadOutline }}</v-icon>
+                                    Push
+                                </v-btn>
+                                <v-btn
+                                    x-small
+                                    color="error"
+                                    title="Delete from fleet storage"
+                                    @click.stop="fleetDeleteDialog = { show: true, filename: item.filename }">
+                                    <v-icon x-small>{{ mdiDelete }}</v-icon>
+                                </v-btn>
+                            </td>
+                        </tr>
+                    </template>
+                </v-data-table>
+                <!-- Fleet delete confirmation dialog -->
+                <v-dialog v-model="fleetDeleteDialog.show" max-width="400">
+                    <v-card>
+                        <v-card-title>Delete Fleet File</v-card-title>
+                        <v-card-text>
+                            Delete <b>{{ fleetDeleteDialog.filename }}</b> from central storage and all printers?
+                        </v-card-text>
+                        <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn text @click="fleetDeleteDialog.show = false">Cancel</v-btn>
+                            <v-btn color="error" text @click="deleteFleetFile">Delete</v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-dialog>
+            </template>
+            <!-- Local Files (existing) -->
+            <v-card-text v-if="!fleetMode">
                 <v-row>
                     <v-col class="col-12 py-2 d-flex align-center">
                         <span>
@@ -172,8 +303,9 @@
                     </v-col>
                 </v-row>
             </v-card-text>
-            <v-divider class="mb-3"></v-divider>
+            <v-divider v-if="!fleetMode" class="mb-3"></v-divider>
             <v-data-table
+                v-if="!fleetMode"
                 v-model="selectedFiles"
                 :items="files"
                 class="files-table"
@@ -607,11 +739,19 @@ import {
     mdiVideo3d,
     mdiFileDocumentEditOutline,
     mdiContentCopy,
+    mdiCloud,
+    mdiCloudCheckOutline,
+    mdiCloudUploadOutline,
+    mdiSync,
+    mdiSendOutline,
+    mdiHarddisk,
 } from '@mdi/js'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
 import AddBatchToQueueDialog from '@/components/dialogs/AddBatchToQueueDialog.vue'
 import ControlMixin from '@/components/mixins/control'
 import PathNavigation from '@/components/ui/PathNavigation.vue'
+import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
+import { FleetGcodeFile } from '@/store/fleet/gcodes/types'
 
 interface contextMenu {
     shown: boolean
@@ -673,6 +813,12 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     mdiCheckboxBlankOutline = mdiCheckboxBlankOutline
     mdiCheckboxMarked = mdiCheckboxMarked
     mdiDragVertical = mdiDragVertical
+    mdiCloud = mdiCloud
+    mdiCloudCheckOutline = mdiCloudCheckOutline
+    mdiCloudUploadOutline = mdiCloudUploadOutline
+    mdiSync = mdiSync
+    mdiSendOutline = mdiSendOutline
+    mdiHarddisk = mdiHarddisk
 
     formatFilesize = formatFilesize
     formatPrintTime = formatPrintTime
@@ -680,6 +826,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     declare $refs: {
         fileUpload: HTMLInputElement
+        fleetFileUpload: HTMLInputElement
         inputFieldRenameFile: HTMLInputElement
         inputFieldDuplicateFile: HTMLInputElement
         inputFieldCreateDirectory: HTMLInputElement
@@ -758,6 +905,12 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     private deleteDialog = false
     private deleteSelectedDialog = false
+
+    // Fleet file mode
+    private fleetMode = false
+    private fleetSearch = ''
+    private fleetDeleteDialog = { show: false, filename: '' }
+    private fleetSendDialog = { show: false, filename: '' }
 
     private isInvalidName = true
     private nameInputRules = [
@@ -1484,6 +1637,129 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                     return value
             }
         } else return '--'
+    }
+
+    // ------------------------------------------------------------------
+    // Fleet GCode Methods
+    // ------------------------------------------------------------------
+
+    get fleetFiles(): FleetGcodeFile[] {
+        return this.$store.state.fleet?.gcodes?.files ?? []
+    }
+
+    get fleetFilesLoading(): boolean {
+        return this.$store.state.fleet?.gcodes?.loading ?? false
+    }
+
+    get fleetFilesPushing(): Record<string, boolean> {
+        return this.$store.state.fleet?.gcodes?.pushing ?? {}
+    }
+
+    get currentPrinterHostname(): string {
+        return this.$store.state.socket?.hostname ?? ''
+    }
+
+    get fleetFilesFiltered(): FleetGcodeFile[] {
+        if (!this.fleetSearch) return this.fleetFiles
+        const q = this.fleetSearch.toLowerCase()
+        return this.fleetFiles.filter((f: FleetGcodeFile) => f.filename.toLowerCase().includes(q))
+    }
+
+    get fleetHeaders() {
+        return [
+            { text: 'Filename', value: 'filename' },
+            { text: 'Size', value: 'size', width: '100px' },
+            { text: 'Modified', value: 'modified', width: '180px' },
+            { text: 'Age', value: 'age_days', width: '80px' },
+            { text: 'Cached On', value: 'cached_on', sortable: false, width: '130px' },
+            { text: 'Actions', value: 'actions', sortable: false, width: '150px' },
+        ]
+    }
+
+    isFleetFileCached(item: FleetGcodeFile): boolean {
+        const hostname = this.currentPrinterHostname
+        return hostname ? item.cached_on.includes(hostname) : false
+    }
+
+    isFleetFilePushing(filename: string): boolean {
+        const key = `${filename}:${this.currentPrinterHostname}`
+        return !!this.fleetFilesPushing[key]
+    }
+
+    async loadFleetFiles() {
+        try {
+            await this.$store.dispatch('fleet/gcodes/loadFiles')
+        } catch (e) {
+            console.error('Failed to load fleet files:', e)
+        }
+    }
+
+    async pushFleetFileToDevice(filename: string) {
+        const hostname = this.currentPrinterHostname
+        if (!hostname) return
+        try {
+            await this.$store.dispatch('fleet/gcodes/pushToDevice', { filename, printer_hostname: hostname })
+            await this.loadFleetFiles()
+        } catch (e) {
+            console.error('Push failed:', e)
+        }
+    }
+
+    async pushFleetFileToAll(filename: string) {
+        try {
+            await this.$store.dispatch('fleet/gcodes/pushToAll', { filename })
+            await this.loadFleetFiles()
+        } catch (e) {
+            console.error('Push to all failed:', e)
+        }
+    }
+
+    async deleteFleetFile() {
+        const filename = this.fleetDeleteDialog.filename
+        this.fleetDeleteDialog.show = false
+        try {
+            await this.$store.dispatch('fleet/gcodes/deleteFile', filename)
+            await this.loadFleetFiles()
+        } catch (e) {
+            console.error('Delete failed:', e)
+        }
+    }
+
+    async uploadFleetFile(e: Event) {
+        const target = e.target as HTMLInputElement
+        if (!target.files?.length) return
+        for (const file of Array.from(target.files)) {
+            try {
+                await this.$store.dispatch('fleet/gcodes/uploadFile', file)
+            } catch (err) {
+                console.error('Fleet upload failed:', err)
+            }
+        }
+        target.value = ''
+        await this.loadFleetFiles()
+    }
+
+    async triggerFleetSync() {
+        try {
+            await this.$store.dispatch('fleet/gcodes/triggerSync')
+            await this.loadFleetFiles()
+        } catch (e) {
+            console.error('Sync failed:', e)
+        }
+    }
+
+    onFleetModeToggle() {
+        if (this.fleetMode) {
+            this.loadFleetFiles()
+        }
+    }
+
+    mounted() {
+        fleetDaemonEvents.$on('gcodes_updated', this.loadFleetFiles)
+    }
+
+    beforeDestroy() {
+        fleetDaemonEvents.$off('gcodes_updated', this.loadFleetFiles)
     }
 }
 </script>
