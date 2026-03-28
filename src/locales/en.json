@@ -804,7 +804,7 @@
     "Router": {
         "Console": "Console",
         "Dashboard": "Dashboard",
-        "G-Code Files": "G-Code Files",
+        "G-Code Files": "FLEET GCODES",
         "G-Code Viewer": "G-Code Viewer",
         "Heightmap": "Heightmap",
         "History": "History",

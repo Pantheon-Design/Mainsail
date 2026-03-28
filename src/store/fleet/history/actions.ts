@@ -46,7 +46,7 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         }
     },
 
-    async loadAnalytics({ commit, rootGetters }, days = 365) {
+    async loadAnalytics({ commit, rootGetters }, days = 0) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setAnalyticsLoading', true)
         try {
@@ -99,7 +99,7 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         return records.filter((r: any) => r.qr_code != null)
     },
 
-    async loadPartAnalytics({ commit, rootGetters }, days = 365) {
+    async loadPartAnalytics({ commit, rootGetters }, days = 0) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setPartAnalyticsLoading', true)
         try {

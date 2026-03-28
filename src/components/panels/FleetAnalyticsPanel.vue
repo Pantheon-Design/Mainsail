@@ -1,10 +1,23 @@
 <template>
     <div>
-        <!-- View Toggle -->
-        <v-btn-toggle v-model="analyticsView" dense mandatory class="mb-4">
-            <v-btn small value="jobs">Job Analytics</v-btn>
-            <v-btn small value="parts">Part Analytics</v-btn>
-        </v-btn-toggle>
+        <!-- View Toggle + Date Range -->
+        <v-row dense class="mb-4 align-center">
+            <v-col cols="auto">
+                <v-btn-toggle v-model="analyticsView" dense mandatory>
+                    <v-btn small value="jobs">Job Analytics</v-btn>
+                    <v-btn small value="parts">Part Analytics</v-btn>
+                </v-btn-toggle>
+            </v-col>
+            <v-spacer></v-spacer>
+            <v-col cols="auto">
+                <v-btn-toggle v-model="analyticsDays" dense mandatory @change="onDateRangeChange">
+                    <v-btn small :value="0">All Time</v-btn>
+                    <v-btn small :value="365">Past Year</v-btn>
+                    <v-btn small :value="30">Past Month</v-btn>
+                    <v-btn small :value="7">Past Week</v-btn>
+                </v-btn-toggle>
+            </v-col>
+        </v-row>
 
         <!-- ======================== JOB ANALYTICS ======================== -->
         <template v-if="analyticsView === 'jobs'">
@@ -335,6 +348,7 @@ import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
     heatmapModelFilter = 'all'
     analyticsView = 'jobs'
+    analyticsDays = 0
 
     mounted() {
         fleetDaemonEvents.$on('history_updated', this.onHistoryUpdated)
@@ -346,16 +360,26 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
 
     onHistoryUpdated() {
         if (this.analyticsView === 'parts') {
-            this.$store.dispatch('fleet/history/loadPartAnalytics')
+            this.$store.dispatch('fleet/history/loadPartAnalytics', this.analyticsDays)
         } else {
-            this.$store.dispatch('fleet/history/loadAnalytics')
+            this.$store.dispatch('fleet/history/loadAnalytics', this.analyticsDays)
+        }
+    }
+
+    onDateRangeChange() {
+        if (this.analyticsView === 'parts') {
+            this.$store.dispatch('fleet/history/loadPartAnalytics', this.analyticsDays)
+        } else {
+            this.$store.dispatch('fleet/history/loadAnalytics', this.analyticsDays)
         }
     }
 
     @Watch('analyticsView')
     onAnalyticsViewChange(val: string) {
         if (val === 'parts') {
-            this.$store.dispatch('fleet/history/loadPartAnalytics')
+            this.$store.dispatch('fleet/history/loadPartAnalytics', this.analyticsDays)
+        } else {
+            this.$store.dispatch('fleet/history/loadAnalytics', this.analyticsDays)
         }
     }
 
