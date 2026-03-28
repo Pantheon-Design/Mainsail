@@ -143,6 +143,11 @@
                 {{ formatDate(item.start_time) }}
             </template>
 
+            <!-- QR Linked timestamp -->
+            <template #item.qr_linked_at="{ item }">
+                {{ item.qr_linked_at ? formatDate(item.qr_linked_at) : '—' }}
+            </template>
+
             <!-- Duration formatted -->
             <template #item.print_duration_secs="{ item }">
                 {{ formatDuration(item.print_duration_secs) }}
@@ -323,6 +328,7 @@
                         <thead>
                             <tr>
                                 <th>QR Code</th>
+                                <th>Linked At</th>
                                 <th>QC Status</th>
                                 <th>QC Inspector</th>
                                 <th>QC Date</th>
@@ -332,6 +338,7 @@
                         <tbody>
                             <tr v-for="part in detailParts" :key="part.id" :class="{ 'primary--text font-weight-bold': detailClickedPart && part.id === detailClickedPart.id }">
                                 <td>{{ part.qr_code }}</td>
+                                <td>{{ part.qr_linked_at ? new Date(part.qr_linked_at).toLocaleString() : '—' }}</td>
                                 <td>
                                     <v-chip v-if="part.qc_status" x-small :color="part.qc_status === 'pass' ? 'success' : part.qc_status === 'fail' ? 'error' : 'warning'" dark>
                                         {{ part.qc_status }}
@@ -670,6 +677,7 @@ export default class FleetPartsPanel extends Vue {
         { text: 'Remaining Wt', value: 'filament_remaining_weight', sortable: true },
         { text: 'Nozzle Type', value: 'printer_nozzle_type', sortable: true },
         { text: 'Nozzle Health', value: 'nozzle_health', sortable: false },
+        { text: 'Linked At', value: 'qr_linked_at', sortable: true },
         { text: 'QC', value: 'qc_status', sortable: false },
         { text: 'QC Inspector', value: 'qc_inspector', sortable: true },
         { text: 'QC Date', value: 'qc_date', sortable: true },
