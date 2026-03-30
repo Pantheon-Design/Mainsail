@@ -25,6 +25,7 @@ export const actions: ActionTree<FleetGcodesState, RootState> = {
             const p = path ?? ''
             const response = await axios.get(`${baseUrl}/gcodes?path=${encodeURIComponent(p)}&include_cache_status=true`)
             commit('setFiles', response.data.files ?? [])
+            if (response.data.disk_usage) commit('setDiskUsage', response.data.disk_usage)
         } catch (error) {
             const msg = extractError(error)
             console.error('Failed to load fleet gcodes:', msg)

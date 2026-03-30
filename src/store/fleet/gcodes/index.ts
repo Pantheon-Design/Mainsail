@@ -9,6 +9,7 @@ export const getDefaultState = (): FleetGcodesState => ({
     loading: false,
     pushing: {},
     currentPath: '',
+    diskUsage: null,
 })
 
 const state = getDefaultState()

@@ -8,9 +8,16 @@ export interface FleetGcodeFile {
     cached_on: string[]
 }
 
+export interface FleetDiskUsage {
+    used: number
+    free: number
+    total: number
+}
+
 export interface FleetGcodesState {
     files: FleetGcodeFile[]
     loading: boolean
     pushing: Record<string, boolean>
     currentPath: string
+    diskUsage: FleetDiskUsage | null
 }

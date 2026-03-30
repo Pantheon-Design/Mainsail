@@ -49,14 +49,30 @@
                     </v-col>
                 </v-row>
             </v-card-text>
-            <!-- Path navigation -->
-            <v-card-text class="py-1">
-                <b class="mr-1">Path:</b>
-                <a class="text-decoration-none" @click="navigateToFleetPath('')">/home/hs3/Fleetdaemon/gcodes</a>
-                <template v-for="(segment, i) in fleetPathSegments">
-                    <span :key="'sep-' + i"> / </span>
-                    <a :key="'seg-' + i" class="text-decoration-none" @click="navigateToFleetPath(fleetPathUpTo(i))">{{ segment }}</a>
-                </template>
+            <!-- Path navigation + Disk Usage -->
+            <v-card-text class="py-1 d-flex align-center">
+                <div>
+                    <b class="mr-1">Path:</b>
+                    <a class="text-decoration-none" @click="navigateToFleetPath('')">/home/hs3/Fleetdaemon/gcodes</a>
+                    <template v-for="(segment, i) in fleetPathSegments">
+                        <span :key="'sep-' + i"> / </span>
+                        <a :key="'seg-' + i" class="text-decoration-none" @click="navigateToFleetPath(fleetPathUpTo(i))">{{ segment }}</a>
+                    </template>
+                </div>
+                <v-spacer />
+                <v-tooltip v-if="fleetDiskUsage" top>
+                    <template #activator="{ on, attrs }">
+                        <span v-bind="attrs" v-on="on" class="text-no-wrap">
+                            <v-icon small class="mr-1">{{ mdiHarddisk }}</v-icon>
+                            <b>Free:</b> {{ formatFilesize(fleetDiskUsage.free) }}
+                        </span>
+                    </template>
+                    <span>
+                        Used: {{ formatFilesize(fleetDiskUsage.used) }}<br />
+                        Free: {{ formatFilesize(fleetDiskUsage.free) }}<br />
+                        Total: {{ formatFilesize(fleetDiskUsage.total) }}
+                    </span>
+                </v-tooltip>
             </v-card-text>
             <v-divider></v-divider>
             <!-- Fleet Files Table -->
@@ -1407,6 +1423,10 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     get fleetFilesLoading(): boolean {
         return this.$store.state.fleet?.gcodes?.loading ?? false
+    }
+
+    get fleetDiskUsage() {
+        return this.$store.state.fleet?.gcodes?.diskUsage ?? null
     }
 
     get fleetFilesPushing(): Record<string, boolean> {
