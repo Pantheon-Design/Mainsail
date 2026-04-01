@@ -79,6 +79,12 @@
                         clearable dense outlined hide-details />
                 </v-col>
                 <v-col cols="12" sm="3">
+                    <v-text-field
+                        v-model="filterLotNr"
+                        label="Lot #"
+                        clearable dense outlined hide-details />
+                </v-col>
+                <v-col cols="12" sm="3">
                     <v-checkbox
                         v-model="showArchived"
                         label="Show archived"
@@ -538,6 +544,7 @@ export default class SpoolListPanel extends Vue {
 
     filterMaterial: string | null = null
     filterLocation: string | null = null
+    filterLotNr: string | null = null
     showArchived = false
 
     qrSearch = ''
@@ -671,6 +678,7 @@ export default class SpoolListPanel extends Vue {
         return this.spools.filter((s) => {
             if (this.filterMaterial && s.material !== this.filterMaterial) return false
             if (this.filterLocation && !(s.location || '').toLowerCase().includes(this.filterLocation.toLowerCase())) return false
+            if (this.filterLotNr && !(s.lot_nr || '').toLowerCase().includes(this.filterLotNr.toLowerCase())) return false
             return true
         })
     }
