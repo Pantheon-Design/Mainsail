@@ -120,6 +120,9 @@
                     {{ item.remaining_weight != null ? item.remaining_weight.toFixed(0) + ' g' : '—' }}
                 </span>
             </template>
+            <template #item.lot_nr="{ item }">
+                {{ item.lot_nr || '—' }}
+            </template>
             <template #item.loaded_on_printer="{ item }">
                 <v-chip v-if="item.loaded_on_printer" x-small color="success" dark>{{ item.loaded_on_printer }}</v-chip>
                 <span v-else>—</span>
@@ -353,7 +356,7 @@
 
         <!-- Add Spool Mode Fullscreen -->
         <v-dialog v-model="addSpoolMode" fullscreen persistent no-click-animation>
-            <v-card class="d-flex flex-column" style="height: 100vh" @click="onAddSpoolCardClick">
+            <v-card class="d-flex flex-column" style="height: 100vh; transition: background-color 0.3s ease" :style="{ backgroundColor: addSpoolScanFocused && addSpoolReady ? '#1B5E20' : undefined }" @click="onAddSpoolCardClick">
                 <!-- Header -->
                 <v-card-title class="d-flex align-center py-2">
                     <v-icon left color="primary">{{ mdiQrcodeScan }}</v-icon>
@@ -374,6 +377,8 @@
                         v-model="addSpoolScanBuffer"
                         class="qc-hidden-input"
                         @keydown.enter="processAddSpoolScan"
+                        @focus="addSpoolScanFocused = true"
+                        @blur="addSpoolScanFocused = false"
                         autofocus
                     />
 
@@ -500,6 +505,7 @@ export default class SpoolListPanel extends Vue {
     addSpoolStatusMessage = ''
     addSpoolStatusType: 'success' | 'error' | 'warning' | 'info' = 'info'
     addSpoolSaving = false
+    addSpoolScanFocused = false
     addSpoolForm = this.emptyAddSpoolForm()
 
     readonly addSpoolTableHeaders = [
@@ -510,7 +516,7 @@ export default class SpoolListPanel extends Vue {
         { text: 'Material', value: 'material', sortable: true },
         { text: 'Initial', value: 'initial_weight', sortable: true },
         { text: 'Remaining', value: 'remaining_weight', sortable: true },
-        { text: 'Location', value: 'location', sortable: true },
+        { text: 'Lot #', value: 'lot_nr', sortable: true },
         { text: 'Loaded On', value: 'loaded_on_printer', sortable: true },
     ]
 
@@ -566,6 +572,7 @@ export default class SpoolListPanel extends Vue {
         { text: 'Used', value: 'used_weight', sortable: true },
         { text: 'Remaining', value: 'remaining_weight', sortable: true },
         { text: 'Location', value: 'location', sortable: true },
+        { text: 'Lot #', value: 'lot_nr', sortable: true },
         { text: 'Loaded On', value: 'loaded_on_printer', sortable: true },
         { text: 'Last Printer', value: 'last_printer', sortable: true },
         { text: 'Last Used', value: 'last_used', sortable: true },
