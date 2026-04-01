@@ -283,7 +283,23 @@
                         <tbody>
                             <tr><td class="font-weight-bold" width="160">Printer</td><td>{{ detailJob.printer_hostname }}</td></tr>
                             <tr><td class="font-weight-bold">Model</td><td>{{ detailJob.printer_model || '—' }}</td></tr>
-                            <tr><td class="font-weight-bold">Filename</td><td>{{ detailJob.filename || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold">Filename</td><td>
+                                {{ detailJob.filename || '—' }}
+                                <v-btn
+                                    v-if="detailJob.gcode_archive_hash && !detailJob.gcode_archive_hash.startsWith('deleted:')"
+                                    x-small icon class="ml-1"
+                                    title="Download archived gcode"
+                                    @click="downloadArchivedGcode(detailJob)"
+                                >
+                                    <v-icon x-small>{{ mdiDownload }}</v-icon>
+                                </v-btn>
+                                <v-chip
+                                    v-if="detailJob.gcode_archive_hash && detailJob.gcode_archive_hash.startsWith('deleted:')"
+                                    x-small color="error" dark class="ml-1"
+                                >
+                                    file deleted
+                                </v-chip>
+                            </td></tr>
                             <tr><td class="font-weight-bold">Filament</td><td>{{ detailJob.filament_type || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Status</td><td>
                                 <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
@@ -548,7 +564,23 @@
                                     <tr><td class="font-weight-bold" width="150">QR Code</td><td>{{ qcSelectedRecord.qr_code }}</td></tr>
                                     <tr><td class="font-weight-bold">Printer</td><td>{{ qcSelectedRecord.printer_hostname }}</td></tr>
                                     <tr><td class="font-weight-bold">Model</td><td>{{ qcSelectedRecord.printer_model || '—' }}</td></tr>
-                                    <tr><td class="font-weight-bold">Filename</td><td>{{ qcSelectedRecord.filename || '—' }}</td></tr>
+                                    <tr><td class="font-weight-bold">Filename</td><td>
+                                        {{ qcSelectedRecord.filename || '—' }}
+                                        <v-btn
+                                            v-if="qcSelectedRecord.gcode_archive_hash && !qcSelectedRecord.gcode_archive_hash.startsWith('deleted:')"
+                                            x-small icon class="ml-1"
+                                            title="Download archived gcode"
+                                            @click="downloadArchivedGcode(qcSelectedRecord)"
+                                        >
+                                            <v-icon x-small>{{ mdiDownload }}</v-icon>
+                                        </v-btn>
+                                        <v-chip
+                                            v-if="qcSelectedRecord.gcode_archive_hash && qcSelectedRecord.gcode_archive_hash.startsWith('deleted:')"
+                                            x-small color="error" dark class="ml-1"
+                                        >
+                                            file deleted
+                                        </v-chip>
+                                    </td></tr>
                                     <tr><td class="font-weight-bold">Filament</td><td>{{ qcSelectedRecord.filament_type || '—' }}</td></tr>
                                     <tr><td class="font-weight-bold">Status</td><td>
                                         <v-chip x-small :color="statusColor(qcSelectedRecord.status)" dark>{{ qcSelectedRecord.status || 'unknown' }}</v-chip>
@@ -582,7 +614,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
-import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera } from '@mdi/js'
+import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload } from '@mdi/js'
 import axios from 'axios'
 
 @Component
@@ -594,6 +626,7 @@ export default class FleetPartsPanel extends Vue {
     mdiAccountCheck = mdiAccountCheck
     mdiDelete = mdiDelete
     mdiCamera = mdiCamera
+    mdiDownload = mdiDownload
 
     // Filters
     filterQrCode = ''
@@ -1351,6 +1384,16 @@ export default class FleetPartsPanel extends Vue {
     formatDate(iso: string | null): string {
         if (!iso) return '—'
         return new Date(iso).toLocaleString()
+    }
+
+    get fleetDaemonUrl(): string {
+        return this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+    }
+
+    downloadArchivedGcode(record: any) {
+        if (!record.gcode_archive_hash) return
+        const url = `${this.fleetDaemonUrl}/archive/file/${record.gcode_archive_hash}`
+        window.open(url)
     }
 }
 </script>
