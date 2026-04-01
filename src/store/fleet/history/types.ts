@@ -27,6 +27,7 @@ export interface FleetHistoryRecord {
     qr_code: string | null
     qr_linked_at: string | null
     spool_qr_code: string | null
+    gcode_archive_hash: string | null
     collected_at: string
 }
 

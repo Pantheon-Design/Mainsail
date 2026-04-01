@@ -12,7 +12,8 @@
       "Bash(find /d/gitlab/fleet3/Fleet_Mainsail/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.vue\" \\\\\\) | xargs grep -l \"fleetDaemonUrl\" | head -20)",
       "Bash(find /d/gitlab/fleet3/Fleet_Mainsail/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.vue\" \\\\\\) | xargs grep -l \"parts_passed\\\\|parts_printed\" 2>/dev/null)",
       "Bash(grep:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npx vite:*)"
     ]
   }
 }

@@ -214,7 +214,19 @@
                         <tbody>
                             <tr><td class="font-weight-bold" width="160">Printer</td><td>{{ detailJob.printer_hostname }}</td></tr>
                             <tr><td class="font-weight-bold">Model</td><td>{{ detailJob.printer_model || '—' }}</td></tr>
-                            <tr><td class="font-weight-bold">Filename</td><td>{{ detailJob.filename || '—' }}</td></tr>
+                            <tr><td class="font-weight-bold">Filename</td><td>
+                                {{ detailJob.filename || '—' }}
+                                <v-btn
+                                    v-if="detailJob.gcode_archive_hash"
+                                    x-small
+                                    icon
+                                    class="ml-1"
+                                    title="Download archived gcode"
+                                    @click="downloadArchivedGcode(detailJob)"
+                                >
+                                    <v-icon x-small>{{ mdiDownload }}</v-icon>
+                                </v-btn>
+                            </td></tr>
                             <tr><td class="font-weight-bold">Filament</td><td>{{ detailJob.filament_type || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Status</td><td>
                                 <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
@@ -320,7 +332,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
-import { mdiCog, mdiBug, mdiPlus, mdiClose } from '@mdi/js'
+import { mdiCog, mdiBug, mdiPlus, mdiClose, mdiDownload } from '@mdi/js'
 import axios from 'axios'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 
@@ -330,6 +342,7 @@ export default class FleetHistoryListPanel extends Vue {
     mdiBug = mdiBug
     mdiPlus = mdiPlus
     mdiClose = mdiClose
+    mdiDownload = mdiDownload
 
     filterPrinter = ''
     printerSearch = ''
@@ -656,6 +669,14 @@ export default class FleetHistoryListPanel extends Vue {
         } finally {
             this.addPartLoading = false
         }
+    }
+
+    // ---- Archive download ----
+
+    downloadArchivedGcode(job: FleetHistoryRecord) {
+        if (!job.gcode_archive_hash) return
+        const url = `${this.fleetDaemonUrl}/archive/file/${job.gcode_archive_hash}`
+        window.open(url)
     }
 
     // ---- Column resize ----

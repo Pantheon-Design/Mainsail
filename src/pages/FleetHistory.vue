@@ -15,6 +15,7 @@
             <v-tab>Jobs</v-tab>
             <v-tab>Parts</v-tab>
             <v-tab>Analytics</v-tab>
+            <v-tab>Archive</v-tab>
         </v-tabs>
 
         <v-tabs-items v-model="activeTab" touchless>
@@ -26,6 +27,9 @@
             </v-tab-item>
             <v-tab-item>
                 <fleet-analytics-panel />
+            </v-tab-item>
+            <v-tab-item>
+                <fleet-archive-panel />
             </v-tab-item>
         </v-tabs-items>
     </v-container>
@@ -40,6 +44,7 @@ import FleetPrinterStatusPanel from '@/components/panels/FleetPrinterStatusPanel
 import FleetHistoryListPanel from '@/components/panels/FleetHistoryListPanel.vue'
 import FleetPartsPanel from '@/components/panels/FleetPartsPanel.vue'
 import FleetAnalyticsPanel from '@/components/panels/FleetAnalyticsPanel.vue'
+import FleetArchivePanel from '@/components/panels/FleetArchivePanel.vue'
 
 @Component({
     components: {
@@ -47,6 +52,7 @@ import FleetAnalyticsPanel from '@/components/panels/FleetAnalyticsPanel.vue'
         FleetHistoryListPanel,
         FleetPartsPanel,
         FleetAnalyticsPanel,
+        FleetArchivePanel,
     },
 })
 export default class FleetHistory extends Vue {
