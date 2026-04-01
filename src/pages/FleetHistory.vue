@@ -28,7 +28,7 @@
             <v-tab-item>
                 <fleet-analytics-panel />
             </v-tab-item>
-            <v-tab-item>
+            <v-tab-item eager>
                 <fleet-archive-panel />
             </v-tab-item>
         </v-tabs-items>

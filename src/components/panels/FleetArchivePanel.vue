@@ -34,8 +34,8 @@
                 </v-col>
                 <v-col cols="6" sm="3">
                     <v-card outlined class="pa-2 text-center">
-                        <div class="caption grey--text">Staged (Local)</div>
-                        <div class="text-h6">{{ status.staged_files }}</div>
+                        <div class="caption grey--text">Deleted (File Gone)</div>
+                        <div class="text-h6">{{ status.deleted_jobs.toLocaleString() }}</div>
                     </v-card>
                 </v-col>
             </v-row>
@@ -90,13 +90,20 @@
             </template>
 
             <template #item.source_type="{ item }">
-                <v-chip x-small :color="item.source_type === 'fleet' ? 'blue' : 'grey'" dark>
-                    {{ item.source_type }}
+                <v-chip
+                    x-small
+                    :color="item.source_type === 'deleted' ? 'error' : item.source_type === 'fleet' ? 'blue' : 'grey'"
+                    dark
+                >
+                    {{ item.source_type === 'deleted' ? 'file deleted' : item.source_type }}
                 </v-chip>
             </template>
 
             <template #item.actions="{ item }">
-                <v-btn x-small icon @click.stop="downloadFile(item)" title="Download gcode">
+                <v-btn
+                    v-if="item.source_type !== 'deleted'"
+                    x-small icon @click.stop="downloadFile(item)" title="Download gcode"
+                >
                     <v-icon small>{{ mdiDownload }}</v-icon>
                 </v-btn>
             </template>
@@ -117,7 +124,7 @@
                 <v-card-title class="d-flex align-center">
                     Archived File
                     <v-spacer />
-                    <v-btn icon small class="mr-2" @click="downloadFile(detailEntry)" title="Download">
+                    <v-btn v-if="detailEntry.source_type !== 'deleted'" icon small class="mr-2" @click="downloadFile(detailEntry)" title="Download">
                         <v-icon small>{{ mdiDownload }}</v-icon>
                     </v-btn>
                     <v-btn icon small @click="detailDialog = false">
@@ -183,6 +190,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
+import { Watch } from 'vue-property-decorator'
 import { FleetArchiveEntry } from '@/store/fleet/archive/types'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiDownload, mdiClose } from '@mdi/js'
@@ -225,7 +233,18 @@ export default class FleetArchivePanel extends Vue {
         { text: 'Filament Type', value: 'filament_type', sortable: true },
     ]
 
+    private loaded = false
+
     mounted() {
+        this.loadInitial()
+    }
+
+    activated() {
+        // Called when kept-alive component is re-activated
+        if (!this.entries.length && !this.isLoading) this.loadInitial()
+    }
+
+    loadInitial() {
         this.refreshStatus()
         this.loadRecentFiles()
     }

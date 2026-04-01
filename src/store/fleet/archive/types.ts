@@ -13,6 +13,7 @@ export interface FleetArchiveStatus {
     total_size_mb: number
     unarchived_jobs: number
     staged_files: number
+    deleted_jobs: number
 }
 
 export interface FleetArchiveState {

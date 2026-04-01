@@ -217,7 +217,7 @@
                             <tr><td class="font-weight-bold">Filename</td><td>
                                 {{ detailJob.filename || '—' }}
                                 <v-btn
-                                    v-if="detailJob.gcode_archive_hash"
+                                    v-if="detailJob.gcode_archive_hash && !detailJob.gcode_archive_hash.startsWith('deleted:')"
                                     x-small
                                     icon
                                     class="ml-1"
@@ -226,6 +226,15 @@
                                 >
                                     <v-icon x-small>{{ mdiDownload }}</v-icon>
                                 </v-btn>
+                                <v-chip
+                                    v-if="detailJob.gcode_archive_hash && detailJob.gcode_archive_hash.startsWith('deleted:')"
+                                    x-small
+                                    color="error"
+                                    dark
+                                    class="ml-1"
+                                >
+                                    file deleted
+                                </v-chip>
                             </td></tr>
                             <tr><td class="font-weight-bold">Filament</td><td>{{ detailJob.filament_type || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Status</td><td>
