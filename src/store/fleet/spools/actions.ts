@@ -122,7 +122,7 @@ export const actions: ActionTree<FleetSpoolsState, RootState> = {
 
     // -- Spools --
 
-    async loadSpools({ commit, rootGetters }, filters: { filament_id?: number; material?: string; archived?: boolean; location?: string } = {}) {
+    async loadSpools({ commit, rootGetters }, filters: { filament_id?: number; material?: string; archived?: boolean; location?: string; lot_nr?: string } = {}) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setLoading', true)
         try {
@@ -131,6 +131,7 @@ export const actions: ActionTree<FleetSpoolsState, RootState> = {
             if (filters.material) params.set('material', filters.material)
             if (filters.archived != null) params.set('archived', String(filters.archived))
             if (filters.location) params.set('location', filters.location)
+            if (filters.lot_nr) params.set('lot_nr', filters.lot_nr)
             const qs = params.toString()
             const response = await axios.get(`${baseUrl}/spool/spools${qs ? '?' + qs : ''}`)
             commit('setSpools', response.data)

@@ -4,7 +4,7 @@ import { RootState } from '@/store/types'
 import axios from 'axios'
 
 export const actions: ActionTree<FleetHistoryState, RootState> = {
-    async loadHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; has_qr_code?: boolean; limit?: number; offset?: number } = {}) {
+    async loadHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; has_qr_code?: boolean; filename?: string; printer_model?: string; qc_status?: string; limit?: number; offset?: number } = {}) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         commit('setLoading', true)
         try {
@@ -13,6 +13,9 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
             if (filters.status) params.set('status', filters.status)
             if (filters.qr_code) params.set('qr_code', filters.qr_code)
             if (filters.has_qr_code !== undefined) params.set('has_qr_code', String(filters.has_qr_code))
+            if (filters.filename) params.set('filename', filters.filename)
+            if (filters.printer_model) params.set('printer_model', filters.printer_model)
+            if (filters.qc_status) params.set('qc_status', filters.qc_status)
             params.set('limit', String(filters.limit ?? 200))
             params.set('offset', String(filters.offset ?? 0))
             const response = await axios.get(`${baseUrl}/history?${params}`)
@@ -25,7 +28,7 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         }
     },
 
-    async loadMoreHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; has_qr_code?: boolean; limit?: number; offset?: number } = {}) {
+    async loadMoreHistory({ commit, rootGetters }, filters: { printer?: string; status?: string; qr_code?: string; has_qr_code?: boolean; filename?: string; printer_model?: string; qc_status?: string; limit?: number; offset?: number } = {}) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
             const params = new URLSearchParams()
@@ -33,6 +36,9 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
             if (filters.status) params.set('status', filters.status)
             if (filters.qr_code) params.set('qr_code', filters.qr_code)
             if (filters.has_qr_code !== undefined) params.set('has_qr_code', String(filters.has_qr_code))
+            if (filters.filename) params.set('filename', filters.filename)
+            if (filters.printer_model) params.set('printer_model', filters.printer_model)
+            if (filters.qc_status) params.set('qc_status', filters.qc_status)
             params.set('limit', String(filters.limit ?? 200))
             params.set('offset', String(filters.offset ?? 0))
             const response = await axios.get(`${baseUrl}/history?${params}`)

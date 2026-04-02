@@ -525,17 +525,20 @@ export default class FleetHistoryListPanel extends Vue {
 
     get filteredRecords(): FleetHistoryRecord[] {
         let data = this.jobRecords
-        // Client-side partial printer name filter (while typing in combobox)
+        // Client-side partial printer name filter (while typing in combobox — before selection is confirmed)
         const pSearch = (this.printerSearch || '').trim().toLowerCase()
         if (pSearch && pSearch !== (this.filterPrinter || '').toLowerCase()) {
             data = data.filter((r) => r.printer_hostname?.toLowerCase().includes(pSearch))
         }
-        if (this.filterFilename) {
-            const q = this.filterFilename.toLowerCase()
-            data = data.filter((r) => r.filename?.toLowerCase().includes(q))
-        }
-        if (this.filterModel) {
-            data = data.filter((r) => r.printer_model === this.filterModel)
+        // Client-side filters when not in dev mode (server-side in dev mode)
+        if (!this.devMode) {
+            if (this.filterFilename) {
+                const q = this.filterFilename.toLowerCase()
+                data = data.filter((r) => r.filename?.toLowerCase().includes(q))
+            }
+            if (this.filterModel) {
+                data = data.filter((r) => r.printer_model === this.filterModel)
+            }
         }
         return data
     }
@@ -553,6 +556,8 @@ export default class FleetHistoryListPanel extends Vue {
         this.$store.dispatch('fleet/history/loadHistory', {
             printer: this.filterPrinter || undefined,
             status: this.filterStatus || undefined,
+            filename: this.devMode ? (this.filterFilename || undefined) : undefined,
+            printer_model: this.devMode ? (this.filterModel || undefined) : undefined,
             has_qr_code: false,
             limit: 200,
         })
@@ -574,6 +579,8 @@ export default class FleetHistoryListPanel extends Vue {
             await this.$store.dispatch('fleet/history/loadMoreHistory', {
                 printer: this.filterPrinter || undefined,
                 status: this.filterStatus || undefined,
+                filename: this.devMode ? (this.filterFilename || undefined) : undefined,
+                printer_model: this.devMode ? (this.filterModel || undefined) : undefined,
                 has_qr_code: false,
                 limit: 200,
                 offset: this.records.length,

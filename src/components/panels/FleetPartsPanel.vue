@@ -819,27 +819,24 @@ export default class FleetPartsPanel extends Vue {
 
     get filteredRecords(): FleetHistoryRecord[] {
         let data = this.partRecords
-        if (this.appliedQrCode) {
-            const q = this.appliedQrCode.toLowerCase()
-            data = data.filter((r) => r.qr_code?.toLowerCase().includes(q))
-        }
-        // Client-side partial printer name filter (while typing in combobox)
+        // Client-side partial printer name filter (while typing in combobox — before selection is confirmed)
         const pSearch = (this.printerSearch || '').trim().toLowerCase()
         if (pSearch && pSearch !== (this.filterPrinter || '').toLowerCase()) {
             data = data.filter((r) => r.printer_hostname?.toLowerCase().includes(pSearch))
-        } else if (this.filterPrinter) {
-            data = data.filter((r) => r.printer_hostname === this.filterPrinter)
         }
-        if (this.filterQcStatus) {
-            if (this.filterQcStatus === 'pending') {
-                data = data.filter((r) => !r.qc_status || r.qc_status === 'pending')
-            } else {
-                data = data.filter((r) => r.qc_status === this.filterQcStatus)
+        // Client-side filters when not in dev mode (server-side in dev mode)
+        if (!this.devMode) {
+            if (this.filterQcStatus) {
+                if (this.filterQcStatus === 'pending') {
+                    data = data.filter((r) => !r.qc_status || r.qc_status === 'pending')
+                } else {
+                    data = data.filter((r) => r.qc_status === this.filterQcStatus)
+                }
             }
-        }
-        if (this.filterFilename) {
-            const q = this.filterFilename.toLowerCase()
-            data = data.filter((r) => r.filename?.toLowerCase().includes(q))
+            if (this.filterFilename) {
+                const q = this.filterFilename.toLowerCase()
+                data = data.filter((r) => r.filename?.toLowerCase().includes(q))
+            }
         }
         return data
     }
@@ -856,6 +853,8 @@ export default class FleetPartsPanel extends Vue {
         const params = new URLSearchParams()
         if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
         if (this.filterPrinter) params.set('printer', this.filterPrinter)
+        if (this.devMode && this.filterQcStatus) params.set('qc_status', this.filterQcStatus)
+        if (this.devMode && this.filterFilename) params.set('filename', this.filterFilename)
         params.set('has_qr_code', 'true')
         params.set('limit', '200')
         this.localLoading = true
@@ -876,6 +875,8 @@ export default class FleetPartsPanel extends Vue {
         const params = new URLSearchParams()
         if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
         if (this.filterPrinter) params.set('printer', this.filterPrinter)
+        if (this.devMode && this.filterQcStatus) params.set('qc_status', this.filterQcStatus)
+        if (this.devMode && this.filterFilename) params.set('filename', this.filterFilename)
         params.set('has_qr_code', 'true')
         params.set('limit', '200')
         params.set('offset', String(this.localRecords.length))

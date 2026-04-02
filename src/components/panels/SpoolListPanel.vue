@@ -70,19 +70,24 @@
                         v-model="filterMaterial"
                         :items="materialOptions"
                         label="Material"
-                        clearable dense outlined hide-details />
+                        clearable dense outlined hide-details
+                        @change="reloadSpools" />
                 </v-col>
                 <v-col cols="12" sm="3">
                     <v-text-field
                         v-model="filterLocation"
                         label="Location"
-                        clearable dense outlined hide-details />
+                        clearable dense outlined hide-details
+                        @input="reloadSpoolsDebounced"
+                        @click:clear="filterLocation = ''; reloadSpools()" />
                 </v-col>
                 <v-col cols="12" sm="3">
                     <v-text-field
                         v-model="filterLotNr"
                         label="Lot #"
-                        clearable dense outlined hide-details />
+                        clearable dense outlined hide-details
+                        @input="reloadSpoolsDebounced"
+                        @click:clear="filterLotNr = ''; reloadSpools()" />
                 </v-col>
                 <v-col cols="12" sm="3">
                     <v-checkbox
@@ -675,6 +680,8 @@ export default class SpoolListPanel extends Vue {
     }
 
     get filteredSpools(): FleetSpool[] {
+        if (this.devMode) return this.spools
+        // Client-side filters when not in dev mode
         return this.spools.filter((s) => {
             if (this.filterMaterial && s.material !== this.filterMaterial) return false
             if (this.filterLocation && !(s.location || '').toLowerCase().includes(this.filterLocation.toLowerCase())) return false
@@ -793,10 +800,22 @@ export default class SpoolListPanel extends Vue {
         return ''
     }
 
+    private _spoolDebounce: ReturnType<typeof setTimeout> | null = null
+
     reloadSpools() {
         const filters: any = {}
         if (this.showArchived) filters.archived = true
+        if (this.devMode) {
+            if (this.filterMaterial) filters.material = this.filterMaterial
+            if (this.filterLocation) filters.location = this.filterLocation
+            if (this.filterLotNr) filters.lot_nr = this.filterLotNr
+        }
         this.$store.dispatch('fleet/spools/loadSpools', filters)
+    }
+
+    reloadSpoolsDebounced() {
+        if (this._spoolDebounce) clearTimeout(this._spoolDebounce)
+        this._spoolDebounce = setTimeout(() => this.reloadSpools(), 400)
     }
 
     showSnackbar(text: string, color: string) {
