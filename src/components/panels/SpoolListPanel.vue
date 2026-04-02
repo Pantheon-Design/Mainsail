@@ -219,7 +219,7 @@
                                     <td>{{ job.printer_hostname }}</td>
                                     <td class="text-truncate" style="max-width: 200px">{{ job.filename || '—' }}</td>
                                     <td>
-                                        <v-chip x-small :color="job.status === 'completed' ? 'success' : job.status === 'error' ? 'error' : 'grey'" dark>
+                                        <v-chip x-small :color="statusColor(job.status)" dark>
                                             {{ job.status || '—' }}
                                         </v-chip>
                                     </td>
@@ -252,7 +252,7 @@
                                     <td>{{ part.printer_hostname }}</td>
                                     <td class="text-truncate" style="max-width: 180px">{{ part.filename || '—' }}</td>
                                     <td>
-                                        <v-chip x-small :color="part.status === 'completed' ? 'success' : part.status === 'error' ? 'error' : 'grey'" dark>
+                                        <v-chip x-small :color="statusColor(part.status)" dark>
                                             {{ part.status || '—' }}
                                         </v-chip>
                                     </td>
@@ -784,6 +784,18 @@ export default class SpoolListPanel extends Vue {
             location: '',
             lot_nr: '',
             comment: '',
+        }
+    }
+
+    statusColor(status: string | null): string {
+        switch (status) {
+            case 'completed': return 'success'
+            case 'cancelled': return 'grey'
+            case 'in_progress': return 'blue'
+            case 'error':
+            case 'klippy_shutdown':
+            case 'klippy_disconnect': return 'error'
+            default: return 'grey darken-1'
         }
     }
 
