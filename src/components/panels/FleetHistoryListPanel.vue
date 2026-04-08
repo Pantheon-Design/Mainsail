@@ -3,7 +3,7 @@
         <v-card-title class="d-flex align-center">
             <span>Print Jobs</span>
             <v-spacer />
-            <v-btn small color="primary" :loading="collecting" @click="collectNow" class="mr-2">
+            <v-btn v-if="devMode" small color="primary" :loading="collecting" @click="collectNow" class="mr-2">
                 Collect Now
             </v-btn>
             <v-btn small :color="devMode ? 'orange' : 'grey'" :outlined="!devMode" @click="toggleDevMode" class="mr-2" title="Toggle dev mode">
@@ -94,8 +94,9 @@
             :loading="isLoading"
             :items-per-page="50"
             :footer-props="{ 'items-per-page-options': [25, 50, 100, 200] }"
-            sort-by="start_time"
+            sort-by="end_time"
             :sort-desc="true"
+            :custom-sort="customSort"
             dense
             class="fleet-history-table resizable-table"
             @click:row="openDetail"
@@ -170,6 +171,16 @@
                 {{ formatDate(item.start_time) }}
             </template>
 
+            <!-- End time -->
+            <template #item.end_time="{ item }">
+                <template v-if="item.status === 'in_progress'">
+                    <v-chip x-small color="blue" dark>In Progress</v-chip>
+                </template>
+                <template v-else>
+                    {{ formatDate(item.end_time) }}
+                </template>
+            </template>
+
             <!-- Parts count -->
             <template #item.parts_count="{ item }">
                 {{ partCount(item) }}
@@ -241,6 +252,7 @@
                                 <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
                             </td></tr>
                             <tr><td class="font-weight-bold">Start</td><td>{{ formatDate(detailJob.start_time) }}</td></tr>
+                            <tr><td class="font-weight-bold">End</td><td>{{ detailJob.status === 'in_progress' ? 'In Progress' : formatDate(detailJob.end_time) }}</td></tr>
                             <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(detailJob.print_duration_secs) }}</td></tr>
                             <tr><td class="font-weight-bold">Filament Used</td><td>{{ formatFilament(detailJob.filament_used_mm) }}</td></tr>
                             <tr><td class="font-weight-bold">Spool QR</td><td>{{ detailJob.spool_qr_code || '—' }}</td></tr>
@@ -396,6 +408,7 @@ export default class FleetHistoryListPanel extends Vue {
         { text: 'Filament', value: 'filament_type', sortable: true },
         { text: 'Status', value: 'status', sortable: true },
         { text: 'Start', value: 'start_time', sortable: true },
+        { text: 'End', value: 'end_time', sortable: true },
         { text: 'Duration', value: 'print_duration_secs', sortable: true },
         { text: 'Filament Used', value: 'filament_used_mm', sortable: true },
         { text: 'Remaining Wt', value: 'filament_remaining_weight', sortable: true },
@@ -424,7 +437,7 @@ export default class FleetHistoryListPanel extends Vue {
             }
         } catch { /* ignore */ }
         if (!this.visibleColumns.length) {
-            this.visibleColumns = ['printer_hostname', 'filename', 'filament_type', 'status', 'start_time', 'nozzle_health', 'parts_count']
+            this.visibleColumns = ['printer_hostname', 'filename', 'filament_type', 'status', 'end_time', 'nozzle_health', 'parts_count']
         }
         try {
             const w = localStorage.getItem(this.WIDTHS_KEY)
@@ -792,6 +805,44 @@ export default class FleetHistoryListPanel extends Vue {
         const h = Math.floor(secs / 3600)
         const m = Math.floor((secs % 3600) / 60)
         return `${h}h ${m.toString().padStart(2, '0')}m`
+    }
+
+    customSort(items: FleetHistoryRecord[], sortBy: string[], sortDesc: boolean[]): FleetHistoryRecord[] {
+        const key = sortBy[0]
+        const desc = sortDesc[0]
+
+        return [...items].sort((a: any, b: any) => {
+            // When sorting by end_time, always show in_progress entries at the top
+            if (key === 'end_time') {
+                const aInProgress = a.status === 'in_progress'
+                const bInProgress = b.status === 'in_progress'
+                if (aInProgress && !bInProgress) return -1
+                if (!aInProgress && bInProgress) return 1
+                if (aInProgress && bInProgress) {
+                    // Both in progress — sort by start_time descending
+                    const aVal = a.start_time || ''
+                    const bVal = b.start_time || ''
+                    return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+                }
+            }
+
+            const aVal = a[key]
+            const bVal = b[key]
+
+            // Handle nulls
+            if (aVal == null && bVal == null) return 0
+            if (aVal == null) return 1
+            if (bVal == null) return -1
+
+            let result = 0
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                result = aVal - bVal
+            } else {
+                result = String(aVal).localeCompare(String(bVal))
+            }
+
+            return desc ? -result : result
+        })
     }
 
     formatFilament(mm: number | null): string {

@@ -305,6 +305,7 @@
                                 <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
                             </td></tr>
                             <tr><td class="font-weight-bold">Start</td><td>{{ formatDate(detailJob.start_time) }}</td></tr>
+                            <tr><td class="font-weight-bold">End</td><td>{{ detailJob.status === 'in_progress' ? 'In Progress' : formatDate(detailJob.end_time) }}</td></tr>
                             <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(detailJob.print_duration_secs) }}</td></tr>
                             <tr><td class="font-weight-bold">Filament Used</td><td>{{ formatFilament(detailJob.filament_used_mm) }}</td></tr>
                             <tr><td class="font-weight-bold">Spool QR</td><td>{{ detailJob.spool_qr_code || '—' }}</td></tr>
@@ -586,6 +587,7 @@
                                         <v-chip x-small :color="statusColor(qcSelectedRecord.status)" dark>{{ qcSelectedRecord.status || 'unknown' }}</v-chip>
                                     </td></tr>
                                     <tr><td class="font-weight-bold">Start Time</td><td>{{ formatDate(qcSelectedRecord.start_time) }}</td></tr>
+                                    <tr><td class="font-weight-bold">End Time</td><td>{{ qcSelectedRecord.status === 'in_progress' ? 'In Progress' : formatDate(qcSelectedRecord.end_time) }}</td></tr>
                                     <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(qcSelectedRecord.print_duration_secs) }}</td></tr>
                                     <tr><td class="font-weight-bold">QC Status</td><td>
                                         <v-chip v-if="qcSelectedRecord.qc_status" x-small :color="qcSelectedRecord.qc_status === 'pass' ? 'success' : qcSelectedRecord.qc_status === 'fail' ? 'error' : 'warning'" dark>
