@@ -543,13 +543,9 @@ export default class FleetHistoryListPanel extends Vue {
         return data
     }
 
-    /** Count QR-linked parts for a given base row */
-    partCount(item: FleetHistoryRecord): number {
-        return this.records.filter(
-            (r) => r.printer_hostname === item.printer_hostname
-                && r.moonraker_job_id === item.moonraker_job_id
-                && r.qr_code != null
-        ).length
+    /** Parts count from server-side subquery */
+    partCount(item: any): number {
+        return item.parts_count ?? 0
     }
 
     applyFilters() {

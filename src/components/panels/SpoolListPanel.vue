@@ -609,7 +609,7 @@ export default class SpoolListPanel extends Vue {
             }
         } catch { /* ignore */ }
         if (!this.visibleColumns.length) {
-            this.visibleColumns = this.allHeaders.map((h) => h.value)
+            this.visibleColumns = this.allHeaders.map((h) => h.value).filter((v) => v !== 'last_printer')
         }
         try {
             const w = localStorage.getItem(this.WIDTHS_KEY)
