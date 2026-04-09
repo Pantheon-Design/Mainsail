@@ -123,6 +123,17 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         await axios.post(`${baseUrl}/history/collect`)
     },
 
+    async fetchRecentJobs({ rootGetters }, payload: { printer_hostname: string; limit?: number }): Promise<any[]> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const params = new URLSearchParams()
+        params.set('printer', payload.printer_hostname)
+        params.set('has_qr_code', 'false')
+        params.set('limit', String(payload.limit ?? 10))
+        const response = await axios.get(`${baseUrl}/history?${params}`)
+        const records = response.data.records ?? response.data
+        return records.filter((r: any) => r.status !== 'in_progress')
+    },
+
     async linkQrCode({ state, commit, rootGetters }, payload: { printer_hostname: string; moonraker_job_id: string; qr_code: string }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {

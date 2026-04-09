@@ -70,6 +70,16 @@
                 <v-icon :class="{ 'mr-md-2': $vuetify.breakpoint.mdAndUp }">{{ mdiPrinter3dNozzle }}</v-icon>
                 <span class="d-none d-md-inline">Add Spool</span>
             </v-btn>
+            <v-btn
+                tile
+                :icon="$vuetify.breakpoint.smAndDown"
+                :text="$vuetify.breakpoint.mdAndUp"
+                color="primary"
+                class="button-min-width-auto px-3"
+                @click="openAddPartMode">
+                <v-icon :class="{ 'mr-md-2': $vuetify.breakpoint.mdAndUp }">{{ mdiPackageVariantClosed }}</v-icon>
+                <span class="d-none d-md-inline">Add Part</span>
+            </v-btn>
             <the-notification-menu />
             <the-settings-menu />
             <the-top-corner-menu />
@@ -104,7 +114,7 @@ import PrinterSelector from '@/components/ui/PrinterSelector.vue'
 import PantheonLogo from '@/components/ui/PantheonLogo.vue'
 import TheNotificationMenu from '@/components/notifications/TheNotificationMenu.vue'
 import { topbarHeight } from '@/store/variables'
-import { mdiAlertOctagonOutline, mdiContentSave, mdiFileUpload, mdiClose, mdiCloseThick, mdiQrcodeScan, mdiPrinter3dNozzle } from '@mdi/js'
+import { mdiAlertOctagonOutline, mdiContentSave, mdiFileUpload, mdiClose, mdiCloseThick, mdiQrcodeScan, mdiPrinter3dNozzle, mdiPackageVariantClosed } from '@mdi/js'
 import EmergencyStopDialog from '@/components/dialogs/EmergencyStopDialog.vue'
 
 type uploadSnackbar = {
@@ -135,6 +145,7 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     mdiCloseThick = mdiCloseThick
     mdiQrcodeScan = mdiQrcodeScan
     mdiPrinter3dNozzle = mdiPrinter3dNozzle
+    mdiPackageVariantClosed = mdiPackageVariantClosed
 
     topbarHeight = topbarHeight
 
@@ -337,6 +348,10 @@ export default class TheTopbar extends Mixins(BaseMixin) {
 
     openAddSpoolMode() {
         this.$router.push({ path: '/spools', query: { addSpoolMode: '1' } }).catch(() => {})
+    }
+
+    openAddPartMode() {
+        this.$router.push({ path: '/fleet-history', query: { addPartMode: '1' } }).catch(() => {})
     }
 }
 </script>

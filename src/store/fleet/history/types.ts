@@ -29,6 +29,7 @@ export interface FleetHistoryRecord {
     spool_qr_code: string | null
     gcode_archive_hash: string | null
     collected_at: string
+    parts_count?: number
 }
 
 export interface FleetAnalyticsKpis {

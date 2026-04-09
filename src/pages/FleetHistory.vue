@@ -61,11 +61,13 @@ export default class FleetHistory extends Vue {
     mounted() {
         this.$store.dispatch('fleet/history/loadAnalytics')
         this.checkQcMode()
+        this.checkAddPartMode()
     }
 
     @Watch('$route')
     onRouteChange(_route: Route) {
         this.checkQcMode()
+        this.checkAddPartMode()
     }
 
     checkQcMode() {
@@ -76,6 +78,17 @@ export default class FleetHistory extends Vue {
                 const panel = this.$refs.partsPanel as any
                 if (panel?.enterQcMode) panel.enterQcMode()
                 // Clean up the query param so it doesn't re-trigger
+                this.$router.replace({ path: '/fleet-history' }).catch(() => {})
+            })
+        }
+    }
+
+    checkAddPartMode() {
+        if (this.$route.query.addPartMode === '1') {
+            this.activeTab = 1
+            this.$nextTick(() => {
+                const panel = this.$refs.partsPanel as any
+                if (panel?.enterAddPartMode) panel.enterAddPartMode()
                 this.$router.replace({ path: '/fleet-history' }).catch(() => {})
             })
         }
