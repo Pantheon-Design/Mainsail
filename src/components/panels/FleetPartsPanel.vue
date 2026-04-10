@@ -402,6 +402,9 @@
             <v-card class="d-flex flex-column" style="height: 100vh" @click="onAddPartCardClick">
                 <!-- Header -->
                 <v-card-title class="d-flex align-center py-2">
+                    <v-btn v-if="isMobile && addPartStep !== 'printer'" icon small class="mr-1" @click="addPartGoBack">
+                        <v-icon>{{ mdiArrowLeft }}</v-icon>
+                    </v-btn>
                     <v-icon left color="primary">{{ mdiPackageVariantClosed }}</v-icon>
                     <span>Add Part Mode</span>
                     <v-spacer />
@@ -420,12 +423,12 @@
                 </div>
                 <div v-else class="d-flex align-center px-4 py-2" style="background: rgba(255,255,255,0.05);">
                     <v-icon class="mr-3" size="28" color="grey">{{ mdiPrinter3d }}</v-icon>
-                    <span class="text-h6 grey--text">No printer selected — scan a printer QR code</span>
+                    <span :class="isMobile ? 'body-2' : 'text-h6'" class="grey--text">No printer selected — scan a printer QR code</span>
                 </div>
                 <v-divider />
 
-                <!-- Visible scan input -->
-                <div class="d-flex align-center px-4 py-2" style="background: rgba(255,255,255,0.03);">
+                <!-- Desktop: Visible scan input -->
+                <div v-if="!isMobile" class="d-flex align-center px-4 py-2" style="background: rgba(255,255,255,0.03);">
                     <v-text-field
                         ref="addPartScanInput"
                         v-model="addPartScanBuffer"
@@ -442,7 +445,190 @@
                     />
                 </div>
 
-                <v-card-text class="d-flex flex-column flex-grow-1 pa-4" style="overflow-y: auto">
+                <!-- ==================== MOBILE FLOW ==================== -->
+                <template v-if="isMobile">
+                    <v-card-text class="d-flex flex-column flex-grow-1 pa-3" style="overflow-y: auto">
+                        <!-- Status alert -->
+                        <v-alert
+                            v-if="addPartStatusMessage"
+                            :type="addPartStatusType"
+                            dense
+                            class="mb-3"
+                            dismissible
+                            @input="addPartStatusMessage = ''"
+                        >
+                            {{ addPartStatusMessage }}
+                        </v-alert>
+
+                        <!-- Step 1: Select Printer -->
+                        <template v-if="addPartStep === 'printer'">
+                            <div class="d-flex flex-column align-center pt-4">
+                                <v-icon size="64" color="primary" class="mb-4">{{ mdiPrinter3d }}</v-icon>
+                                <h3 class="mb-4 text-center">Scan Printer QR Code</h3>
+
+                                <!-- Camera capture for printer QR -->
+                                <input
+                                    ref="addPartCameraInput"
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    class="qc-hidden-input"
+                                    @change="onAddPartCameraCapture"
+                                />
+                                <v-btn
+                                    color="primary"
+                                    large
+                                    :loading="addPartCameraProcessing"
+                                    @click="openAddPartCamera"
+                                    class="mb-4"
+                                >
+                                    <v-icon left>{{ mdiCamera }}</v-icon>
+                                    Scan Printer QR
+                                </v-btn>
+
+                                <p class="caption grey--text mb-4 text-center">— or search by name —</p>
+
+                                <!-- Manual printer search -->
+                                <v-combobox
+                                    v-model="addPartPrinterSearch"
+                                    :items="printerOptions"
+                                    label="Search printer hostname"
+                                    dense
+                                    outlined
+                                    hide-details
+                                    :prepend-inner-icon="mdiMagnify"
+                                    style="max-width: 320px; width: 100%"
+                                    class="mb-3"
+                                    @change="onAddPartPrinterSelected"
+                                />
+                                <v-text-field
+                                    v-model="addPartManualCode"
+                                    label="Or type printer hostname"
+                                    dense
+                                    outlined
+                                    hide-details
+                                    placeholder="e.g. printer1.local"
+                                    style="max-width: 320px; width: 100%"
+                                    class="mb-3"
+                                    @keydown.enter="submitAddPartManualPrinter"
+                                >
+                                    <template #append>
+                                        <v-btn icon small :disabled="!addPartManualCode.trim()" @click="submitAddPartManualPrinter">
+                                            <v-icon small>{{ mdiCheckCircle }}</v-icon>
+                                        </v-btn>
+                                    </template>
+                                </v-text-field>
+                            </div>
+                        </template>
+
+                        <!-- Step 2: Select Job -->
+                        <template v-else-if="addPartStep === 'job'">
+                            <div class="d-flex flex-column flex-grow-1">
+                                <h3 class="mb-3 text-center">Select a Job</h3>
+                                <v-card-text v-if="addPartRecentJobsLoading" class="d-flex align-center justify-center flex-grow-1">
+                                    <v-progress-circular indeterminate color="primary" />
+                                </v-card-text>
+                                <v-card-text v-else-if="addPartRecentJobs.length === 0" class="d-flex flex-column align-center justify-center flex-grow-1">
+                                    <p class="grey--text">No completed jobs found for this printer.</p>
+                                </v-card-text>
+                                <v-list v-else dense class="flex-grow-1 overflow-y-auto pa-0">
+                                    <v-list-item
+                                        v-for="job in addPartRecentJobs"
+                                        :key="job.id"
+                                        :class="{ 'primary--text v-list-item--active': addPartSelectedJob && addPartSelectedJob.id === job.id }"
+                                        @click="selectAddPartJobMobile(job)"
+                                        style="cursor: pointer"
+                                    >
+                                        <v-list-item-content>
+                                            <v-list-item-title>
+                                                {{ job.filename || 'Unknown file' }}
+                                            </v-list-item-title>
+                                            <v-list-item-subtitle>
+                                                <v-chip x-small :color="statusColor(job.status)" dark>
+                                                    {{ job.status || 'unknown' }}
+                                                </v-chip>
+                                                <v-chip x-small class="ml-1" outlined>
+                                                    {{ job.parts_count ?? 0 }} parts
+                                                </v-chip>
+                                                <span class="ml-2">{{ job.end_time ? new Date(job.end_time).toLocaleString() : '—' }}</span>
+                                            </v-list-item-subtitle>
+                                        </v-list-item-content>
+                                        <v-list-item-action>
+                                            <v-icon small :color="addPartSelectedJob && addPartSelectedJob.id === job.id ? 'primary' : 'grey'">{{ mdiCheckCircle }}</v-icon>
+                                        </v-list-item-action>
+                                    </v-list-item>
+                                </v-list>
+                            </div>
+                        </template>
+
+                        <!-- Step 3: Scan Part QR Codes -->
+                        <template v-else-if="addPartStep === 'parts'">
+                            <div class="d-flex flex-column align-center pt-4">
+                                <v-icon size="48" color="success" class="mb-2">{{ mdiQrcodeScan }}</v-icon>
+                                <h3 class="mb-2 text-center">Scan Part QR Codes</h3>
+                                <p class="caption grey--text mb-4 text-center">
+                                    Job: {{ addPartSelectedJob ? (addPartSelectedJob.filename || addPartSelectedJob.moonraker_job_id) : '' }}
+                                </p>
+
+                                <!-- Camera capture for part QR -->
+                                <input
+                                    ref="addPartCameraInput"
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    class="qc-hidden-input"
+                                    @change="onAddPartCameraCapture"
+                                />
+                                <v-btn
+                                    color="success"
+                                    large
+                                    :loading="addPartCameraProcessing"
+                                    @click="openAddPartCamera"
+                                    class="mb-4"
+                                >
+                                    <v-icon left>{{ mdiCamera }}</v-icon>
+                                    Scan Part QR
+                                </v-btn>
+
+                                <v-text-field
+                                    v-model="addPartManualCode"
+                                    label="Or type part code manually"
+                                    dense
+                                    outlined
+                                    hide-details
+                                    style="max-width: 300px; width: 100%"
+                                    class="mb-4"
+                                    @keydown.enter="submitAddPartManualPart"
+                                >
+                                    <template #append>
+                                        <v-btn icon small :disabled="!addPartManualCode.trim()" @click="submitAddPartManualPart">
+                                            <v-icon small>{{ mdiQrcodeScan }}</v-icon>
+                                        </v-btn>
+                                    </template>
+                                </v-text-field>
+
+                                <!-- Session log (compact for mobile) -->
+                                <v-card v-if="addPartRegisteredParts.length > 0" outlined style="width: 100%" class="mt-2">
+                                    <v-card-title class="subtitle-2 py-2">
+                                        Registered ({{ addPartRegisteredParts.length }})
+                                    </v-card-title>
+                                    <v-divider />
+                                    <v-list dense class="pa-0" style="max-height: 200px; overflow-y: auto">
+                                        <v-list-item v-for="(entry, idx) in addPartRegisteredParts.slice().reverse()" :key="idx" dense>
+                                            <v-list-item-content>
+                                                <v-list-item-title class="font-weight-bold">{{ entry.qr_code }}</v-list-item-title>
+                                                <v-list-item-subtitle>{{ entry.filename }} &bull; {{ entry.time }}</v-list-item-subtitle>
+                                            </v-list-item-content>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-card>
+                            </div>
+                        </template>
+                    </v-card-text>
+                </template>
+
+                <!-- ==================== DESKTOP FLOW ==================== -->
+                <v-card-text v-else class="d-flex flex-column flex-grow-1 pa-4" style="overflow-y: auto">
                     <!-- Status alert -->
                     <v-alert
                         v-if="addPartStatusMessage"
@@ -776,7 +962,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
-import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle } from '@mdi/js'
+import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle, mdiMagnify, mdiArrowLeft } from '@mdi/js'
 import axios from 'axios'
 
 @Component
@@ -793,6 +979,8 @@ export default class FleetPartsPanel extends Vue {
     mdiPrinter3d = mdiPrinter3d
     mdiCheckCircle = mdiCheckCircle
     mdiAlertCircle = mdiAlertCircle
+    mdiMagnify = mdiMagnify
+    mdiArrowLeft = mdiArrowLeft
 
     // Filters
     filterQrCode = ''
@@ -874,6 +1062,12 @@ export default class FleetPartsPanel extends Vue {
     addPartStatusType: 'success' | 'error' | 'info' | 'warning' = 'info'
     addPartRegisteredParts: Array<{ qr_code: string; hostname: string; filename: string; time: string }> = []
     addPartScanFocused = false
+
+    // Add Part Mode — mobile camera scanning
+    addPartCameraProcessing = false
+    addPartManualCode = ''
+    addPartStep: 'printer' | 'job' | 'parts' = 'printer'
+    addPartPrinterSearch = ''
 
     readonly baseHeaders = [
         { text: 'QR Code', value: 'qr_code', sortable: true },
@@ -1345,6 +1539,10 @@ export default class FleetPartsPanel extends Vue {
         this.addPartSelectedJob = null
         this.addPartStatusMessage = ''
         this.addPartRegisteredParts = []
+        this.addPartCameraProcessing = false
+        this.addPartManualCode = ''
+        this.addPartStep = 'printer'
+        this.addPartPrinterSearch = ''
         this.$nextTick(() => this.refocusAddPartInput())
     }
 
@@ -1467,7 +1665,164 @@ export default class FleetPartsPanel extends Vue {
         this.refocusAddPartInput()
     }
 
-    // ---- Mobile camera scanning ----
+    // ---- Add Part Mode — mobile helpers ----
+
+    addPartGoBack() {
+        if (this.addPartStep === 'parts') {
+            this.addPartStep = 'job'
+        } else if (this.addPartStep === 'job') {
+            this.addPartStep = 'printer'
+            this.addPartSelectedPrinter = ''
+            this.addPartRecentJobs = []
+            this.addPartSelectedJob = null
+        }
+        this.addPartStatusMessage = ''
+        this.addPartManualCode = ''
+    }
+
+    openAddPartCamera() {
+        const input = this.$refs.addPartCameraInput as HTMLInputElement | undefined
+        if (input) {
+            input.value = ''
+            input.click()
+        }
+    }
+
+    async onAddPartCameraCapture(e: Event) {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+        this.addPartCameraProcessing = true
+        try {
+            const { readBarcodesFromImageFile } = await import('zxing-wasm')
+            const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+            const results = await readBarcodesFromImageFile(blob, {
+                formats: ['DataMatrix', 'QRCode'],
+                tryHarder: true,
+                tryRotate: true,
+                tryInvert: true,
+                tryDownscale: true,
+                maxNumberOfSymbols: 1,
+            })
+            if (results.length && results[0].text) {
+                const scanned = results[0].text.trim()
+                if (this.addPartStep === 'printer') {
+                    await this.addPartSelectPrinter(scanned)
+                } else if (this.addPartStep === 'parts') {
+                    await this.addPartRegisterPart(scanned)
+                }
+            } else {
+                this.addPartStatusMessage = 'No code found in photo. Ensure the QR code is clearly visible and well-lit.'
+                this.addPartStatusType = 'warning'
+            }
+        } catch {
+            this.addPartStatusMessage = 'Failed to process photo. Please try again.'
+            this.addPartStatusType = 'error'
+        } finally {
+            this.addPartCameraProcessing = false
+        }
+    }
+
+    async onAddPartPrinterSelected(val: string) {
+        if (!val) return
+        const hostname = val.endsWith('.local') ? val : `${val}.local`
+        await this.addPartSelectPrinter(hostname)
+    }
+
+    async submitAddPartManualPrinter() {
+        const code = this.addPartManualCode.trim()
+        if (!code) return
+        this.addPartManualCode = ''
+        const hostname = code.endsWith('.local') ? code : `${code}.local`
+        await this.addPartSelectPrinter(hostname)
+    }
+
+    async submitAddPartManualPart() {
+        const code = this.addPartManualCode.trim()
+        if (!code) return
+        this.addPartManualCode = ''
+        await this.addPartRegisterPart(code)
+    }
+
+    async addPartSelectPrinter(hostname: string) {
+        if (!hostname.endsWith('.local')) {
+            this.addPartStatusMessage = `"${hostname}" is not a valid printer hostname (must end with .local)`
+            this.addPartStatusType = 'warning'
+            return
+        }
+        this.addPartRecentJobsLoading = true
+        this.addPartStatusMessage = ''
+        try {
+            const jobs = await this.$store.dispatch('fleet/history/fetchRecentJobs', {
+                printer_hostname: hostname,
+                limit: 10,
+            })
+            if (jobs.length > 0) {
+                this.addPartSelectedPrinter = hostname
+                this.addPartRecentJobs = jobs
+                this.addPartSelectedJob = jobs[0]
+                this.addPartStatusMessage = `Printer: ${hostname} — ${jobs.length} recent job${jobs.length > 1 ? 's' : ''}`
+                this.addPartStatusType = 'success'
+                this.addPartStep = 'job'
+            } else {
+                this.addPartStatusMessage = `Scanned ${hostname}, no completed jobs found for this printer`
+                this.addPartStatusType = 'warning'
+            }
+        } catch {
+            this.addPartStatusMessage = `Scanned ${hostname}, not a valid printer`
+            this.addPartStatusType = 'error'
+        } finally {
+            this.addPartRecentJobsLoading = false
+        }
+    }
+
+    selectAddPartJobMobile(job: FleetHistoryRecord) {
+        this.addPartSelectedJob = job
+        this.addPartStatusMessage = `Selected job: ${job.filename || job.moonraker_job_id}`
+        this.addPartStatusType = 'info'
+        this.addPartStep = 'parts'
+        this.addPartManualCode = ''
+    }
+
+    async addPartRegisterPart(scanned: string) {
+        if (!this.addPartSelectedJob) {
+            this.addPartStatusMessage = 'Select a job first before scanning parts'
+            this.addPartStatusType = 'warning'
+            return
+        }
+        if (!/^\d+$/.test(scanned)) {
+            this.addPartStatusMessage = `"${scanned}" is not a valid part QR code (numbers only)`
+            this.addPartStatusType = 'warning'
+            return
+        }
+        try {
+            await this.$store.dispatch('fleet/history/linkQrCode', {
+                printer_hostname: this.addPartSelectedPrinter,
+                moonraker_job_id: this.addPartSelectedJob.moonraker_job_id,
+                qr_code: scanned,
+            })
+            const jobName = this.addPartSelectedJob.filename || this.addPartSelectedJob.moonraker_job_id
+            this.addPartStatusMessage = `Part ${scanned} registered to ${jobName}`
+            this.addPartStatusType = 'success'
+            this.addPartRegisteredParts.push({
+                qr_code: scanned,
+                hostname: this.addPartSelectedPrinter,
+                filename: jobName,
+                time: new Date().toLocaleTimeString(),
+            })
+            if (this.addPartSelectedJob.parts_count != null) {
+                const updated = { ...this.addPartSelectedJob, parts_count: this.addPartSelectedJob.parts_count + 1 }
+                this.addPartSelectedJob = updated
+                const idx = this.addPartRecentJobs.findIndex((j) => j.id === updated.id)
+                if (idx >= 0) this.$set(this.addPartRecentJobs, idx, updated)
+            }
+        } catch (err: any) {
+            const msg = err?.response?.data?.detail || err?.response?.data?.error || 'Failed to register part'
+            this.addPartStatusMessage = `Error: ${msg}`
+            this.addPartStatusType = 'error'
+        }
+    }
+
+    // ---- Mobile camera scanning (QC Mode) ----
 
     openCameraCapture() {
         const input = this.$refs.qcCameraInput as HTMLInputElement | undefined
