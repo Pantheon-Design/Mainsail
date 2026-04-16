@@ -86,6 +86,12 @@ export const actions: ActionTree<ServerState, RootState> = {
             }
         }
 
+        // Initialize fleet integration if component is available
+        if (payload.components?.includes('fleet_integration')) {
+            window.console.debug('init fleet integration')
+            dispatch('fleet/init', {}, { root: true })
+        }
+
         if (payload.registered_directories?.length) {
             dispatch('files/initRootDirs', payload.registered_directories, { root: true })
         }

@@ -141,6 +141,15 @@ export const actions: ActionTree<SocketState, RootState> = {
                 //Vue.$toast.error(payload.params[0])
                 dispatch('server/spoolTracker/handleFilamentChange', payload.params[0], { root: true })
                 break
+
+            case 'notify_fleet_files_changed':
+                dispatch('fleet/onFilesChanged', payload.params[0], { root: true })
+                break
+
+            case 'notify_fleet_download_status':
+                dispatch('fleet/onDownloadStatus', payload.params[0], { root: true })
+                break
+
             default:
                 window.console.debug(payload)
         }
