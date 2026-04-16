@@ -1,6 +1,6 @@
 import Vue from 'vue'
 import { MutationTree } from 'vuex'
-import { FleetGcodesState, FleetGcodeFile, FleetDiskUsage } from './types'
+import { FleetGcodesState, FleetGcodeFile, FleetDiskUsage, FleetDownloadQueueEntry } from './types'
 import { getDefaultState } from './index'
 
 export const mutations: MutationTree<FleetGcodesState> = {
@@ -30,5 +30,13 @@ export const mutations: MutationTree<FleetGcodesState> = {
 
     setDiskUsage(state, usage: FleetDiskUsage | null) {
         Vue.set(state, 'diskUsage', usage)
+    },
+
+    setDownloadQueue(state, queue: FleetDownloadQueueEntry[]) {
+        Vue.set(state, 'downloadQueue', queue)
+    },
+
+    setDownloadQueueLoading(state, loading: boolean) {
+        Vue.set(state, 'downloadQueueLoading', loading)
     },
 }

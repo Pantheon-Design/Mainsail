@@ -10,6 +10,8 @@ export const getDefaultState = (): FleetGcodesState => ({
     pushing: {},
     currentPath: '',
     diskUsage: null,
+    downloadQueue: [],
+    downloadQueueLoading: false,
 })
 
 const state = getDefaultState()

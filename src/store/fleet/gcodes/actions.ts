@@ -133,4 +133,41 @@ export const actions: ActionTree<FleetGcodesState, RootState> = {
             throw new Error(`Move failed: ${msg}`)
         }
     },
+
+    async loadDownloadQueue({ commit, rootGetters }, includeHistory = false) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        commit('setDownloadQueueLoading', true)
+        try {
+            const response = await axios.get(
+                `${baseUrl}/gcodes/download/queue?include_history=${includeHistory}`
+            )
+            commit('setDownloadQueue', response.data.queue ?? [])
+        } catch (error) {
+            const msg = extractError(error)
+            console.error('Failed to load download queue:', msg)
+        } finally {
+            commit('setDownloadQueueLoading', false)
+        }
+    },
+
+    async requestDownload({ rootGetters }, payload: { filename: string; printer_hostname: string }) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.post(`${baseUrl}/gcodes/download`, payload)
+            return response.data
+        } catch (error) {
+            const msg = extractError(error)
+            throw new Error(`Download request failed: ${msg}`)
+        }
+    },
+
+    async cancelDownload({ rootGetters }, jobId: number) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.delete(`${baseUrl}/gcodes/download/${jobId}`)
+        } catch (error) {
+            const msg = extractError(error)
+            throw new Error(`Cancel download failed: ${msg}`)
+        }
+    },
 }

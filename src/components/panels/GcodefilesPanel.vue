@@ -208,6 +208,74 @@
                 </v-card>
             </v-dialog>
         </panel>
+
+        <!-- Download Queue Panel -->
+        <panel
+            :icon="mdiCloudDownloadOutline"
+            card-class="download-queue-panel mt-4">
+            <template #title>
+                Download Queue
+                <v-chip x-small class="ml-2" color="primary" v-if="activeDownloadCount > 0">
+                    {{ activeDownloadCount }} active
+                </v-chip>
+            </template>
+            <v-card-text class="pa-0">
+                <v-data-table
+                    :headers="downloadQueueHeaders"
+                    :items="downloadQueue"
+                    :items-per-page="10"
+                    dense
+                    hide-default-footer
+                    :no-data-text="'No downloads in queue'">
+                    <template #[`item.filename`]="{ item }">
+                        <span class="text-truncate" style="max-width: 250px; display: inline-block">
+                            {{ item.filename.split('/').pop() }}
+                        </span>
+                    </template>
+                    <template #[`item.printer_hostname`]="{ item }">
+                        <span class="text-truncate">{{ item.printer_hostname }}</span>
+                    </template>
+                    <template #[`item.status`]="{ item }">
+                        <v-chip x-small :color="downloadStatusColor(item.status)">
+                            {{ item.status }}
+                        </v-chip>
+                    </template>
+                    <template #[`item.progress_pct`]="{ item }">
+                        <v-progress-linear
+                            v-if="item.status === 'downloading'"
+                            :value="item.progress_pct"
+                            height="16"
+                            rounded
+                            color="primary">
+                            <template #default>
+                                <small>{{ Math.round(item.progress_pct) }}%</small>
+                            </template>
+                        </v-progress-linear>
+                        <span v-else-if="item.status === 'completed'">100%</span>
+                        <span v-else>--</span>
+                    </template>
+                    <template #[`item.source`]="{ item }">
+                        <v-chip x-small outlined>{{ item.source === 'user' ? 'User' : 'Auto' }}</v-chip>
+                    </template>
+                    <template #[`item.actions`]="{ item }">
+                        <v-btn
+                            v-if="item.status === 'pending' || item.status === 'downloading'"
+                            x-small
+                            color="error"
+                            title="Cancel download"
+                            @click.stop="cancelQueueDownload(item.id)">
+                            <v-icon x-small>{{ mdiClose }}</v-icon>
+                        </v-btn>
+                        <v-tooltip v-else-if="item.status === 'failed' && item.error_message" top>
+                            <template #activator="{ on, attrs }">
+                                <v-icon x-small color="error" v-bind="attrs" v-on="on">{{ mdiAlertCircleOutline }}</v-icon>
+                            </template>
+                            <span>{{ item.error_message }}</span>
+                        </v-tooltip>
+                    </template>
+                </v-data-table>
+            </v-card-text>
+        </panel>
         <start-print-dialog
             :bool="dialogPrintFile.show"
             :file="dialogPrintFile.item"
@@ -517,6 +585,9 @@ import {
     mdiSync,
     mdiSendOutline,
     mdiHarddisk,
+    mdiCloudDownloadOutline,
+    mdiClose,
+    mdiAlertCircleOutline,
 } from '@mdi/js'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
 import AddBatchToQueueDialog from '@/components/dialogs/AddBatchToQueueDialog.vue'
@@ -591,6 +662,9 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     mdiSync = mdiSync
     mdiSendOutline = mdiSendOutline
     mdiHarddisk = mdiHarddisk
+    mdiCloudDownloadOutline = mdiCloudDownloadOutline
+    mdiClose = mdiClose
+    mdiAlertCircleOutline = mdiAlertCircleOutline
 
     formatFilesize = formatFilesize
     formatPrintTime = formatPrintTime
@@ -1607,13 +1681,69 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         }
     }
 
+    // ------------------------------------------------------------------
+    // Download queue
+    // ------------------------------------------------------------------
+
+    get downloadQueue() {
+        return this.$store.state.fleet.gcodes.downloadQueue ?? []
+    }
+
+    get activeDownloadCount(): number {
+        return this.downloadQueue.filter(
+            (e: any) => e.status === 'pending' || e.status === 'downloading'
+        ).length
+    }
+
+    get downloadQueueHeaders() {
+        return [
+            { text: 'File', value: 'filename', width: '30%' },
+            { text: 'Printer', value: 'printer_hostname', width: '20%' },
+            { text: 'Status', value: 'status', width: '100px', sortable: false },
+            { text: 'Progress', value: 'progress_pct', width: '120px', sortable: false },
+            { text: 'Source', value: 'source', width: '80px', sortable: false },
+            { text: '', value: 'actions', width: '60px', sortable: false },
+        ]
+    }
+
+    downloadStatusColor(status: string): string {
+        switch (status) {
+            case 'pending': return 'grey'
+            case 'downloading': return 'primary'
+            case 'completed': return 'success'
+            case 'failed': return 'error'
+            case 'cancelled': return 'grey darken-1'
+            default: return 'grey'
+        }
+    }
+
+    async loadDownloadQueue() {
+        try {
+            await this.$store.dispatch('fleet/gcodes/loadDownloadQueue', true)
+        } catch (e) {
+            console.error('Failed to load download queue:', e)
+        }
+    }
+
+    async cancelQueueDownload(jobId: number) {
+        try {
+            await this.$store.dispatch('fleet/gcodes/cancelDownload', jobId)
+            await this.loadDownloadQueue()
+        } catch (e) {
+            console.error('Cancel download failed:', e)
+        }
+    }
+
     mounted() {
         this.loadFleetFiles()
+        this.loadDownloadQueue()
         fleetDaemonEvents.$on('gcodes_updated', this.loadFleetFiles)
+        fleetDaemonEvents.$on('download_queue_updated', this.loadDownloadQueue)
     }
 
     beforeDestroy() {
         fleetDaemonEvents.$off('gcodes_updated', this.loadFleetFiles)
+        fleetDaemonEvents.$off('download_queue_updated', this.loadDownloadQueue)
     }
 }
 </script>

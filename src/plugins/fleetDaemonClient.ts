@@ -99,6 +99,9 @@ class FleetDaemonClient {
                     if (message.event === 'gcodes_updated') {
                         fleetDaemonEvents.$emit('gcodes_updated')
                     }
+                    if (message.event === 'download_queue_updated') {
+                        fleetDaemonEvents.$emit('download_queue_updated')
+                    }
                 } catch (e) {
                     console.warn('[FleetDaemon] WS parse error:', e)
                 }

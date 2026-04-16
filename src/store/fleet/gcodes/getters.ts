@@ -1,5 +1,5 @@
 import { GetterTree } from 'vuex'
-import { FleetGcodesState, FleetGcodeFile } from './types'
+import { FleetGcodesState, FleetGcodeFile, FleetDownloadQueueEntry } from './types'
 
 export const getters: GetterTree<FleetGcodesState, any> = {
     getFiles(state): FleetGcodeFile[] {
@@ -25,5 +25,17 @@ export const getters: GetterTree<FleetGcodesState, any> = {
     isFileCachedOn: (state) => (filename: string, hostname: string): boolean => {
         const file = state.files.find((f) => f.filename === filename)
         return file ? file.cached_on.includes(hostname) : false
+    },
+
+    activeDownloads(state): FleetDownloadQueueEntry[] {
+        return state.downloadQueue.filter((e) => e.status === 'pending' || e.status === 'downloading')
+    },
+
+    downloadHistory(state): FleetDownloadQueueEntry[] {
+        return state.downloadQueue.filter((e) => e.status !== 'pending' && e.status !== 'downloading')
+    },
+
+    activeDownloadCount(state): number {
+        return state.downloadQueue.filter((e) => e.status === 'pending' || e.status === 'downloading').length
     },
 }
