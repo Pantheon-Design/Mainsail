@@ -35,12 +35,6 @@
                             <v-icon>{{ mdiFolderPlus }}</v-icon>
                         </v-btn>
                         <v-btn
-                            title="Sync Now"
-                            class="px-2 minwidth-0 ml-3"
-                            @click="triggerFleetSync">
-                            <v-icon>{{ mdiSync }}</v-icon>
-                        </v-btn>
-                        <v-btn
                             title="Refresh"
                             class="px-2 minwidth-0 ml-3"
                             @click="loadFleetFiles">
@@ -1670,15 +1664,6 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         }
         target.value = ''
         await this.loadFleetFiles()
-    }
-
-    async triggerFleetSync() {
-        try {
-            await this.$store.dispatch('fleet/gcodes/triggerSync')
-            await this.loadFleetFiles()
-        } catch (e) {
-            console.error('Sync failed:', e)
-        }
     }
 
     // ------------------------------------------------------------------

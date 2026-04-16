@@ -104,16 +104,6 @@ export const actions: ActionTree<FleetGcodesState, RootState> = {
         }
     },
 
-    async triggerSync({ rootGetters }) {
-        const baseUrl = rootGetters['gui/fleetDaemonUrl']
-        try {
-            await axios.post(`${baseUrl}/gcodes/sync`)
-        } catch (error) {
-            const msg = extractError(error)
-            throw new Error(`Sync failed: ${msg}`)
-        }
-    },
-
     async createDirectory({ rootGetters }, path: string) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
