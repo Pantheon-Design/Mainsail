@@ -1048,6 +1048,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                 })
                 .map((f: any) => ({
                     ...f,
+                    fleetFilename: f.filename,
                     filename: f.filename.split('/').pop(),
                     isDirectory: false,
                     modified: new Date(f.modified_epoch * 1000),
@@ -1284,8 +1285,8 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
             } else if ((item as any).isFleetRemote) {
-                // Fleet remote file: download & print
-                this.fleetDownloadAndPrint(item.filename)
+                // Fleet remote file: download & print (use original fleet path)
+                this.fleetDownloadAndPrint((item as any).fleetFilename)
                 return
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state
