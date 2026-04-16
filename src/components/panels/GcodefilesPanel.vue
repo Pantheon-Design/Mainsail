@@ -328,6 +328,38 @@
                 </template>
             </v-data-table>
         </panel>
+        <!-- Fleet file action dialog -->
+        <v-dialog v-model="fleetDialog.show" max-width="420">
+            <v-card>
+                <v-card-title class="text-h6">
+                    <v-icon class="mr-2" color="info">{{ mdiCloudDownloadOutline }}</v-icon>
+                    Fleet File
+                </v-card-title>
+                <v-card-text>
+                    <div class="mb-2">
+                        <strong>{{ fleetDialog.filename }}</strong>
+                    </div>
+                    <div class="text--secondary text-body-2">
+                        This file is available on the fleet server. Download it to this printer to start printing.
+                    </div>
+                    <div v-if="fleetDialog.size > 0" class="text--secondary text-body-2 mt-1">
+                        Size: {{ formatFilesize(fleetDialog.size) }}
+                    </div>
+                </v-card-text>
+                <v-card-actions>
+                    <v-btn text @click="fleetDialog.show = false">Cancel</v-btn>
+                    <v-spacer></v-spacer>
+                    <v-btn color="primary" text @click="fleetDownloadOnly">
+                        <v-icon small class="mr-1">{{ mdiCloudDownloadOutline }}</v-icon>
+                        Download
+                    </v-btn>
+                    <v-btn color="primary" @click="fleetDownloadAndPrintFromDialog">
+                        <v-icon small class="mr-1">{{ mdiPlay }}</v-icon>
+                        Download &amp; Print
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
         <start-print-dialog
             :bool="dialogPrintFile.show"
             :file="dialogPrintFile.item"
@@ -724,6 +756,13 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     private dialogCreateDirectory = {
         show: false,
         name: '',
+    }
+
+    private fleetDialog = {
+        show: false,
+        filename: '',
+        fleetFilename: '',
+        size: 0,
     }
 
     private contextMenu: contextMenu = {
@@ -1285,8 +1324,11 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
             } else if ((item as any).isFleetRemote) {
-                // Fleet remote file: download & print (use original fleet path)
-                this.fleetDownloadAndPrint((item as any).fleetFilename)
+                // Fleet remote file: show download dialog
+                this.fleetDialog.show = true
+                this.fleetDialog.filename = item.filename
+                this.fleetDialog.fleetFilename = (item as any).fleetFilename
+                this.fleetDialog.size = (item as any).size ?? 0
                 return
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state
@@ -1619,14 +1661,39 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         return s === 'requesting' || s === 'downloading' || s === 'processing' || s === 'starting_print'
     }
 
+    fleetDownloadAndPrintFromDialog() {
+        const filename = this.fleetDialog.fleetFilename
+        this.fleetDialog.show = false
+        this.fleetDownloadAndPrint(filename)
+    }
+
+    fleetDownloadOnly() {
+        const filename = this.fleetDialog.fleetFilename
+        this.fleetDialog.show = false
+        this.fleetDownload(filename)
+    }
+
     async fleetDownloadAndPrint(filename: string) {
         if (this.isFleetDownloading) {
             this.$toast.warning('A fleet download is already in progress')
             return
         }
         try {
+            this.$toast.info(`Downloading & printing ${filename} from fleet...`)
+            this.$store.dispatch('fleet/downloadAndPrint', { filename })
+        } catch (e) {
+            this.$toast.error(`Fleet download failed: ${e}`)
+        }
+    }
+
+    async fleetDownload(filename: string) {
+        if (this.isFleetDownloading) {
+            this.$toast.warning('A fleet download is already in progress')
+            return
+        }
+        try {
             this.$toast.info(`Downloading ${filename} from fleet...`)
-            await this.$store.dispatch('fleet/downloadAndPrint', { filename })
+            this.$store.dispatch('fleet/download', { filename })
         } catch (e) {
             this.$toast.error(`Fleet download failed: ${e}`)
         }

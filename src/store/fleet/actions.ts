@@ -44,6 +44,14 @@ export const actions: ActionTree<FleetState, RootState> = {
         )
     },
 
+    download({ commit }, payload: { filename: string }) {
+        Vue.$socket.emit(
+            'server.fleet.download',
+            { filename: payload.filename },
+            { action: 'fleet/receiveDownloadResult' }
+        )
+    },
+
     receiveDownloadResult({ commit }, payload: any) {
         // Download completed and print started
         if (payload.status === 'started') {
