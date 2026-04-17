@@ -63,9 +63,12 @@ export const actions: ActionTree<FleetState, RootState> = {
     },
 
     // Called from WebSocket notification handler
-    onFilesChanged({ commit }, payload: any) {
+    onFilesChanged({ commit, dispatch }, payload: any) {
         if (payload.files) {
             commit('setFiles', payload.files)
+        } else {
+            // Fallback: if notification didn't include files, fetch them
+            dispatch('loadFiles')
         }
     },
 
