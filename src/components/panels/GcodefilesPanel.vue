@@ -205,6 +205,7 @@
 
         <!-- Download Queue Panel -->
         <panel
+            :title="'Download History'"
             :icon="mdiCloudDownloadOutline"
             card-class="download-queue-panel mt-4">
             <template #title>
