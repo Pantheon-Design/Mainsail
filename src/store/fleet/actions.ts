@@ -53,8 +53,13 @@ export const actions: ActionTree<FleetState, RootState> = {
     },
 
     receiveDownloadResult({ commit }, payload: any) {
-        // Download completed and print started
-        if (payload.status === 'started') {
+        if (payload.status === 'queued') {
+            // Download accepted — progress will come via notifications
+            commit('setDownloadStatus', {
+                filename: payload.filename,
+                status: 'downloading',
+            })
+        } else if (payload.status === 'started' || payload.status === 'already_local' || payload.status === 'downloaded') {
             commit('setDownloadStatus', {
                 filename: payload.filename,
                 status: 'complete',
