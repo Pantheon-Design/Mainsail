@@ -1306,7 +1306,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     }
 
     refreshMetadata(data: FileStateGcodefile[]) {
-        const items = data.filter((file) => !file.isDirectory && !file.metadataRequested && !file.metadataPulled)
+        const items = data.filter((file) => !file.isDirectory && !file.metadataRequested && !file.metadataPulled && !(file as any).isFleetRemote)
         this.$store.dispatch(
             'files/requestMetadata',
             items.map((file: FileStateGcodefile) => ({
