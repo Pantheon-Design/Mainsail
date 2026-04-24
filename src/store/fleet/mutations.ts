@@ -14,4 +14,8 @@ export const mutations: MutationTree<FleetState> = {
     setDownloadStatus(state, status: FleetDownloadStatus | null) {
         Vue.set(state, 'downloadStatus', status)
     },
+
+    setLastDownloadToastKey(state, key: string | null) {
+        Vue.set(state, 'lastDownloadToastKey', key)
+    },
 }

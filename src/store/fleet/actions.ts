@@ -77,9 +77,35 @@ export const actions: ActionTree<FleetState, RootState> = {
         }
     },
 
-    onDownloadStatus({ commit }, payload: any) {
-        if (payload.download_status) {
-            commit('setDownloadStatus', payload.download_status)
+    onDownloadStatus({ commit, state }, payload: any) {
+        const ds = payload?.download_status
+        commit('setDownloadStatus', ds ?? null)
+        if (!ds) return
+
+        const key = `${ds.filename}|${ds.status}`
+        if (key === state.lastDownloadToastKey) return
+
+        if (ds.status === 'complete') {
+            commit('setLastDownloadToastKey', key)
+            const base = ds.filename.split('/').pop() ?? ds.filename
+            Vue.$toast.success(`Fleet download complete: ${base}`)
+        } else if (ds.status === 'error') {
+            commit('setLastDownloadToastKey', key)
+            const base = ds.filename.split('/').pop() ?? ds.filename
+            const detail = ds.error ? `: ${ds.error}` : ''
+            Vue.$toast.error(`Fleet download failed — ${base}${detail}`)
+        }
+    },
+
+    onConnectionStatus({ commit, state }, payload: any) {
+        const connected = !!payload?.connected
+        if (connected === state.connected) return
+        commit('setConnected', connected)
+
+        if (connected) {
+            Vue.$toast.success('Moonraker reconnected to fleet_daemon')
+        } else {
+            Vue.$toast.error('Moonraker lost connection to fleet_daemon')
         }
     },
 }

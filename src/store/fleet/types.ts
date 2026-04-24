@@ -16,4 +16,5 @@ export interface FleetState {
     connected: boolean
     files: FleetFile[]
     downloadStatus: FleetDownloadStatus | null
+    lastDownloadToastKey: string | null
 }

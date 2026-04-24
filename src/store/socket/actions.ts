@@ -150,6 +150,10 @@ export const actions: ActionTree<SocketState, RootState> = {
                 dispatch('fleet/onDownloadStatus', payload.params[0], { root: true })
                 break
 
+            case 'notify_fleet_connection_status':
+                dispatch('fleet/onConnectionStatus', payload.params[0], { root: true })
+                break
+
             default:
                 window.console.debug(payload)
         }

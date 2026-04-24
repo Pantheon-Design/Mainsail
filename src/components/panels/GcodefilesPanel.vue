@@ -1,6 +1,17 @@
 <template>
     <div>
         <panel :title="$t('Files.GCodeFiles')" :icon="mdiFileDocumentMultipleOutline" card-class="gcode-files-panel">
+            <template v-if="hasFleetIntegration && !fleetConnected" #buttons-title>
+                <v-chip
+                    small
+                    color="error"
+                    text-color="white"
+                    class="ml-3"
+                    title="Moonraker lost its connection to fleet_daemon">
+                    <v-icon left small>{{ mdiAlertCircleOutline }}</v-icon>
+                    fleet_daemon offline
+                </v-chip>
+            </template>
             <v-card-text>
                 <v-row>
                     <v-col class="col-12 d-flex align-center">
@@ -667,6 +678,7 @@ import {
     mdiVideo3d,
     mdiFileDocumentEditOutline,
     mdiContentCopy,
+    mdiAlertCircleOutline,
 } from '@mdi/js'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
 import AddBatchToQueueDialog from '@/components/dialogs/AddBatchToQueueDialog.vue'
@@ -734,6 +746,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     mdiCheckboxBlankOutline = mdiCheckboxBlankOutline
     mdiCheckboxMarked = mdiCheckboxMarked
     mdiDragVertical = mdiDragVertical
+    mdiAlertCircleOutline = mdiAlertCircleOutline
 
     formatFilesize = formatFilesize
     formatPrintTime = formatPrintTime
@@ -1654,6 +1667,10 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     get fleetDownloadStatus() {
         return this.$store.state.fleet?.downloadStatus ?? null
+    }
+
+    get fleetConnected(): boolean {
+        return this.$store.state.fleet?.connected ?? false
     }
 
     get isFleetDownloading(): boolean {

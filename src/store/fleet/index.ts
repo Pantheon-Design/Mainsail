@@ -8,6 +8,7 @@ export const getDefaultState = (): FleetState => ({
     connected: false,
     files: [],
     downloadStatus: null,
+    lastDownloadToastKey: null,
 })
 
 const state = getDefaultState()
