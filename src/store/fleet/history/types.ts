@@ -28,6 +28,8 @@ export interface FleetHistoryRecord {
     qr_linked_at: string | null
     spool_qr_code: string | null
     gcode_archive_hash: string | null
+    telemetry_archive_path: string | null
+    telemetry_archive_status: string | null
     collected_at: string
     parts_count?: number
 }

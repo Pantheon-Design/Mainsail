@@ -247,6 +247,34 @@
                                     file deleted
                                 </v-chip>
                             </td></tr>
+                            <tr><td class="font-weight-bold">Telemetry</td><td>
+                                <v-btn
+                                    v-if="detailJob.telemetry_archive_status === 'archived'"
+                                    x-small
+                                    icon
+                                    title="Download per-print telemetry (.jsonl.gz)"
+                                    @click="downloadTelemetry(detailJob)"
+                                >
+                                    <v-icon x-small>{{ mdiDownload }}</v-icon>
+                                </v-btn>
+                                <v-chip
+                                    v-else-if="detailJob.telemetry_archive_status === 'unavailable'"
+                                    x-small
+                                    color="grey"
+                                    dark
+                                >
+                                    not available
+                                </v-chip>
+                                <v-chip
+                                    v-else-if="detailJob.telemetry_archive_status === 'corrupt'"
+                                    x-small
+                                    color="error"
+                                    dark
+                                >
+                                    corrupt
+                                </v-chip>
+                                <span v-else class="text--disabled">pending</span>
+                            </td></tr>
                             <tr><td class="font-weight-bold">Filament</td><td>{{ detailJob.filament_type || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Status</td><td>
                                 <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
@@ -701,6 +729,12 @@ export default class FleetHistoryListPanel extends Vue {
     downloadArchivedGcode(job: FleetHistoryRecord) {
         if (!job.gcode_archive_hash) return
         const url = `${this.fleetDaemonUrl}/archive/file/${job.gcode_archive_hash}`
+        window.open(url)
+    }
+
+    downloadTelemetry(job: FleetHistoryRecord) {
+        if (job.telemetry_archive_status !== 'archived') return
+        const url = `${this.fleetDaemonUrl}/archive/telemetry/file/${job.id}`
         window.open(url)
     }
 
