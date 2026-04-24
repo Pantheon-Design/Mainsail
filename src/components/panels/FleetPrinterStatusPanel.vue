@@ -31,6 +31,7 @@
             <!-- Simplified Map View -->
             <div class="simplified-map-container">
                 <div class="background-container">
+                    <map-drawing-overlay :editable="false" />
                     <div v-for="(printer, hostname) in fleetDaemonPrinters"
                          :key="hostname"
                          :style="getStyle(printer)"
@@ -65,6 +66,7 @@ import { Component, Mixins, Watch } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import Panel from '@/components/ui/Panel.vue'
 import SimplifiedPrinterMapPanel from '@/components/panels/SimplifiedPrinterMapPanel.vue'
+import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue'
 import Vue from 'vue'
 import { fleetDaemonClient } from '@/plugins/fleetDaemonClient'
 import {
@@ -81,6 +83,7 @@ import {
     components: {
         Panel,
         SimplifiedPrinterMapPanel,
+        MapDrawingOverlay,
     },
 })
 export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {

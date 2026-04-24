@@ -290,6 +290,9 @@ export const getDefaultState = (): GuiState => {
             },
         },
         fleetDaemonUrl: 'http://pantheonfleet.local:8090',
+        mapdrawing: {
+            strokes: [],
+        },
     }
 }
 

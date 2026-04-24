@@ -204,6 +204,16 @@ export interface GuiState {
         }
     }
     fleetDaemonUrl: string
+    mapdrawing: {
+        strokes: GuiStateMapDrawingStroke[]
+    }
+}
+
+export interface GuiStateMapDrawingStroke {
+    id: string
+    color: string
+    width: number
+    points: { x: number; y: number }[]
 }
 
 export interface GuiStateLayoutoption {

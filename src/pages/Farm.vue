@@ -10,6 +10,11 @@
             {{ isEditing ? 'Save' : 'Edit' }}
         </v-btn>
 
+        <!-- Draw Button (only visible in edit mode) -->
+        <v-btn v-if="isMapView && isEditing" @click="toggleDrawMode" class="mb-4 mr-4" :color="isDrawing ? 'primary' : undefined">
+            {{ isDrawing ? 'Done Drawing' : 'Draw' }}
+        </v-btn>
+
         <!-- Reconnect All Button -->
         <v-btn @click="reconnectAllFleetPrinters" class="mb-4 mr-4">
             Reconnect All
@@ -40,16 +45,17 @@
         <!-- Conditional Rendering of Views -->
         <div v-if="isMapView" class="map-container" @wheel="onScroll" @mousedown="startPan" @mousemove="onPan" @mouseup="endPan">
             <div class="background-container" :style="mapStyle">
+                <map-drawing-overlay :editable="isEditing && isDrawing" />
                 <div v-for="(printer, hostname) in fleetDaemonPrinters" :key="hostname"
                      :style="getStyle(printer)"
-                     :class="{ 'draggable': isEditing }"
+                     :class="{ 'draggable': isEditing && !isDrawing }"
                      :data-printer-id="hostname"
-                     @mousedown="isEditing ? startDrag($event, printer, hostname) : null"
+                     @mousedown="isEditing && !isDrawing ? startDrag($event, printer, hostname) : null"
                      @mouseover="showTooltip(printer, $event)"
                      @mouseleave="hideTooltip">
                     <div :style="spinningBorderStyle(printer)"></div>
 
-                    <farm-printer-map-panel :printer="printer" :isEditing="isEditing"></farm-printer-map-panel>
+                    <farm-printer-map-panel :printer="printer" :isEditing="isEditing && !isDrawing"></farm-printer-map-panel>
                 </div>
 
                 <!-- Tooltip: Shows printer details on hover -->
@@ -84,6 +90,7 @@
     import BaseMixin from '@/components/mixins/base';
     import FarmPrinterPanel from '@/components/panels/FarmPrinterPanel.vue';
     import FarmPrinterMapPanel from '@/components/panels/FarmPrinterMapPanel.vue';
+    import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue';
     import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue';
     import Vue from 'vue';
     import { fleetDaemonClient } from '@/plugins/fleetDaemonClient';
@@ -92,12 +99,14 @@
         components: {
             FarmPrinterPanel,
             FarmPrinterMapPanel,
+            MapDrawingOverlay,
             SettingsRemotePrintersTab,
         },
     })
     export default class PageFarm extends Mixins(BaseMixin) {
         isMapView = true;
         isEditing = false;
+        isDrawing = false;
 
         // Map view properties
         draggingPrinter: any = null;
@@ -205,6 +214,11 @@
 
         toggleEditMode() {
             this.isEditing = !this.isEditing;
+            if (!this.isEditing) this.isDrawing = false;
+        }
+
+        toggleDrawMode() {
+            this.isDrawing = !this.isDrawing;
         }
 
         refreshPrinterList() {
