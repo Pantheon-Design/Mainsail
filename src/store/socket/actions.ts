@@ -37,8 +37,9 @@ export const actions: ActionTree<SocketState, RootState> = {
             commit('server/updateManager/setStatus', { busy: false }, { root: true })
     },
 
-    onClose({ commit }) {
+    onClose({ commit, dispatch }) {
         commit('setDisconnected')
+        dispatch('exclusiveLock/release', null, { root: true })
     },
 
     onMessage({ commit, dispatch }, payload) {
@@ -131,7 +132,7 @@ export const actions: ActionTree<SocketState, RootState> = {
             case 'notify_active_spool_set':
                 dispatch('server/spoolman/getActiveSpoolId', payload.params[0], { root: true })
                 break
-                
+
             case 'notify_usage_updated':
                 //Vue.$toast.success(payload.params[0])
                 dispatch('server/spoolTracker/handleUsageUpdate', payload.params[0], { root: true })

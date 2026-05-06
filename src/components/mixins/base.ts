@@ -29,6 +29,14 @@ export default class BaseMixin extends Vue {
         return this.$store.state.socket.initializationList.length === 0
     }
 
+    get isExclusivelyBlocked(): boolean {
+        return this.$store.state.exclusiveLock?.status === 'blocked'
+    }
+
+    get isExclusiveLockChecking(): boolean {
+        return this.$store.state.exclusiveLock?.status === 'checking'
+    }
+
     get klippyIsConnected(): boolean {
         return this.$store.state.server.klippy_connected ?? false
     }

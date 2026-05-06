@@ -1,6 +1,6 @@
 <template>
     <v-app :style="cssVars">
-        <template v-if="socketIsConnected && guiIsReady">
+        <template v-if="socketIsConnected && guiIsReady && !isExclusivelyBlocked">
             <the-sidebar />
             <the-topbar />
             <v-main id="content" :style="mainStyle">
@@ -19,6 +19,7 @@
             <the-screws-tilt-adjust-dialog />
             <the-macro-prompt />
         </template>
+        <the-exclusive-locked-dialog v-else-if="isExclusivelyBlocked" />
         <the-select-printer-dialog v-else-if="instancesDB !== 'moonraker'" />
         <the-connecting-dialog v-else />
     </v-app>
@@ -33,6 +34,7 @@ import TheTopbar from '@/components/TheTopbar.vue'
 import { Mixins, Watch } from 'vue-property-decorator'
 import TheUpdateDialog from '@/components/TheUpdateDialog.vue'
 import TheConnectingDialog from '@/components/TheConnectingDialog.vue'
+import TheExclusiveLockedDialog from '@/components/TheExclusiveLockedDialog.vue'
 import TheSelectPrinterDialog from '@/components/TheSelectPrinterDialog.vue'
 import TheEditor from '@/components/TheEditor.vue'
 import { panelToolbarHeight, topbarHeight, navigationItemHeight } from '@/store/variables'
@@ -55,6 +57,7 @@ Component.registerHooks(['metaInfo'])
         TheEditor,
         TheSelectPrinterDialog,
         TheConnectingDialog,
+        TheExclusiveLockedDialog,
         TheUpdateDialog,
         TheTopbar,
         TheSidebar,
@@ -302,8 +305,6 @@ export default class App extends Mixins(BaseMixin, ThemeMixin) {
             }
         }
     }
-
-
 
     @Watch('customFavicons')
     customFaviconsChanged(): void {

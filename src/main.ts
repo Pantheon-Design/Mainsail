@@ -88,6 +88,10 @@ const initLoad = async () => {
     const url = store.getters['socket/getWebsocketUrl']
     Vue.use(WebSocketPlugin, { url, store })
     if (store?.state?.instancesDB === 'moonraker') Vue.$socket.connect()
+
+    window.addEventListener('beforeunload', () => {
+        store.dispatch('exclusiveLock/releaseOnUnload')
+    })
 }
 
 initLoad().then(() =>

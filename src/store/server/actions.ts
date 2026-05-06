@@ -52,6 +52,7 @@ export const actions: ActionTree<ServerState, RootState> = {
     setConnectionId({ commit, dispatch }, payload) {
         commit('setConnectionId', payload.connection_id)
         dispatch('socket/removeInitModule', 'server/identify', { root: true })
+        dispatch('exclusiveLock/init', null, { root: true })
     },
 
     checkDatabases({ dispatch, commit }, payload) {
