@@ -73,7 +73,7 @@
         },
         "TopBar": {
             "CannotUploadTheFile": "Cannot upload the file!",
-            "EmergencyStop": "Emergency Stop",
+            "EmergencyStop": "Stop",
             "SAVE_CONFIG": "SAVE CONFIG",
             "Uploading": "Uploading",
             "UploadOfFileSuccessful": "Upload of {file} successful!",
@@ -197,7 +197,7 @@
     },
     "EmergencyStopDialog": {
         "AreYouSure": "Are you sure?",
-        "EmergencyStop": "Emergency Stop",
+        "EmergencyStop": "Stop",
         "No": "No",
         "Yes": "Yes"
     },
@@ -1160,8 +1160,8 @@
             "BoolHideUploadAndPrintButtonDescription": "Show or hide the \"Upload and Print\" button in the top bar.",
             "ConfirmOnCoolDown": "Require confirm on CoolDown",
             "ConfirmOnCoolDownDescription": "Show a confirmation dialog on CoolDown",
-            "ConfirmOnEmergencyStop": "Require confirm on Emergency Stop",
-            "ConfirmOnEmergencyStopDescription": "Show a confirmation dialog on Emergency Stop",
+            "ConfirmOnEmergencyStop": "Require confirm on Stop",
+            "ConfirmOnEmergencyStopDescription": "Show a confirmation dialog on Stop",
             "ConfirmOnPowerDeviceChange": "Require confirm on Device Power changes",
             "ConfirmOnPowerDeviceChangeDescription": "Show a confirmation dialog on Device Power changes",
             "DefaultNavigationState": "Navigation default state",

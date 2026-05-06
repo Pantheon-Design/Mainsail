@@ -214,20 +214,7 @@
                     <v-icon class="mr-1">{{ mdiRenameBox }}</v-icon>
                     {{ $t('Machine.ConfigFilesPanel.Rename') }}
                 </v-list-item>
-                <v-list-item
-                    v-if="!contextMenu.item.isDirectory && contextMenu.item.permissions.includes('w')"
-                    class="red--text"
-                    @click="deleteDialog = true">
-                    <v-icon class="mr-1" color="error">{{ mdiDelete }}</v-icon>
-                    {{ $t('Machine.ConfigFilesPanel.Delete') }}
-                </v-list-item>
-                <v-list-item
-                    v-if="contextMenu.item.isDirectory && contextMenu.item.permissions.includes('w')"
-                    class="red--text"
-                    @click="deleteDirectory(contextMenu.item)">
-                    <v-icon class="mr-1" color="error">{{ mdiDelete }}</v-icon>
-                    {{ $t('Machine.ConfigFilesPanel.Delete') }}
-                </v-list-item>
+                <!-- delete entries removed: config files are read-only from Mainsail -->
             </v-list>
         </v-menu>
         <v-dialog
@@ -759,17 +746,7 @@ export default class ConfigFilesPanel extends Mixins(BaseMixin, ThemeMixin) {
                     this.downloadSelectedFiles()
                 },
             },
-            {
-                text: this.$t('Machine.ConfigFilesPanel.Delete'),
-                color: 'error',
-                icon: mdiDelete,
-                loadingName: null,
-                onlyWriteable: true,
-                condition: this.selectedFiles.length > 0,
-                click: () => {
-                    this.deleteSelectedDialog = true
-                },
-            },
+            // bulk delete removed: config files are read-only from Mainsail
             {
                 text: this.$t('Machine.ConfigFilesPanel.UploadFile'),
                 color: this.machineButtonCol,

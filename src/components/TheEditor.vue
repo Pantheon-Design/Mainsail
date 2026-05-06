@@ -70,7 +70,8 @@
                         ref="editor"
                         v-model="sourcecode"
                         :name="filename"
-                        :file-extension="fileExtension" />
+                        :file-extension="fileExtension"
+                        :readonly="!isWriteable" />
                 </v-card-text>
             </panel>
         </v-dialog>
@@ -139,7 +140,7 @@
             <panel
                 card-class="editor-confirm-change-dialog custom-title"
                 :icon="mdiHelpCircle"
-                :title="('WARNING')"
+                :title="'WARNING'"
                 :margin-bottom="false">
                 <template #buttons>
                     <v-btn icon tile @click="dialogConfirmFeaturesChange = false">
@@ -149,8 +150,17 @@
                 <v-card-text class="pt-3">
                     <v-row>
                         <v-col>
-                            <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
-                            <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
+                            <p class="body-1 mb-2">
+                                {{
+                                    'Do you want to save your changes made to features.yml' +
+                                    ' and regenerate printer.cfg?'
+                                }}
+                            </p>
+                            <p class="body-1 mb-2">
+                                {{
+                                    'Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups'
+                                }}
+                            </p>
                         </v-col>
                     </v-row>
                 </v-card-text>
@@ -161,7 +171,7 @@
                     </v-btn>
                     <template v-if="restartServiceName === 'features'">
                         <v-btn text color="primary" @click="saveAndRegenerate">
-                            {{ ('SAVE AND GENERATE') }}
+                            {{ 'SAVE AND GENERATE' }}
                         </v-btn>
                     </template>
                 </v-card-actions>
@@ -183,16 +193,24 @@
                     <v-row>
                         <template v-if="restartServiceName === 'features'">
                             <v-col>
-                                <p class="body-1 mb-2">{{ ('Do you want to save your changes made to features.yml')+(' and regenerate printer.cfg?') }}</p>
-                                <p class="body-1 mb-2">{{ ('Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups') }}</p>
+                                <p class="body-1 mb-2">
+                                    {{
+                                        'Do you want to save your changes made to features.yml' +
+                                        ' and regenerate printer.cfg?'
+                                    }}
+                                </p>
+                                <p class="body-1 mb-2">
+                                    {{
+                                        'Regenerating printer.cfg will overwrite any changes you have made!\nYour old printer.cfg can be recovered from config/backups'
+                                    }}
+                                </p>
                             </v-col>
                         </template>
                         <template v-if="restartServiceName !== 'features'">
                             <v-col>
-                                <p class="body-1 mb-2">{{ ('Changing features.yml while printing is not allowed') }}</p>
+                                <p class="body-1 mb-2">{{ 'Changing features.yml while printing is not allowed' }}</p>
                             </v-col>
                         </template>
-
                     </v-row>
                 </v-card-text>
                 <v-card-actions>
@@ -424,13 +442,12 @@ export default class TheEditor extends Mixins(BaseMixin) {
     }
 
     close(restartServiceName: string | null = null) {
-        if (this.filename == 'features.yml'){
+        if (this.filename == 'features.yml') {
             if (this.confirmUnsavedChanges) this.promptFeaturesUnsavedChanges()
             else this.$store.dispatch('editor/close')
         } else {
             if (this.confirmUnsavedChanges) this.promptUnsavedChanges()
             else this.$store.dispatch('editor/close')
-
         }
     }
 
@@ -465,7 +482,6 @@ export default class TheEditor extends Mixins(BaseMixin) {
         this.dialogConfirmChange = false
         this.dialogConfirmFeaturesChange = true
         this.dialogConfirmCloseFeatures = false
-
     }
 
     saveAndRegenerate() {
@@ -473,10 +489,8 @@ export default class TheEditor extends Mixins(BaseMixin) {
         this.dialogConfirmFeaturesChange = false
         this.dialogConfirmCloseFeatures = false
         this.$store.dispatch('editor/regeneratePrinterConfig', {
-            content: this.sourcecode
+            content: this.sourcecode,
         })
-
-
     }
 
     @Watch('changed')
@@ -543,6 +557,5 @@ export default class TheEditor extends Mixins(BaseMixin) {
 
 .custom-title {
     color: orange; /* Change to desired color */
-    
 }
 </style>

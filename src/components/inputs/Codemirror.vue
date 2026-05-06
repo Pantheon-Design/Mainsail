@@ -55,6 +55,9 @@ export default class Codemirror extends Mixins(BaseMixin) {
     @Prop({ required: false, default: '' })
     declare readonly fileExtension: string
 
+    @Prop({ required: false, default: false })
+    declare readonly readonly: boolean
+
     @Watch('value')
     valueChanged(newVal: string) {
         const cm_value = this.cminstance?.state?.doc.toString()
@@ -100,6 +103,7 @@ export default class Codemirror extends Mixins(BaseMixin) {
             basicSetup,
             indentUnit.of(' '.repeat(this.tabSize)),
             keymap.of([indentWithTab]),
+            EditorState.readOnly.of(this.readonly),
             EditorView.updateListener.of((update) => {
                 this.content = update.state?.doc.toString()
                 if (this.$emit) {
@@ -113,13 +117,18 @@ export default class Codemirror extends Mixins(BaseMixin) {
             extensions.push(yaml())
             extensions.push(syntaxHighlighting(yamlHighlightStyle))
             // Add dark background theme for YAML
-            extensions.push(EditorView.theme({
-                '&': { backgroundColor: '#1e1e1e' },
-                '.cm-content': { caretColor: '#fff' },
-                '.cm-gutters': { backgroundColor: '#1e1e1e', borderRight: '1px solid #333' },
-                '.cm-activeLineGutter': { backgroundColor: '#2a2a2a' },
-                '.cm-activeLine': { backgroundColor: '#2a2a2a' },
-            }, { dark: true }))
+            extensions.push(
+                EditorView.theme(
+                    {
+                        '&': { backgroundColor: '#1e1e1e' },
+                        '.cm-content': { caretColor: '#fff' },
+                        '.cm-gutters': { backgroundColor: '#1e1e1e', borderRight: '1px solid #333' },
+                        '.cm-activeLineGutter': { backgroundColor: '#2a2a2a' },
+                        '.cm-activeLine': { backgroundColor: '#2a2a2a' },
+                    },
+                    { dark: true }
+                )
+            )
         } else {
             extensions.push(vscodeDark)
 
