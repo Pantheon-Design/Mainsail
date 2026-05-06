@@ -60,6 +60,7 @@ import WebcamWrapper from '@/components/webcams/WebcamWrapper.vue'
 import { GuiWebcamStateWebcam } from '@/store/gui/webcams/types'
 import ThemeMixin from '@/components/mixins/theme'
 import { Watch } from 'vue-property-decorator'
+import { displayFilamentType } from '@/components/panels/farmPrinterStatus'
 
 @Component({
     components: {
@@ -166,15 +167,42 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     clickPrinter() {
-        //this.$toast.success(JSON.stringify(this.printer, null, 2));
-        //this.$toast.success(this.$store.state.gui?.remoteprinters?.printers);
-        
-        if (this.printer.socket.isConnected) {
-            //this.$store.dispatch('changePrinter', { printer: this.printer._namespace })
-            window.open(this.getPrinterUrl());
-        }
-        else this.$store.dispatch('farm/' + this.printer._namespace + '/reconnect')
-        
+        const hostname = this.printer.socket?.hostname ?? '(unknown hostname)'
+        const namespace = this.printer._namespace
+
+        // Full FarmPrinterState for this printer (live moonraker data lives here)
+        console.groupCollapsed(`[FleetPrinter] ${hostname} (${namespace})`)
+        console.log('printer (full FarmPrinterState):', this.printer)
+        console.log('socket:', this.printer.socket)
+        console.log('print_stats:', this.printer.print_stats)
+        console.log('virtual_sdcard:', this.printer.virtual_sdcard)
+        console.log('toolhead:', this.printer.toolhead)
+        console.log('webhooks:', this.printer.webhooks)
+        console.log('current_file:', (this.printer as any).current_file)
+        console.log('fleet_to_printer_ws:', (this.printer as any).fleet_to_printer_ws)
+
+        // Cross-reference: matching entry from the fleet daemon printers map in the store
+        const fleetDaemonPrinters = this.$store.state.farm?.fleetDaemonPrinters || {}
+        const fleetDaemonEntry =
+            fleetDaemonPrinters[hostname] ||
+            Object.values(fleetDaemonPrinters).find(
+                (p: any) => p?.socket?.hostname?.toLowerCase() === hostname.toLowerCase()
+            )
+        console.log('fleetDaemonPrinters entry:', fleetDaemonEntry)
+
+        // Cross-reference: configured remote printer record (position, model, port, etc.)
+        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
+        const remotePrinterEntry = Object.entries(remotePrinters).find(
+            ([, p]: [string, any]) => p?.hostname?.toLowerCase() === hostname.toLowerCase()
+        )
+        console.log('remoteprinters config entry:', remotePrinterEntry?.[1])
+
+        // Store getters for this printer namespace
+        console.log('getters/getStatus:', this.$store.getters['farm/' + namespace + '/getStatus'])
+        console.log('getters/getCurrentFilename:', this.$store.getters['farm/' + namespace + '/getCurrentFilename'])
+        console.log('getters/getPosition:', this.$store.getters['farm/' + namespace + '/getPosition'])
+        console.log('getters/getPrinterWebcams:', this.$store.getters['farm/' + namespace + '/getPrinterWebcams'])
+        console.groupEnd()
     }
 
     mounted() {
@@ -233,27 +261,7 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     get displayFilamentType(): string {
-        const filament = this.printer?.toolhead?.filament_type;
-
-        // Return abbreviations for known types
-        switch (filament) {
-            case "PA-CF":
-                return "CN";
-            case "PA-GF":
-                return "GN";
-            case "PETG-CF":
-                return "CP";
-            case "TPU":
-                return "FL";
-        }
-
-        // For unknown or long custom names: first 2 + "..." + last char
-        if (filament && filament.length > 4) {
-            return `${filament.slice(0, 2)}...${filament.slice(-1)}`;
-        }
-
-        // Otherwise return as-is (short custom names, null, etc.)
-        return filament || "";
+        return displayFilamentType((this.printer as any)?.toolhead?.filament_type)
     }
 
 

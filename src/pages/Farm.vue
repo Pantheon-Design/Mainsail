@@ -2,16 +2,16 @@
     <div>
         <!-- Toggle Button -->
         <v-switch v-model="isMapView"
-                  :label="isMapView ? 'Switch to List View' : 'Switch to Map View'"
+                  :label="isMapView ? 'Switch to Grid Map' : 'Switch to Free Map'"
                   class="mb-4 custom-width-switch" />
 
         <!-- Edit/Save Button -->
-        <v-btn v-if="isMapView" @click="toggleEditMode" class="mb-4 mr-4">
+        <v-btn @click="toggleEditMode" class="mb-4 mr-4">
             {{ isEditing ? 'Save' : 'Edit' }}
         </v-btn>
 
         <!-- Draw Button (only visible in edit mode) -->
-        <v-btn v-if="isMapView && isEditing" @click="toggleDrawMode" class="mb-4 mr-4" :color="isDrawing ? 'primary' : undefined">
+        <v-btn v-if="isEditing" @click="toggleDrawMode" class="mb-4 mr-4" :color="isDrawing ? 'primary' : undefined">
             {{ isDrawing ? 'Done Drawing' : 'Draw' }}
         </v-btn>
 
@@ -73,14 +73,43 @@
             </div>
         </div>
 
-        <div v-else>
-            <v-row>
-                <v-col v-for="(printer, hostname) in fleetDaemonPrinters"
-                       :key="hostname"
-                       class="col-12 col-sm-6 col-md-4 pb-0">
-                    <farm-printer-panel :hostname="hostname" :printer-data="printer" />
-                </v-col>
-            </v-row>
+        <div v-else class="grid-container">
+            <div class="grid-background"
+                 :style="{
+                     width: GRID_W + 'px',
+                     height: GRID_H + 'px',
+                     backgroundColor: gridBackgroundColor
+                 }">
+                <!-- Grid lines -->
+                <div class="grid-lines"
+                     :style="{
+                         backgroundImage: gridLinesBackgroundImage,
+                         backgroundSize: gridCellWidth + 'px ' + gridCellHeight + 'px'
+                     }"></div>
+
+                <!-- Drawing overlay (scales onto the grid canvas) -->
+                <map-drawing-overlay :editable="isEditing && isDrawing"
+                                     :width="GRID_W"
+                                     :height="GRID_H"
+                                     storage-key="mapdrawing.gridStrokes" />
+
+                <!-- Drag ghost (target cell highlight) -->
+                <div v-if="gridDragGhost" :style="gridGhostStyle()"></div>
+
+                <!-- Printer tiles -->
+                <div v-for="(printer, hostname) in fleetDaemonPrinters"
+                     :key="hostname"
+                     :style="gridCellStyle(getPrinterGridPosition(hostname).x, getPrinterGridPosition(hostname).y)"
+                     :class="{ 'grid-printer': true, 'draggable': isEditing && !isDrawing }"
+                     :data-printer-id="hostname"
+                     @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null">
+                    <farm-printer-grid-panel
+                        :printer="printer"
+                        :is-editing="isEditing && !isDrawing"
+                        :model="getPrinterModel(hostname)"
+                        :fleet-daemon-connected="$store.state.farm.fleetDaemonConnected" />
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -88,17 +117,21 @@
 <script lang="ts">
     import { Component, Mixins, Watch } from 'vue-property-decorator';
     import BaseMixin from '@/components/mixins/base';
-    import FarmPrinterPanel from '@/components/panels/FarmPrinterPanel.vue';
     import FarmPrinterMapPanel from '@/components/panels/FarmPrinterMapPanel.vue';
+    import FarmPrinterGridPanel from '@/components/panels/FarmPrinterGridPanel.vue';
     import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue';
     import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue';
     import Vue from 'vue';
     import { fleetDaemonClient } from '@/plugins/fleetDaemonClient';
+    import {
+        getPrinterStatus as getPrinterStatusUtil,
+        getStatusBorderStyle,
+    } from '@/components/panels/farmPrinterStatus';
 
     @Component({
         components: {
-            FarmPrinterPanel,
             FarmPrinterMapPanel,
+            FarmPrinterGridPanel,
             MapDrawingOverlay,
             SettingsRemotePrintersTab,
         },
@@ -108,12 +141,23 @@
         isEditing = false;
         isDrawing = false;
 
+        // Grid view configuration
+        readonly GRID_COLS = 20;
+        readonly GRID_ROWS = 15;
+        readonly GRID_W = 2400;
+        readonly GRID_H = 1800;
+
         // Map view properties
         draggingPrinter: any = null;
         draggingHostname: string = '';
         offsetX: number = 0;
         offsetY: number = 0;
         positions: { [id: string]: { x: number, y: number } } = {};
+
+        // Grid view properties
+        gridPositions: { [id: string]: { x: number, y: number } } = {};
+        draggingGridHostname: string = '';
+        gridDragGhost: { x: number, y: number } | null = null;
 
         // Zooming and panning
         scale: number = 1;
@@ -156,58 +200,36 @@
             return counts;
         }
 
-        // Determine printer status using same logic as spinningBorderStyle
         getPrinterStatus(printer: any): 'disconnected' | 'error' | 'printing' | 'complete' | 'ready' {
-            const fleetDisconnected = printer.fleet_to_printer_ws === false;
-
-            // 1. Fleet to printer WS is disconnected
-            if (fleetDisconnected) {
-                return 'disconnected';
-            }
-
-            // 2. Fleet daemon WebSocket is down or printer connection is down
-            if (!this.$store.state.farm.fleetDaemonConnected || !printer.socket?.isConnected) {
-                return 'disconnected';
-            }
-
-            // 3. Webhook shutdown
-            if (printer.webhooks?.state === 'shutdown') {
-                return 'error';
-            }
-
-            // 4. Check print_stats state
-            const state = printer.print_stats?.state;
-            if (state === 'printing') {
-                return 'printing';
-            } else if (state === 'error' || state === 'paused' || state === 'cancelled') {
-                return 'error';
-            } else if (state === 'complete') {
-                return 'complete';
-            } else if (state === 'standby') {
-                return 'ready';
-            }
-
-            // Default to disconnected if state is unknown
-            return 'disconnected';
+            return getPrinterStatusUtil(printer, this.$store.state.farm.fleetDaemonConnected);
         }
 
         mounted() {
-            // Load saved positions from remoteprinters config
             this.loadPrinterPositions();
+            this.loadGridPositions();
         }
 
         // Re-load positions when the remoteprinters store updates (e.g. after async DB load)
         @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
         onRemotePrintersChanged() {
             this.loadPrinterPositions();
+            this.loadGridPositions();
         }
 
         loadPrinterPositions() {
-            // Load positions from remoteprinters config if available
             const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
             Object.entries(remotePrinters).forEach(([id, printer]: [string, any]) => {
                 if (printer.hostname && printer.position) {
                     Vue.set(this.positions, printer.hostname.toLowerCase(), printer.position);
+                }
+            });
+        }
+
+        loadGridPositions() {
+            const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
+            Object.entries(remotePrinters).forEach(([id, printer]: [string, any]) => {
+                if (printer.hostname && printer.gridPosition) {
+                    Vue.set(this.gridPositions, printer.hostname.toLowerCase(), printer.gridPosition);
                 }
             });
         }
@@ -347,6 +369,128 @@
             return null;
         }
 
+        // ========= Grid view ==========
+        get gridCellWidth(): number {
+            return this.GRID_W / this.GRID_COLS;
+        }
+
+        get gridCellHeight(): number {
+            return this.GRID_H / this.GRID_ROWS;
+        }
+
+        get gridBackgroundColor(): string {
+            return this.$vuetify.theme.dark ? '#1e1e1f' : '#fafafa';
+        }
+
+        get gridLinesBackgroundImage(): string {
+            const stroke = this.$vuetify.theme.dark
+                ? 'rgba(255, 255, 255, 0.08)'
+                : 'rgba(0, 0, 0, 0.12)';
+            return `linear-gradient(to right, ${stroke} 1px, transparent 1px),
+                    linear-gradient(to bottom, ${stroke} 1px, transparent 1px)`;
+        }
+
+        getPrinterGridPosition(hostname: string): { x: number, y: number } {
+            const key = hostname.toLowerCase();
+            if (this.gridPositions[key]) return this.gridPositions[key];
+
+            const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
+            for (const printer of Object.values(remotePrinters)) {
+                if ((printer as any).hostname?.toLowerCase() === key && (printer as any).gridPosition) {
+                    Vue.set(this.gridPositions, key, (printer as any).gridPosition);
+                    return (printer as any).gridPosition;
+                }
+            }
+            return { x: 1, y: 1 };
+        }
+
+        gridCellStyle(gx: number, gy: number) {
+            return {
+                position: 'absolute',
+                left: ((gx - 1) * this.gridCellWidth) + 'px',
+                top: ((gy - 1) * this.gridCellHeight) + 'px',
+                width: this.gridCellWidth + 'px',
+                height: this.gridCellHeight + 'px',
+            };
+        }
+
+        gridGhostStyle() {
+            if (!this.gridDragGhost) return { display: 'none' };
+            return {
+                position: 'absolute',
+                left: ((this.gridDragGhost.x - 1) * this.gridCellWidth) + 'px',
+                top: ((this.gridDragGhost.y - 1) * this.gridCellHeight) + 'px',
+                width: this.gridCellWidth + 'px',
+                height: this.gridCellHeight + 'px',
+                backgroundColor: 'rgba(33, 150, 243, 0.25)',
+                border: '2px dashed #2196f3',
+                pointerEvents: 'none',
+                zIndex: 3,
+                boxSizing: 'border-box',
+            };
+        }
+
+        startGridDrag(event: MouseEvent, printer: any, hostname: string) {
+            event.preventDefault();
+            this.draggingPrinter = printer;
+            this.draggingGridHostname = hostname;
+            const current = this.getPrinterGridPosition(hostname);
+            this.gridDragGhost = { x: current.x, y: current.y };
+
+            document.addEventListener('mousemove', this.onGridDrag);
+            document.addEventListener('mouseup', this.stopGridDrag);
+        }
+
+        onGridDrag(event: MouseEvent) {
+            if (!this.draggingGridHostname) return;
+            const container = document.querySelector('.grid-background') as HTMLElement | null;
+            if (!container) return;
+
+            const rect = container.getBoundingClientRect();
+            const rawX = event.clientX - rect.left;
+            const rawY = event.clientY - rect.top;
+
+            const gx = Math.min(this.GRID_COLS, Math.max(1, Math.floor(rawX / this.gridCellWidth) + 1));
+            const gy = Math.min(this.GRID_ROWS, Math.max(1, Math.floor(rawY / this.gridCellHeight) + 1));
+
+            this.gridDragGhost = { x: gx, y: gy };
+        }
+
+        stopGridDrag() {
+            document.removeEventListener('mousemove', this.onGridDrag);
+            document.removeEventListener('mouseup', this.stopGridDrag);
+
+            if (this.draggingGridHostname && this.gridDragGhost) {
+                Vue.set(this.gridPositions, this.draggingGridHostname.toLowerCase(), { ...this.gridDragGhost });
+                this.updatePrinterGridPosition(this.draggingGridHostname, this.gridDragGhost.x, this.gridDragGhost.y);
+            }
+
+            this.draggingPrinter = null;
+            this.draggingGridHostname = '';
+            this.gridDragGhost = null;
+        }
+
+        updatePrinterGridPosition(hostname: string, gx: number, gy: number) {
+            const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {};
+            let printerId: string | null = null;
+
+            const key = hostname.toLowerCase();
+            for (const [id, printer] of Object.entries(remotePrinters)) {
+                if ((printer as any).hostname?.toLowerCase() === key) {
+                    printerId = id;
+                    break;
+                }
+            }
+
+            if (printerId) {
+                this.$store.dispatch('gui/remoteprinters/updateOnDrag', {
+                    id: printerId,
+                    values: { gridPosition: { x: gx, y: gy } },
+                });
+            }
+        }
+        // ========= /Grid view ==========
+
          getStyle(printer: any) {
             const hostname = printer.socket?.hostname || '';
             // Local positions cache (updated by drag) takes priority, then socket data, then store lookup
@@ -373,115 +517,7 @@
         spinningBorderStyle(printer: any) {
             const hostname = printer.socket?.hostname || '';
             const model = printer.socket?.printerModel || this.getPrinterModel(hostname);
-            const isSquare = model === 'HS-Pro';
-
-            const fleetDisconnected = printer.fleet_to_printer_ws === false;
-
-            // ✅ 1. FLEET TO PRINTER WS is disconnected = GRAY
-            if (fleetDisconnected) {
-                return {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: isSquare ? '0%' : '50%',
-                    border: '0.25em solid gray',
-                    zIndex: 2,
-                    pointerEvents: 'none',
-                };
-            }
-
-            // ✅ 2. Fleet daemon WebSocket or printer connection is down = GRAY
-            if (!this.$store.state.farm.fleetDaemonConnected || !printer.socket?.isConnected) {
-                return {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: isSquare ? '0%' : '50%',
-                    border: '0.25em solid gray',
-                    zIndex: 2,
-                    pointerEvents: 'none',
-                };
-            }
-
-            // ✅ 3. Webhook shutdown = RED
-            if (printer.webhooks?.state === 'shutdown') {
-                return {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: isSquare ? '0%' : '50%',
-                    border: '0.25em solid red',
-                    zIndex: 2,
-                    pointerEvents: 'none',
-                };
-            }
-
-            // ✅ 4. Printing = spinning animation
-            const state = printer.print_stats?.state;
-            if (state === 'printing') {
-                if (isSquare) {
-                    return {
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        borderRadius: '0%',
-                        background: `conic-gradient(transparent 0%, blue 10%, transparent 90%)`,
-                        mask: `
-                            linear-gradient(#fff 0 0) content-box,
-                            linear-gradient(#fff 0 0)
-                        `,
-                        maskComposite: 'subtract',
-                        padding: '0.25em',
-                        animation: 'spin 2s linear infinite',
-                        zIndex: 2,
-                        pointerEvents: 'none',
-                    };
-                } else {
-                    return {
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        borderRadius: '50%',
-                        background: `conic-gradient(transparent 0%, blue 10%, transparent 90%)`,
-                        mask: "radial-gradient(farthest-side, transparent calc(100% - 0.3em), black calc(100% - 0.3em))",
-                        animation: 'spin 2s linear infinite',
-                        zIndex: 2,
-                        pointerEvents: 'none',
-                    };
-                }
-            }
-
-            // ✅ 5. Other states
-            let color = 'gray';
-            if (state === 'error' || state === 'paused' || state === 'cancelled') {
-                color = 'red';
-            } else if (state === 'complete') {
-                color = 'blue';
-            } else if (state === 'standby') {
-                color = 'hsl(90, 100%, 32%)';
-            }
-
-            return {
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                borderRadius: isSquare ? '0%' : '50%',
-                border: `0.25em solid ${color}`,
-                zIndex: 2,
-                pointerEvents: 'none',
-            };
+            return getStatusBorderStyle(printer, model, this.$store.state.farm.fleetDaemonConnected, 0.25);
         }
 
 
@@ -673,6 +709,37 @@
 
     .pulsing-text {
         animation: pulse 1.5s infinite;
+    }
+
+    /* ========= Grid Map view ========= */
+    .grid-container {
+        position: relative;
+        width: 100%;
+        overflow: auto;
+    }
+
+    .grid-background {
+        position: relative;
+    }
+
+    .grid-lines {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .grid-printer {
+        z-index: 1;
+        box-sizing: border-box;
+        padding: 4px;
+    }
+
+    .grid-printer.draggable {
+        cursor: move;
     }
 
 </style>

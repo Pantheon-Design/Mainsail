@@ -63,7 +63,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     settings: state.printers[id].settings,
                     lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
                     position: state.printers[id].position ?? { x: 400, y: 400 },
-                    printerModel: state.printers[id].printerModel ?? 'HS-3', 
+                    gridPosition: state.printers[id].gridPosition ?? { x: 1, y: 1 },
+                    printerModel: state.printers[id].printerModel ?? 'HS-3',
                 })
             })
 
@@ -75,6 +76,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 settings: state.printers[id].settings ?? {},
                 lastPrintedFilament: state.printers[id].lastPrintedFilament ?? '',
                 position: state.printers[id].position ?? { x: 400, y: 400 },
+                gridPosition: state.printers[id].gridPosition ?? { x: 1, y: 1 },
                 printerModel: state.printers[id].printerModel ?? 'HS-3',
             }
             //console.log('=============================================')

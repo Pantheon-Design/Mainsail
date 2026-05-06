@@ -206,6 +206,7 @@ export interface GuiState {
     fleetDaemonUrl: string
     mapdrawing: {
         strokes: GuiStateMapDrawingStroke[]
+        gridStrokes: GuiStateMapDrawingStroke[]
     }
 }
 

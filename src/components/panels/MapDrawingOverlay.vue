@@ -63,6 +63,7 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
     @Prop({ type: Boolean, default: false }) declare editable: boolean
     @Prop({ type: Number, default: 1000 }) declare width: number
     @Prop({ type: Number, default: 500 }) declare height: number
+    @Prop({ type: String, default: 'mapdrawing.strokes' }) declare storageKey: string
 
     private color = '#ff0000'
     private strokeWidth = 3
@@ -71,7 +72,13 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
     private colorPalette = ['#ff0000', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#9c27b0', '#ffffff', '#000000']
 
     get strokes(): GuiStateMapDrawingStroke[] {
-        return this.$store.state.gui?.mapdrawing?.strokes ?? []
+        const segments = this.storageKey.split('.')
+        let node: any = this.$store.state.gui
+        for (const seg of segments) {
+            if (node == null) return []
+            node = node[seg]
+        }
+        return Array.isArray(node) ? node : []
     }
 
     get strokesWithCurrent(): GuiStateMapDrawingStroke[] {
@@ -131,7 +138,7 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
     }
 
     private persistStrokes(value: GuiStateMapDrawingStroke[]) {
-        this.$store.dispatch('gui/saveSetting', { name: 'mapdrawing.strokes', value })
+        this.$store.dispatch('gui/saveSetting', { name: this.storageKey, value })
     }
 }
 </script>
