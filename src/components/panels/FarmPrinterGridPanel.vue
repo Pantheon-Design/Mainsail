@@ -4,8 +4,8 @@
          :style="tileStyle">
         <div class="status-ring" :style="borderStyle"></div>
         <div class="tile-body" :style="bodyStyle">
-            <div class="top-group">
-                <div class="hostname" :title="hostname" :style="{ color: fgColorHi }">{{ hostname }}</div>
+            <div class="hostname" :title="hostname" :style="{ color: fgColorHi }">{{ hostname }}</div>
+            <div class="bottom-group">
                 <div class="info-row" :style="{ color: fgColorMid }">
                     <span class="filament">{{ filamentAbbr || '—' }}</span>
                     <span class="nozzle">{{ nozzle ? nozzle + 'mm' : '—' }}</span>
@@ -13,9 +13,9 @@
                 <div class="weight" :style="{ color: fgColorMid }">
                     {{ remainingG !== null ? Math.round(remainingG) + 'g' : '—' }}
                 </div>
-            </div>
-            <div class="progress-track" :style="{ backgroundColor: fgColorFaint }">
-                <div class="progress-bar" :style="{ width: progressPct + '%' }"></div>
+                <div class="weight-track" :style="{ backgroundColor: fgColorFaint }">
+                    <div class="weight-bar" :style="{ width: (remainingPct ?? 0) + '%' }"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -29,8 +29,8 @@ import { FarmPrinterState } from '@/store/farm/printer/types'
 import {
     getStatusBorderStyle,
     displayFilamentType,
-    getPrinterPrintPercent,
     computeRemainingFilamentG,
+    computeRemainingWeightPct,
 } from '@/components/panels/farmPrinterStatus'
 
 @Component({})
@@ -52,12 +52,13 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
         return (this.printer as any)?.toolhead?.nozzle_size ?? null
     }
 
-    get progressPct(): number {
-        return getPrinterPrintPercent(this.printer)
-    }
-
     get remainingG(): number | null {
         return computeRemainingFilamentG(this.printer)
+    }
+
+    get remainingPct(): number | null {
+        const v = computeRemainingWeightPct(this.printer)
+        return v !== null ? Math.round(v) : null
     }
 
     get borderStyle(): Record<string, string | number> {
@@ -118,21 +119,24 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     z-index: 1;
 }
 
-.top-group {
+.bottom-group {
     display: flex;
     flex-direction: column;
     align-items: center;
     width: 100%;
-    gap: 1px;
+    gap: 2px;
 }
 
 .hostname {
     font-weight: 700;
     font-size: 13px;
     max-width: 100%;
-    white-space: nowrap;
+    line-height: 1.1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+    word-break: break-word;
 }
 
 .info-row {
@@ -140,7 +144,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     justify-content: space-between;
     width: 100%;
     gap: 4px;
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .info-row .filament {
@@ -148,17 +152,17 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
 }
 
 .weight {
-    font-size: 11px;
+    font-size: 13px;
 }
 
-.progress-track {
+.weight-track {
     width: 100%;
     height: 4px;
     border-radius: 2px;
     overflow: hidden;
 }
 
-.progress-bar {
+.weight-bar {
     height: 100%;
     background-color: #2196f3;
     transition: width 0.3s ease;

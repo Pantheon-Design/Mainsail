@@ -23,33 +23,6 @@
                 stroke-linejoin="round"
             />
         </svg>
-
-        <div v-if="editable" class="drawing-toolbar" @mousedown.stop>
-            <div class="toolbar-row">
-                <label class="toolbar-label">Color</label>
-                <div class="color-swatches">
-                    <button
-                        v-for="c in colorPalette"
-                        :key="c"
-                        type="button"
-                        class="swatch"
-                        :class="{ active: color === c }"
-                        :style="{ backgroundColor: c }"
-                        @click="color = c"
-                    />
-                </div>
-                <input v-model="color" type="color" class="color-input" />
-            </div>
-            <div class="toolbar-row">
-                <label class="toolbar-label">Width</label>
-                <input v-model.number="strokeWidth" type="range" min="1" max="20" step="1" class="width-slider" />
-                <span class="width-value">{{ strokeWidth }}px</span>
-            </div>
-            <div class="toolbar-row">
-                <v-btn x-small :disabled="strokes.length === 0" @click="undo">Undo</v-btn>
-                <v-btn x-small color="error" :disabled="strokes.length === 0" @click="clearAll">Clear</v-btn>
-            </div>
-        </div>
     </div>
 </template>
 
@@ -64,12 +37,10 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
     @Prop({ type: Number, default: 1000 }) declare width: number
     @Prop({ type: Number, default: 500 }) declare height: number
     @Prop({ type: String, default: 'mapdrawing.strokes' }) declare storageKey: string
+    @Prop({ type: String, default: '#ff0000' }) declare color: string
+    @Prop({ type: Number, default: 3 }) declare strokeWidth: number
 
-    private color = '#ff0000'
-    private strokeWidth = 3
     private currentStroke: GuiStateMapDrawingStroke | null = null
-
-    private colorPalette = ['#ff0000', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#9c27b0', '#ffffff', '#000000']
 
     get strokes(): GuiStateMapDrawingStroke[] {
         const segments = this.storageKey.split('.')
@@ -127,16 +98,6 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
         this.currentStroke = null
     }
 
-    undo() {
-        if (this.strokes.length === 0) return
-        this.persistStrokes(this.strokes.slice(0, -1))
-    }
-
-    clearAll() {
-        if (this.strokes.length === 0) return
-        this.persistStrokes([])
-    }
-
     private persistStrokes(value: GuiStateMapDrawingStroke[]) {
         this.$store.dispatch('gui/saveSetting', { name: this.storageKey, value })
     }
@@ -168,70 +129,5 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
 .map-drawing-overlay.editable .drawing-svg {
     pointer-events: auto;
     cursor: crosshair;
-}
-
-.drawing-toolbar {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(30, 30, 30, 0.9);
-    color: #fff;
-    padding: 8px 10px;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    pointer-events: auto;
-    z-index: 3;
-    font-size: 12px;
-    min-width: 220px;
-}
-
-.toolbar-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.toolbar-label {
-    width: 45px;
-    flex-shrink: 0;
-}
-
-.color-swatches {
-    display: flex;
-    gap: 3px;
-    flex-wrap: wrap;
-}
-
-.swatch {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    cursor: pointer;
-    padding: 0;
-}
-
-.swatch.active {
-    border: 2px solid #fff;
-}
-
-.color-input {
-    width: 24px;
-    height: 20px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    padding: 0;
-}
-
-.width-slider {
-    flex: 1;
-}
-
-.width-value {
-    width: 36px;
-    text-align: right;
 }
 </style>

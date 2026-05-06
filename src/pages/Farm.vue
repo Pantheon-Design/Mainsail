@@ -42,10 +42,20 @@
             </div>
         </div>
 
+        <!-- Drawing toolbar (rendered above the map when drawing) -->
+        <div v-if="isEditing && isDrawing" class="mb-3">
+            <map-drawing-toolbar
+                :color.sync="drawColor"
+                :stroke-width.sync="drawStrokeWidth"
+                :storage-key="isMapView ? 'mapdrawing.strokes' : 'mapdrawing.gridStrokes'" />
+        </div>
+
         <!-- Conditional Rendering of Views -->
         <div v-if="isMapView" class="map-container" @wheel="onScroll" @mousedown="startPan" @mousemove="onPan" @mouseup="endPan">
             <div class="background-container" :style="mapStyle">
-                <map-drawing-overlay :editable="isEditing && isDrawing" />
+                <map-drawing-overlay :editable="isEditing && isDrawing"
+                                     :color="drawColor"
+                                     :stroke-width="drawStrokeWidth" />
                 <div v-for="(printer, hostname) in fleetDaemonPrinters" :key="hostname"
                      :style="getStyle(printer)"
                      :class="{ 'draggable': isEditing && !isDrawing }"
@@ -91,6 +101,8 @@
                 <map-drawing-overlay :editable="isEditing && isDrawing"
                                      :width="GRID_W"
                                      :height="GRID_H"
+                                     :color="drawColor"
+                                     :stroke-width="drawStrokeWidth"
                                      storage-key="mapdrawing.gridStrokes" />
 
                 <!-- Drag ghost (target cell highlight) -->
@@ -120,6 +132,7 @@
     import FarmPrinterMapPanel from '@/components/panels/FarmPrinterMapPanel.vue';
     import FarmPrinterGridPanel from '@/components/panels/FarmPrinterGridPanel.vue';
     import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue';
+    import MapDrawingToolbar from '@/components/panels/MapDrawingToolbar.vue';
     import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue';
     import Vue from 'vue';
     import { fleetDaemonClient } from '@/plugins/fleetDaemonClient';
@@ -133,6 +146,7 @@
             FarmPrinterMapPanel,
             FarmPrinterGridPanel,
             MapDrawingOverlay,
+            MapDrawingToolbar,
             SettingsRemotePrintersTab,
         },
     })
@@ -166,6 +180,10 @@
         isPanning: boolean = false;
         startX: number = 0;
         startY: number = 0;
+
+        // Drawing toolbar shared state
+        drawColor: string = '#ff0000';
+        drawStrokeWidth: number = 3;
 
         // Tooltip
         hoveredPrinter: any = null;
@@ -379,7 +397,7 @@
         }
 
         get gridBackgroundColor(): string {
-            return this.$vuetify.theme.dark ? '#1e1e1f' : '#fafafa';
+            return this.$vuetify.theme.dark ? '#1e1e1f' : '#bdbdbd';
         }
 
         get gridLinesBackgroundImage(): string {

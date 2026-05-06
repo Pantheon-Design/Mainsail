@@ -109,3 +109,28 @@ export function computeRemainingFilamentG(printer: any): number | null {
     if (typeof remaining !== 'number' || isNaN(remaining)) return null
     return Math.max(0, remaining)
 }
+
+const FILAMENT_TOTAL_WEIGHTS: Record<string, number> = {
+    'PETG-CF': 3000,
+    'PA-CF': 3000,
+    TPU: 2500,
+    'PA-GF (Natural)': 3000,
+    'PA-GF (Dark Grey)': 3000,
+}
+
+export function computeRemainingWeightPct(printer: any): number | null {
+    const remaining = printer?.toolhead?.remaining_weight
+    if (typeof remaining !== 'number' || isNaN(remaining)) return null
+
+    const filamentType = printer?.toolhead?.filament_type
+    const fixedTotal = typeof filamentType === 'string' ? FILAMENT_TOTAL_WEIGHTS[filamentType] : undefined
+    if (typeof fixedTotal === 'number' && fixedTotal > 0) {
+        return Math.max(0, Math.min(100, (remaining / fixedTotal) * 100))
+    }
+
+    const used = printer?.toolhead?.used_weight
+    if (typeof used !== 'number') return null
+    const total = remaining + used
+    if (total <= 0) return null
+    return Math.max(0, Math.min(100, (remaining / total) * 100))
+}
