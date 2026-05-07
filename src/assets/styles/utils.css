@@ -68,9 +68,20 @@
     overflow: hidden;
     pointer-events: none;
     z-index: 3;
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    /* Safari-compatible longhand mask. Two layers: full-element and content-box. */
+    -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+    -webkit-mask-clip: content-box, border-box;
+    -webkit-mask-origin: content-box, border-box;
+    -webkit-mask-size: 100% 100%, 100% 100%;
+    -webkit-mask-repeat: no-repeat, no-repeat;
+    -webkit-mask-position: 0 0, 0 0;
     -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
+    mask-clip: content-box, border-box;
+    mask-origin: content-box, border-box;
+    mask-size: 100% 100%, 100% 100%;
+    mask-repeat: no-repeat, no-repeat;
+    mask-position: 0 0, 0 0;
     mask-composite: exclude;
 }
 
