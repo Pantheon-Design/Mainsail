@@ -102,6 +102,13 @@ class FleetDaemonClient {
                     if (message.event === 'download_queue_updated') {
                         fleetDaemonEvents.$emit('download_queue_updated')
                     }
+                    if (message.event === 'toast') {
+                        fleetDaemonEvents.$emit('toast', {
+                            level: message.level ?? 'info',
+                            message: message.message ?? '',
+                            key: message.key ?? null,
+                        })
+                    }
                 } catch (e) {
                     console.warn('[FleetDaemon] WS parse error:', e)
                 }

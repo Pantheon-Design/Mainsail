@@ -14,6 +14,7 @@
             <the-timelapse-rendering-snackbar />
             <the-fullscreen-upload />
             <the-upload-snackbar />
+            <the-fleet-toast />
             <the-manual-probe-dialog />
             <the-bed-screws-dialog />
             <the-screws-tilt-adjust-dialog />
@@ -39,6 +40,7 @@ import { panelToolbarHeight, topbarHeight, navigationItemHeight } from '@/store/
 import TheTimelapseRenderingSnackbar from '@/components/TheTimelapseRenderingSnackbar.vue'
 import TheFullscreenUpload from '@/components/TheFullscreenUpload.vue'
 import TheUploadSnackbar from '@/components/TheUploadSnackbar.vue'
+import TheFleetToast from '@/components/TheFleetToast.vue'
 import TheManualProbeDialog from '@/components/dialogs/TheManualProbeDialog.vue'
 import TheBedScrewsDialog from '@/components/dialogs/TheBedScrewsDialog.vue'
 import TheScrewsTiltAdjustDialog from '@/components/dialogs/TheScrewsTiltAdjustDialog.vue'
@@ -61,6 +63,7 @@ Component.registerHooks(['metaInfo'])
         TheSidebar,
         TheFullscreenUpload,
         TheUploadSnackbar,
+        TheFleetToast,
         TheManualProbeDialog,
         TheBedScrewsDialog,
         TheScrewsTiltAdjustDialog,
