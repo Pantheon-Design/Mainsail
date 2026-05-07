@@ -64,26 +64,22 @@
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    padding: var(--ring-thickness);
     overflow: hidden;
     pointer-events: none;
     z-index: 3;
-    /* Safari-compatible longhand mask. Two layers: full-element and content-box. */
-    -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-    -webkit-mask-clip: content-box, border-box;
-    -webkit-mask-origin: content-box, border-box;
-    -webkit-mask-size: 100% 100%, 100% 100%;
-    -webkit-mask-repeat: no-repeat, no-repeat;
-    -webkit-mask-position: 0 0, 0 0;
-    -webkit-mask-composite: xor;
-    mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff);
-    mask-clip: content-box, border-box;
-    mask-origin: content-box, border-box;
-    mask-size: 100% 100%, 100% 100%;
-    mask-repeat: no-repeat, no-repeat;
-    mask-position: 0 0, 0 0;
-    mask-composite: exclude;
 }
+
+    /* Inner cover: matches the tile background so only the outer "ring" of the rotating arm remains visible. Uses universal CSS, no mask-composite. */
+    .square-printing-arm::before {
+        content: '';
+        position: absolute;
+        top: var(--ring-thickness);
+        right: var(--ring-thickness);
+        bottom: var(--ring-thickness);
+        left: var(--ring-thickness);
+        background-color: var(--tile-bg, transparent);
+        z-index: 2;
+    }
 
     .square-printing-arm::after {
         content: '';
@@ -92,10 +88,11 @@
         left: 50%;
         width: 100%;
         height: 70%;
-        background: linear-gradient( to top, rgba(0, 255, 0, 1) 0%, rgba(0 255, 0, 1) 20%,rgba(0, 255, 0, 0.5) 50%,rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0) 100% );
+        background: linear-gradient( to top, rgba(0, 255, 0, 1) 0%, rgba(0, 255, 0, 1) 20%, rgba(0, 255, 0, 0.5) 50%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0) 100% );
         transform-origin: 0% 100%;
         animation: clock-sweep 3.5s linear infinite;
         border-radius: 2px;
+        z-index: 1;
     }
 
 @keyframes clock-sweep {

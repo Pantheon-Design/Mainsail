@@ -78,8 +78,10 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
 
     get tileStyle(): Record<string, string> {
         const dark = this.$vuetify.theme.dark
+        const bg = dark ? '#282828' : '#e7e7e7'
         return {
-            backgroundColor: dark ? '#282828' : '#e7e7e7',
+            backgroundColor: bg,
+            '--tile-bg': bg,
             color: this.fgColorHi,
         }
     }
@@ -156,7 +158,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     justify-content: space-between;
     align-items: center;
     text-align: center;
-    z-index: 1;
+    z-index: 4;
 }
 
 .bottom-group {
