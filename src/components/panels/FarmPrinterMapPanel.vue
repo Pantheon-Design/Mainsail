@@ -167,42 +167,11 @@ export default class FarmPrinterPanel extends Mixins(BaseMixin, ThemeMixin, Webc
     }
 
     clickPrinter() {
-        const hostname = this.printer.socket?.hostname ?? '(unknown hostname)'
-        const namespace = this.printer._namespace
-
-        // Full FarmPrinterState for this printer (live moonraker data lives here)
-        console.groupCollapsed(`[FleetPrinter] ${hostname} (${namespace})`)
-        console.log('printer (full FarmPrinterState):', this.printer)
-        console.log('socket:', this.printer.socket)
-        console.log('print_stats:', this.printer.print_stats)
-        console.log('virtual_sdcard:', this.printer.virtual_sdcard)
-        console.log('toolhead:', this.printer.toolhead)
-        console.log('webhooks:', this.printer.webhooks)
-        console.log('current_file:', (this.printer as any).current_file)
-        console.log('fleet_to_printer_ws:', (this.printer as any).fleet_to_printer_ws)
-
-        // Cross-reference: matching entry from the fleet daemon printers map in the store
-        const fleetDaemonPrinters = this.$store.state.farm?.fleetDaemonPrinters || {}
-        const fleetDaemonEntry =
-            fleetDaemonPrinters[hostname] ||
-            Object.values(fleetDaemonPrinters).find(
-                (p: any) => p?.socket?.hostname?.toLowerCase() === hostname.toLowerCase()
-            )
-        console.log('fleetDaemonPrinters entry:', fleetDaemonEntry)
-
-        // Cross-reference: configured remote printer record (position, model, port, etc.)
-        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
-        const remotePrinterEntry = Object.entries(remotePrinters).find(
-            ([, p]: [string, any]) => p?.hostname?.toLowerCase() === hostname.toLowerCase()
-        )
-        console.log('remoteprinters config entry:', remotePrinterEntry?.[1])
-
-        // Store getters for this printer namespace
-        console.log('getters/getStatus:', this.$store.getters['farm/' + namespace + '/getStatus'])
-        console.log('getters/getCurrentFilename:', this.$store.getters['farm/' + namespace + '/getCurrentFilename'])
-        console.log('getters/getPosition:', this.$store.getters['farm/' + namespace + '/getPosition'])
-        console.log('getters/getPrinterWebcams:', this.$store.getters['farm/' + namespace + '/getPrinterWebcams'])
-        console.groupEnd()
+        if (this.printer.socket.isConnected) {
+            window.open(this.getPrinterUrl())
+        } else {
+            this.$store.dispatch('farm/' + this.printer._namespace + '/reconnect')
+        }
     }
 
     mounted() {

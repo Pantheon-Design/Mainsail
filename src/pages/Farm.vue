@@ -74,6 +74,7 @@
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
                     <p>Filament: {{ hoveredPrinter.toolhead?.filament_type || 'N/A' }}</p>
                     <p>Nozzle: {{ hoveredPrinter.toolhead?.nozzle_size || 'N/A' }}</p>
+                    <p>Remaining: {{ hoveredRemainingG !== null ? Math.round(hoveredRemainingG) + 'g' : 'N/A' }}</p>
                     <p>CurrentFile: {{ hoveredPrinter.current_file?.filename || 'None' }}</p>
                     <p>Progress: {{ getPrinterPrintPercent(hoveredPrinter) }}%</p>
                     <p v-if="hoveredPrinter.webhooks?.state_message" style="white-space: pre-wrap; max-width: 300px;">
@@ -114,12 +115,28 @@
                      :style="gridCellStyle(getPrinterGridPosition(hostname).x, getPrinterGridPosition(hostname).y)"
                      :class="{ 'grid-printer': true, 'draggable': isEditing && !isDrawing }"
                      :data-printer-id="hostname"
-                     @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null">
+                     @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
+                     @mouseover="showGridTooltip(printer, hostname, $event)"
+                     @mouseleave="hideTooltip">
                     <farm-printer-grid-panel
                         :printer="printer"
                         :is-editing="isEditing && !isDrawing"
                         :model="getPrinterModel(hostname)"
                         :fleet-daemon-connected="$store.state.farm.fleetDaemonConnected" />
+                </div>
+
+                <!-- Tooltip: shows printer details on hover -->
+                <div v-if="hoveredPrinter" class="tooltip" ref="gridTooltip" :style="tooltipStyle">
+                    <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
+                    <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
+                    <p>Filament: {{ hoveredPrinter.toolhead?.filament_type || 'N/A' }}</p>
+                    <p>Nozzle: {{ hoveredPrinter.toolhead?.nozzle_size || 'N/A' }}</p>
+                    <p>Remaining: {{ hoveredRemainingG !== null ? Math.round(hoveredRemainingG) + 'g' : 'N/A' }}</p>
+                    <p>CurrentFile: {{ hoveredPrinter.current_file?.filename || 'None' }}</p>
+                    <p>Progress: {{ getPrinterPrintPercent(hoveredPrinter) }}%</p>
+                    <p v-if="hoveredPrinter.webhooks?.state_message" style="white-space: pre-wrap; max-width: 300px;">
+                        <strong>Webhook:</strong><br>{{ hoveredPrinter.webhooks.state_message }}
+                    </p>
                 </div>
             </div>
         </div>
@@ -139,6 +156,7 @@
     import {
         getPrinterStatus as getPrinterStatusUtil,
         getStatusBorderStyle,
+        computeRemainingFilamentG,
     } from '@/components/panels/farmPrinterStatus';
 
     @Component({
@@ -151,15 +169,17 @@
         },
     })
     export default class PageFarm extends Mixins(BaseMixin) {
+        static readonly VIEW_MODE_KEY = 'farm.viewMode';
+
         isMapView = true;
         isEditing = false;
         isDrawing = false;
-
+        mapscale = 1.2;
         // Grid view configuration
-        readonly GRID_COLS = 20;
-        readonly GRID_ROWS = 15;
-        readonly GRID_W = 2400;
-        readonly GRID_H = 1800;
+        readonly GRID_COLS = 12;
+        readonly GRID_ROWS = 10;
+        readonly GRID_W = 1200*this.mapscale;
+        readonly GRID_H = 1000*this.mapscale;
 
         // Map view properties
         draggingPrinter: any = null;
@@ -223,8 +243,28 @@
         }
 
         mounted() {
+            this.loadViewMode();
             this.loadPrinterPositions();
             this.loadGridPositions();
+        }
+
+        loadViewMode() {
+            try {
+                const saved = localStorage.getItem(PageFarm.VIEW_MODE_KEY);
+                if (saved === 'grid') this.isMapView = false;
+                else if (saved === 'free') this.isMapView = true;
+            } catch (e) {
+                // localStorage unavailable (e.g. private browsing); silently keep default
+            }
+        }
+
+        @Watch('isMapView')
+        onIsMapViewChanged(newVal: boolean) {
+            try {
+                localStorage.setItem(PageFarm.VIEW_MODE_KEY, newVal ? 'free' : 'grid');
+            } catch (e) {
+                // localStorage unavailable; ignore
+            }
         }
 
         // Re-load positions when the remoteprinters store updates (e.g. after async DB load)
@@ -569,6 +609,36 @@
 
         endPan() {
             this.isPanning = false;
+        }
+
+        get hoveredRemainingG(): number | null {
+            if (!this.hoveredPrinter) return null;
+            return computeRemainingFilamentG(this.hoveredPrinter);
+        }
+
+        showGridTooltip(printer: any, hostname: string, _event: MouseEvent) {
+            this.hoveredPrinter = printer;
+
+            this.$nextTick(() => {
+                const tooltipElement = this.$refs.gridTooltip as HTMLElement;
+                if (!tooltipElement) return;
+
+                const pos = this.getPrinterGridPosition(hostname);
+                const cellW = this.gridCellWidth;
+                const cellH = this.gridCellHeight;
+                const cellLeft = (pos.x - 1) * cellW;
+                const cellTop = (pos.y - 1) * cellH;
+                const tooltipWidth = tooltipElement.offsetWidth;
+
+                let left = cellLeft + cellW + 10;
+                if (left + tooltipWidth > this.GRID_W - 10) {
+                    const altLeft = cellLeft - tooltipWidth - 10;
+                    if (altLeft >= 10) left = altLeft;
+                }
+
+                this.tooltipStyle.left = left + 'px';
+                this.tooltipStyle.top = (cellTop + cellH / 2 - 20) + 'px';
+            });
         }
 
         // Fixed tooltip method - keeps your coordinate system, adds left edge check

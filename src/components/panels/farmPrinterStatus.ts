@@ -19,7 +19,8 @@ export function getStatusBorderStyle(
     model: 'HS-3' | 'HS-Pro' | null | undefined,
     fleetDaemonConnected: boolean,
     borderEm = 0.25,
-    printingEffect: 'spin' | 'breathe' = 'spin'
+    printingEffect: 'spin' | 'breathe' = 'spin',
+    blueColor = 'blue'
 ): Record<string, string | number> {
     const isSquare = model === 'HS-Pro'
     const radius = isSquare ? '0%' : '50%'
@@ -50,14 +51,14 @@ export function getStatusBorderStyle(
         if (printingEffect === 'breathe') {
             return {
                 ...base,
-                border: `${borderEm}em solid blue`,
+                border: `${borderEm}em solid ${blueColor}`,
                 animation: 'breathe 1.5s infinite',
             }
         }
         if (isSquare) {
             return {
                 ...base,
-                background: 'conic-gradient(transparent 0%, blue 10%, transparent 90%)',
+                background: `conic-gradient(transparent 0%, ${blueColor} 10%, transparent 90%)`,
                 mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                 maskComposite: 'subtract',
                 padding: `${borderEm}em`,
@@ -66,7 +67,7 @@ export function getStatusBorderStyle(
         }
         return {
             ...base,
-            background: 'conic-gradient(transparent 0%, blue 10%, transparent 90%)',
+            background: `conic-gradient(transparent 0%, ${blueColor} 10%, transparent 90%)`,
             mask: `radial-gradient(farthest-side, transparent calc(100% - ${borderEm + 0.05}em), black calc(100% - ${borderEm + 0.05}em))`,
             animation: 'spin 2s linear infinite',
         }
@@ -74,7 +75,7 @@ export function getStatusBorderStyle(
 
     let color = 'gray'
     if (state === 'error' || state === 'paused' || state === 'cancelled') color = 'red'
-    else if (state === 'complete') color = 'blue'
+    else if (state === 'complete') color = blueColor
     else if (state === 'standby') color = 'hsl(90, 100%, 32%)'
 
     return { ...base, border: `${borderEm}em solid ${color}` }

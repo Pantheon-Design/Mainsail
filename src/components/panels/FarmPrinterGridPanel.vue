@@ -1,7 +1,13 @@
 <template>
     <div class="grid-tile"
-         :class="{ 'tile-square': model === 'HS-Pro', 'tile-round': model !== 'HS-Pro', editing: isEditing }"
-         :style="tileStyle">
+         :class="{
+             'tile-square': model === 'HS-Pro',
+             'tile-round': model !== 'HS-Pro',
+             editing: isEditing,
+             clickable: !isEditing
+         }"
+         :style="tileStyle"
+         @click="onTileClick">
         <div class="status-ring" :style="borderStyle"></div>
         <div class="tile-body" :style="bodyStyle">
             <div class="hostname" :title="hostname" :style="{ color: fgColorHi }">{{ hostname }}</div>
@@ -62,7 +68,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     }
 
     get borderStyle(): Record<string, string | number> {
-        return getStatusBorderStyle(this.printer, this.model, this.fleetDaemonConnected, 1, 'breathe')
+        return getStatusBorderStyle(this.printer, this.model, this.fleetDaemonConnected, 0.6, 'breathe', '#1976d2')
     }
 
     get tileStyle(): Record<string, string> {
@@ -77,6 +83,25 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
         return this.model === 'HS-Pro'
             ? { inset: '14px' }
             : { inset: '22%' }
+    }
+
+    onTileClick() {
+        if (this.isEditing) return
+        if ((this.printer as any)?.socket?.isConnected) {
+            window.open(this.getPrinterUrl())
+        } else {
+            this.$store.dispatch('farm/' + (this.printer as any)._namespace + '/reconnect')
+        }
+    }
+
+    getPrinterUrl(): string {
+        const protocol = window.location.href.split('/')[0]
+        const socket = (this.printer as any)?.socket
+        const hostname = socket?.hostname ?? ''
+        const webPort = socket?.webPort ?? 80
+        let url = protocol + '//' + hostname
+        if (webPort !== 80) url += ':' + webPort
+        return url
     }
 }
 </script>
@@ -103,6 +128,16 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
 
 .grid-tile.editing {
     cursor: move;
+}
+
+.grid-tile.clickable {
+    cursor: pointer;
+    transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.grid-tile.clickable:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 0 8px 2px rgba(33, 150, 243, 0.4);
 }
 
 .status-ring {
