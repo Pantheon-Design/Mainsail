@@ -85,45 +85,53 @@
         </div>
 
         <div v-else class="grid-container">
-            <div class="grid-background"
+            <div class="draw-canvas"
                  :style="{
-                     width: GRID_W + 'px',
-                     height: GRID_H + 'px',
-                     backgroundColor: gridBackgroundColor
+                     width: drawCanvasW + 'px',
+                     height: drawCanvasH + 'px'
                  }">
-                <!-- Grid lines -->
-                <div class="grid-lines"
+                <div class="grid-background"
                      :style="{
-                         backgroundImage: gridLinesBackgroundImage,
-                         backgroundSize: gridCellWidth + 'px ' + gridCellHeight + 'px'
-                     }"></div>
+                         width: GRID_W + 'px',
+                         height: GRID_H + 'px',
+                         backgroundColor: gridBackgroundColor,
+                         top: GRID_MARGIN + 'px',
+                         left: GRID_MARGIN + 'px'
+                     }">
+                    <!-- Grid lines -->
+                    <div class="grid-lines"
+                         :style="{
+                             backgroundImage: gridLinesBackgroundImage,
+                             backgroundSize: gridCellWidth + 'px ' + gridCellHeight + 'px'
+                         }"></div>
 
-                <!-- Drawing overlay (scales onto the grid canvas) -->
+                    <!-- Drag ghost (target cell highlight) -->
+                    <div v-if="gridDragGhost" :style="gridGhostStyle()"></div>
+
+                    <!-- Printer tiles -->
+                    <div v-for="(printer, hostname) in fleetDaemonPrinters"
+                         :key="hostname"
+                         :style="gridCellStyle(getPrinterGridPosition(hostname).x, getPrinterGridPosition(hostname).y)"
+                         :class="{ 'grid-printer': true, 'draggable': isEditing && !isDrawing }"
+                         :data-printer-id="hostname"
+                         @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
+                         @mouseover="showGridTooltip(printer, hostname, $event)"
+                         @mouseleave="hideTooltip">
+                        <farm-printer-grid-panel
+                            :printer="printer"
+                            :is-editing="isEditing && !isDrawing"
+                            :model="getPrinterModel(hostname)"
+                            :fleet-daemon-connected="$store.state.farm.fleetDaemonConnected" />
+                    </div>
+                </div>
+
+                <!-- Drawing overlay covers the full canvas (grid + surrounding margin); painted on top of the grid -->
                 <map-drawing-overlay :editable="isEditing && isDrawing"
-                                     :width="GRID_W"
-                                     :height="GRID_H"
+                                     :width="drawCanvasW"
+                                     :height="drawCanvasH"
                                      :color="drawColor"
                                      :stroke-width="drawStrokeWidth"
                                      storage-key="mapdrawing.gridStrokes" />
-
-                <!-- Drag ghost (target cell highlight) -->
-                <div v-if="gridDragGhost" :style="gridGhostStyle()"></div>
-
-                <!-- Printer tiles -->
-                <div v-for="(printer, hostname) in fleetDaemonPrinters"
-                     :key="hostname"
-                     :style="gridCellStyle(getPrinterGridPosition(hostname).x, getPrinterGridPosition(hostname).y)"
-                     :class="{ 'grid-printer': true, 'draggable': isEditing && !isDrawing }"
-                     :data-printer-id="hostname"
-                     @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
-                     @mouseover="showGridTooltip(printer, hostname, $event)"
-                     @mouseleave="hideTooltip">
-                    <farm-printer-grid-panel
-                        :printer="printer"
-                        :is-editing="isEditing && !isDrawing"
-                        :model="getPrinterModel(hostname)"
-                        :fleet-daemon-connected="$store.state.farm.fleetDaemonConnected" />
-                </div>
 
                 <!-- Tooltip: shows printer details on hover -->
                 <div v-if="hoveredPrinter" class="tooltip" ref="gridTooltip" :style="tooltipStyle">
@@ -180,6 +188,7 @@
         readonly GRID_ROWS = 10;
         readonly GRID_W = 1200*this.mapscale;
         readonly GRID_H = 1000*this.mapscale;
+        readonly GRID_MARGIN = 10;
 
         // Map view properties
         draggingPrinter: any = null;
@@ -434,6 +443,14 @@
 
         get gridCellHeight(): number {
             return this.GRID_H / this.GRID_ROWS;
+        }
+
+        get drawCanvasW(): number {
+            return this.GRID_W + 2 * this.GRID_MARGIN;
+        }
+
+        get drawCanvasH(): number {
+            return this.GRID_H + 2 * this.GRID_MARGIN;
         }
 
         get gridBackgroundColor(): string {
@@ -806,8 +823,13 @@
         overflow: auto;
     }
 
-    .grid-background {
+    .draw-canvas {
         position: relative;
+        margin: 0 auto;
+    }
+
+    .grid-background {
+        position: absolute;
     }
 
     .grid-lines {

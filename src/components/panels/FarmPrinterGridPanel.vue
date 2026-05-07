@@ -9,6 +9,7 @@
          :style="tileStyle"
          @click="onTileClick">
         <div class="status-ring" :style="borderStyle"></div>
+        <div v-if="isPrinting && model === 'HS-Pro'" class="square-printing-arm" :style="{ '--ring-thickness': '0.6em' }"></div>
         <div class="tile-body" :style="bodyStyle">
             <div class="hostname" :title="hostname" :style="{ color: fgColorHi }">{{ hostname }}</div>
             <div class="bottom-group">
@@ -68,7 +69,11 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     }
 
     get borderStyle(): Record<string, string | number> {
-        return getStatusBorderStyle(this.printer, this.model, this.fleetDaemonConnected, 0.6, 'breathe', '#1976d2')
+        return getStatusBorderStyle(this.printer, this.model, this.fleetDaemonConnected, 0.6, 'arm', '#1976d2')
+    }
+
+    get isPrinting(): boolean {
+        return (this.printer as any)?.print_stats?.state === 'printing'
     }
 
     get tileStyle(): Record<string, string> {

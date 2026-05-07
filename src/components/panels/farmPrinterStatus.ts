@@ -19,7 +19,7 @@ export function getStatusBorderStyle(
     model: 'HS-3' | 'HS-Pro' | null | undefined,
     fleetDaemonConnected: boolean,
     borderEm = 0.25,
-    printingEffect: 'spin' | 'breathe' = 'spin',
+    printingEffect: 'spin' | 'arm' = 'spin',
     blueColor = 'blue'
 ): Record<string, string | number> {
     const isSquare = model === 'HS-Pro'
@@ -48,11 +48,11 @@ export function getStatusBorderStyle(
 
     const state = printer?.print_stats?.state
     if (state === 'printing') {
-        if (printingEffect === 'breathe') {
+        if (printingEffect === 'arm' && isSquare) {
             return {
                 ...base,
                 border: `${borderEm}em solid ${blueColor}`,
-                animation: 'breathe 1.5s infinite',
+                boxShadow: 'inset 0 0 0 1px black',
             }
         }
         if (isSquare) {
@@ -67,7 +67,7 @@ export function getStatusBorderStyle(
         }
         return {
             ...base,
-            background: `conic-gradient(transparent 0%, ${blueColor} 10%, transparent 90%)`,
+            background: `conic-gradient(transparent 0%, white 100%, transparent 90%), ${blueColor}`,
             mask: `radial-gradient(farthest-side, transparent calc(100% - ${borderEm + 0.05}em), black calc(100% - ${borderEm + 0.05}em))`,
             animation: 'spin 2s linear infinite',
         }
