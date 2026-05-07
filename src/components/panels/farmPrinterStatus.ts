@@ -67,7 +67,7 @@ export function getStatusBorderStyle(
         }
         return {
             ...base,
-            background: `conic-gradient(transparent 0%, white 100%, transparent 90%), ${blueColor}`,
+            background: `conic-gradient(transparent 0%, lightgreen 100%, transparent 90%), ${blueColor}`,
             mask: `radial-gradient(farthest-side, transparent calc(100% - ${borderEm + 0.05}em), black calc(100% - ${borderEm + 0.05}em))`,
             animation: 'spin 2s linear infinite',
         }

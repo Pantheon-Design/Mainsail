@@ -84,17 +84,26 @@
             </div>
         </div>
 
-        <div v-else class="grid-container">
+        <div v-else class="grid-container"
+             @wheel="onGridScroll"
+             @mousedown="startGridPan"
+             @mousemove="onGridPan"
+             @mouseup="endGridPan"
+             @mouseleave="endGridPan">
             <div class="draw-canvas"
                  :style="{
                      width: drawCanvasW + 'px',
-                     height: drawCanvasH + 'px'
+                     height: drawCanvasH + 'px',
+                     transform: gridMapTransform,
+                     transformOrigin: '0 0'
                  }">
+                <!-- Floor plan as static background of the grid area -->
+                <div class="floor-plan" :style="floorPlanStyle"></div>
+
                 <div class="grid-background"
                      :style="{
                          width: GRID_W + 'px',
                          height: GRID_H + 'px',
-                         backgroundColor: gridBackgroundColor,
                          top: GRID_MARGIN + 'px',
                          left: GRID_MARGIN + 'px'
                      }">
@@ -182,12 +191,12 @@
         isMapView = true;
         isEditing = false;
         isDrawing = false;
-        mapscale = 1.2;
+        mapscale = 1.4;
         // Grid view configuration
-        readonly GRID_COLS = 12;
-        readonly GRID_ROWS = 10;
-        readonly GRID_W = 1200*this.mapscale;
-        readonly GRID_H = 1000*this.mapscale;
+        readonly GRID_COLS = 20;
+        readonly GRID_ROWS = 12;
+        readonly GRID_W = 2000*this.mapscale;
+        readonly GRID_H = 1200*this.mapscale;
         readonly GRID_MARGIN = 10;
 
         // Map view properties
@@ -201,6 +210,14 @@
         gridPositions: { [id: string]: { x: number, y: number } } = {};
         draggingGridHostname: string = '';
         gridDragGhost: { x: number, y: number } | null = null;
+
+        // Grid map zoom/pan
+        gridScale: number = 0.5;
+        gridPanX: number = 0;
+        gridPanY: number = 0;
+        isGridPanning: boolean = false;
+        gridPanStartX: number = 0;
+        gridPanStartY: number = 0;
 
         // Zooming and panning
         scale: number = 1;
@@ -453,6 +470,17 @@
             return this.GRID_H + 2 * this.GRID_MARGIN;
         }
 
+        get floorPlanStyle(): Record<string, string> {
+            return {
+                top: this.GRID_MARGIN + 'px',
+                left: this.GRID_MARGIN + 'px',
+                width: this.GRID_W + 'px',
+                height: this.GRID_H + 'px',
+                backgroundSize: '110% 170%',
+                backgroundPosition: '0 0',
+            };
+        }
+
         get gridBackgroundColor(): string {
             return this.$vuetify.theme.dark ? '#1e1e1f' : '#bdbdbd';
         }
@@ -521,9 +549,12 @@
             const container = document.querySelector('.grid-background') as HTMLElement | null;
             if (!container) return;
 
+            // rect already reflects scale + translate from the .draw-canvas transform.
+            // Convert viewport-space mouse offset back into un-transformed grid coords
+            // by dividing by the current zoom factor (pan is folded into rect.left/top).
             const rect = container.getBoundingClientRect();
-            const rawX = event.clientX - rect.left;
-            const rawY = event.clientY - rect.top;
+            const rawX = (event.clientX - rect.left) / this.gridScale;
+            const rawY = (event.clientY - rect.top) / this.gridScale;
 
             const gx = Math.min(this.GRID_COLS, Math.max(1, Math.floor(rawX / this.gridCellWidth) + 1));
             const gy = Math.min(this.GRID_ROWS, Math.max(1, Math.floor(rawY / this.gridCellHeight) + 1));
@@ -543,6 +574,35 @@
             this.draggingPrinter = null;
             this.draggingGridHostname = '';
             this.gridDragGhost = null;
+        }
+
+        // ----- Grid map pan/zoom -----
+        get gridMapTransform(): string {
+            return `scale(${this.gridScale}) translate(${this.gridPanX}px, ${this.gridPanY}px)`;
+        }
+
+        onGridScroll(event: WheelEvent) {
+            event.preventDefault();
+            const delta = event.deltaY > 0 ? -0.1 : 0.1;
+            this.gridScale = Math.min(Math.max(this.gridScale + delta, 0.3), 3);
+        }
+
+        startGridPan(event: MouseEvent) {
+            // Only pan when not editing (in edit mode the user is dragging printers / drawing / cropping)
+            if (this.isEditing) return;
+            this.isGridPanning = true;
+            this.gridPanStartX = event.clientX - this.gridPanX * this.gridScale;
+            this.gridPanStartY = event.clientY - this.gridPanY * this.gridScale;
+        }
+
+        onGridPan(event: MouseEvent) {
+            if (!this.isGridPanning) return;
+            this.gridPanX = (event.clientX - this.gridPanStartX) / this.gridScale;
+            this.gridPanY = (event.clientY - this.gridPanStartY) / this.gridScale;
+        }
+
+        endGridPan() {
+            this.isGridPanning = false;
         }
 
         updatePrinterGridPosition(hostname: string, gx: number, gy: number) {
@@ -820,12 +880,25 @@
     .grid-container {
         position: relative;
         width: 100%;
-        overflow: auto;
+        overflow: visible;
     }
 
     .draw-canvas {
         position: relative;
         margin: 0 auto;
+    }
+
+    .floor-plan {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('@/components/ui/NewBuilding cropped.png');
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        z-index: 0;
+        pointer-events: none;
     }
 
     .grid-background {

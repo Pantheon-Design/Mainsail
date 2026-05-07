@@ -17,10 +17,10 @@
                     <span class="filament">{{ filamentAbbr || '—' }}</span>
                     <span class="nozzle">{{ nozzle ? nozzle + 'mm' : '—' }}</span>
                 </div>
-                <div class="weight" :style="{ color: fgColorMid }">
-                    {{ remainingG !== null ? Math.round(remainingG) + 'g' : '—' }}
+                <div v-if="remainingG !== null" class="weight" :style="{ color: fgColorMid }">
+                    {{ Math.round(remainingG) }}g
                 </div>
-                <div class="weight-track" :style="{ backgroundColor: fgColorFaint }">
+                <div v-if="remainingG !== null" class="weight-track" :style="{ backgroundColor: fgColorFaint }">
                     <div class="weight-bar" :style="{ width: (remainingPct ?? 0) + '%' }"></div>
                 </div>
             </div>
@@ -119,7 +119,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     box-sizing: border-box;
     overflow: hidden;
     user-select: none;
-    font-size: 10px;
+    font-size: 18px;
     line-height: 1;
 }
 
@@ -169,7 +169,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
 
 .hostname {
     font-weight: 700;
-    font-size: 13px;
+    font-size: 18px;
     max-width: 100%;
     line-height: 1.1;
     display: -webkit-box;
@@ -184,7 +184,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     justify-content: space-between;
     width: 100%;
     gap: 4px;
-    font-size: 13px;
+    font-size: 20px;
 }
 
 .info-row .filament {
@@ -192,12 +192,12 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
 }
 
 .weight {
-    font-size: 13px;
+    font-size: 20px;
 }
 
 .weight-track {
     width: 100%;
-    height: 4px;
+    height: 8px;
     border-radius: 2px;
     overflow: hidden;
 }
