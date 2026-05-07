@@ -6,13 +6,20 @@
                   class="mb-4 custom-width-switch" />
 
         <!-- Edit/Save Button -->
-        <v-btn @click="toggleEditMode" class="mb-4 mr-4">
+        <v-btn @click="toggleEditMode"
+               class="mb-4 mr-4"
+               :color="isEditing ? 'success' : undefined"
+               :class="{ 'save-pulse': isEditing }">
             {{ isEditing ? 'Save' : 'Edit' }}
         </v-btn>
 
         <!-- Draw Button (only visible in edit mode) -->
-        <v-btn v-if="isEditing" @click="toggleDrawMode" class="mb-4 mr-4" :color="isDrawing ? 'primary' : undefined">
-            {{ isDrawing ? 'Done Drawing' : 'Draw' }}
+        <v-btn v-if="isEditing"
+               @click="toggleDrawMode"
+               class="mb-4 mr-4"
+               :color="isDrawing ? 'success' : undefined"
+               :class="{ 'save-pulse': isDrawing }">
+            {{ isDrawing ? 'Save Drawing' : 'Draw' }}
         </v-btn>
 
         <!-- Reconnect All Button
@@ -790,6 +797,24 @@
 
     .custom-width-switch ::v-deep label {
         white-space: nowrap;
+    }
+
+    .save-pulse {
+        font-weight: 700 !important;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.45),
+                    0 0 12px 2px rgba(76, 175, 80, 0.55) !important;
+        animation: save-pulse-anim 1.4s ease-in-out infinite;
+    }
+
+    @keyframes save-pulse-anim {
+        0%, 100% {
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.45),
+                        0 0 12px 2px rgba(76, 175, 80, 0.55);
+        }
+        50% {
+            box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.7),
+                        0 0 20px 4px rgba(76, 175, 80, 0.8);
+        }
     }
 
     .draggable {
