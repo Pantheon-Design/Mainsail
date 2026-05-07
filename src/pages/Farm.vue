@@ -2,7 +2,7 @@
     <div>
         <!-- Toggle Button -->
         <v-switch v-model="isMapView"
-                  :label="isMapView ? 'Switch to Grid Map' : 'Switch to Free Map'"
+                  :label="isMapView ? 'Switch to Detailed Map' : 'Switch to Simple Map'"
                   class="mb-4 custom-width-switch" />
 
         <!-- Edit/Save Button -->
@@ -15,11 +15,10 @@
             {{ isDrawing ? 'Done Drawing' : 'Draw' }}
         </v-btn>
 
-        <!-- Reconnect All Button -->
+        <!-- Reconnect All Button
         <v-btn @click="reconnectAllFleetPrinters" class="mb-4 mr-4">
             Reconnect All
-        </v-btn>
-
+        </v-btn> -->
         <!-- Display printer count and status breakdown -->
         <div class="printer-stats mb-4">
             <p class="mb-1">Total Printers: {{ Object.keys(fleetDaemonPrinters).length }}</p>
@@ -44,10 +43,9 @@
 
         <!-- Drawing toolbar (rendered above the map when drawing) -->
         <div v-if="isEditing && isDrawing" class="mb-3">
-            <map-drawing-toolbar
-                :color.sync="drawColor"
-                :stroke-width.sync="drawStrokeWidth"
-                :storage-key="isMapView ? 'mapdrawing.strokes' : 'mapdrawing.gridStrokes'" />
+            <map-drawing-toolbar :color.sync="drawColor"
+                                 :stroke-width.sync="drawStrokeWidth"
+                                 :storage-key="isMapView ? 'mapdrawing.strokes' : 'mapdrawing.gridStrokes'" />
         </div>
 
         <!-- Conditional Rendering of Views -->
@@ -126,11 +124,10 @@
                          @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
                          @mouseover="showGridTooltip(printer, hostname, $event)"
                          @mouseleave="hideTooltip">
-                        <farm-printer-grid-panel
-                            :printer="printer"
-                            :is-editing="isEditing && !isDrawing"
-                            :model="getPrinterModel(hostname)"
-                            :fleet-daemon-connected="$store.state.farm.fleetDaemonConnected" />
+                        <farm-printer-grid-panel :printer="printer"
+                                                 :is-editing="isEditing && !isDrawing"
+                                                 :model="getPrinterModel(hostname)"
+                                                 :fleet-daemon-connected="$store.state.farm.fleetDaemonConnected" />
                     </div>
                 </div>
 
@@ -788,7 +785,11 @@
     }
 
     .custom-width-switch {
-        width: 200px;
+        width: auto;
+    }
+
+    .custom-width-switch ::v-deep label {
+        white-space: nowrap;
     }
 
     .draggable {
