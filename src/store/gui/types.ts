@@ -16,6 +16,7 @@ export interface GuiState {
         calcPrintProgress: 'file-relative' | 'file-absolute' | 'slicer' | 'filament'
         calcEstimateTime: string[] // file, filament are possible values
         calcEtaTime: string[] // file, filament, slicer are possible values
+        ul2011SafetyCompliant: boolean
     }
     console?: GuiConsoleState
     control: {

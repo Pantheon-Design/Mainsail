@@ -17,6 +17,22 @@ function lockItemUrl(rootGetters: any): string {
     return dbItemUrl(rootGetters) + '?namespace=' + NAMESPACE + '&key=' + KEY
 }
 
+function safetySettingUrl(rootGetters: any): string {
+    return dbItemUrl(rootGetters) + '?namespace=' + NAMESPACE + '&key=general.ul2011SafetyCompliant'
+}
+
+async function readSafetySetting(rootGetters: any): Promise<boolean> {
+    try {
+        const res = await fetch(safetySettingUrl(rootGetters), { cache: 'no-store' })
+        if (res.status === 404) return false
+        if (!res.ok) return false
+        const data = await res.json()
+        return data?.result?.value === true
+    } catch {
+        return false
+    }
+}
+
 function makeOwnerLabel(): string {
     const ua = navigator.userAgent
     let browser = 'Browser'
@@ -74,6 +90,14 @@ export const actions: ActionTree<ExclusiveLockState, RootState> = {
     async init({ state, dispatch, commit, rootGetters, rootState }) {
         // Cancel any leftover timers from a previous connection.
         dispatch('clearTimers')
+
+        // UL 2011 Safety Compliant mode gates the entire exclusive-access feature.
+        const enabled = await readSafetySetting(rootGetters)
+        if (!enabled) {
+            commit('setLockData', null)
+            commit('setStatus', 'idle')
+            return
+        }
 
         // Hold guiIsReady false until the lock check resolves to avoid a UI flash.
         dispatch('socket/addInitModule', 'exclusiveLock', { root: true })

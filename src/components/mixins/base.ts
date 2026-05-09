@@ -37,6 +37,10 @@ export default class BaseMixin extends Vue {
         return this.$store.state.exclusiveLock?.status === 'checking'
     }
 
+    get isUL2011SafetyCompliant(): boolean {
+        return this.$store.state.gui?.general?.ul2011SafetyCompliant === true
+    }
+
     get klippyIsConnected(): boolean {
         return this.$store.state.server.klippy_connected ?? false
     }

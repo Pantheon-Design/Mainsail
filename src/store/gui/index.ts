@@ -27,6 +27,7 @@ export const getDefaultState = (): GuiState => {
             calcPrintProgress: 'file-relative',
             calcEstimateTime: ['file', 'filament'],
             calcEtaTime: ['file', 'filament', 'slicer'],
+            ul2011SafetyCompliant: false,
         },
         control: {
             style: 'bars',
@@ -38,7 +39,7 @@ export const getDefaultState = (): GuiState => {
             feedrateZ: 25,
             offsetsZ: [0.005, 0.01, 0.025, 0.05],
             offsetZSaveOption: null,
-            stepsZ: [150,50,10],
+            stepsZ: [150, 50, 10],
             stepsAll: [0.1, 1, 10, 25, 50, 100],
             stepsCircleXY: [1, 10, 50, 100],
             stepsCircleZ: [0.1, 1, 10, 50],
@@ -48,7 +49,7 @@ export const getDefaultState = (): GuiState => {
             reverseZ: true,
             extruder: {
                 feedamount: 100,
-                feedamounts: [2000,500,100,10],
+                feedamounts: [2000, 500, 100, 10],
                 feedrate: 5,
                 feedrates: [10, 5, 1, 20],
                 showEstimatedExtrusionInfo: true,
@@ -209,7 +210,7 @@ export const getDefaultState = (): GuiState => {
                     'last_start_time',
                     'last_end_time',
                     'last_total_duration',
-                    'last_filament_used'
+                    'last_filament_used',
                 ],
                 orderMetadataColumns: [
                     'size',

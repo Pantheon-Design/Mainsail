@@ -42,6 +42,15 @@
                     <v-select v-model="calcEtaTime" :items="calcEtaTimeItems" multiple hide-details dense outlined />
                 </settings-row>
                 <v-divider class="my-2" />
+                <settings-row :title="$t('Settings.GeneralTab.UL2011Compliant')" :sub-title="ul2011SubTitle">
+                    <v-switch
+                        v-model="ul2011Switch"
+                        :disabled="isUL2011SafetyCompliant"
+                        hide-details
+                        class="mt-0 pt-0"
+                        @change="onUl2011SwitchChange" />
+                </settings-row>
+                <v-divider class="my-2" />
                 <settings-row :title="$t('Settings.GeneralTab.MainsailSettingsMoonrakerDb')" :dynamic-slot-width="true">
                     <settings-general-tab-backup-database />
                     <settings-general-tab-restore-database />
@@ -52,6 +61,28 @@
                 </settings-row>
             </v-card-text>
         </v-card>
+        <v-dialog v-model="ul2011Dialog" persistent :width="560">
+            <v-card>
+                <v-toolbar flat dense color="warning">
+                    <v-toolbar-title>
+                        <span class="subheading">
+                            <v-icon left>{{ mdiAlertOutline }}</v-icon>
+                            {{ $t('Settings.GeneralTab.UL2011CompliantWarningTitle') }}
+                        </span>
+                    </v-toolbar-title>
+                </v-toolbar>
+                <v-card-text class="pt-5" style="white-space: pre-line">
+                    {{ $t('Settings.GeneralTab.UL2011CompliantWarningMessage') }}
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="cancelUl2011">Cancel</v-btn>
+                    <v-btn color="warning" text @click="confirmUl2011">
+                        {{ $t('Settings.GeneralTab.UL2011CompliantWarningEnable') }}
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </div>
 </template>
 
@@ -66,6 +97,7 @@ import SettingsGeneralTabBackupDatabase from '@/components/settings/General/Gene
 import SettingsGeneralTabRestoreDatabase from '@/components/settings/General/GeneralRestore.vue'
 import SettingsGeneralTabResetDatabase from '@/components/settings/General/GeneralReset.vue'
 import SettingsGeneralDatabase from '@/components/mixins/settingsGeneralDatabase'
+import { mdiAlertOutline } from '@mdi/js'
 
 @Component({
     components: {
@@ -79,6 +111,10 @@ import SettingsGeneralDatabase from '@/components/mixins/settingsGeneralDatabase
 })
 export default class SettingsGeneralTab extends Mixins(BaseMixin, SettingsGeneralDatabase) {
     availableLanguages: { text: string; value: string }[] = []
+
+    mdiAlertOutline = mdiAlertOutline
+    ul2011Dialog = false
+    ul2011Switch = false
 
     async created() {
         const locales = import.meta.glob<string>('../../locales/*.json', { import: 'title' })
@@ -215,6 +251,41 @@ export default class SettingsGeneralTab extends Mixins(BaseMixin, SettingsGenera
 
     set calcEtaTime(newVal) {
         this.$store.dispatch('gui/saveSetting', { name: 'general.calcEtaTime', value: newVal })
+    }
+
+    get ul2011SubTitle(): string {
+        return this.isUL2011SafetyCompliant
+            ? this.$t('Settings.GeneralTab.UL2011CompliantLockedNotice').toString()
+            : this.$t('Settings.GeneralTab.UL2011CompliantDescription').toString()
+    }
+
+    mounted() {
+        this.ul2011Switch = this.isUL2011SafetyCompliant
+    }
+
+    onUl2011SwitchChange(newVal: boolean) {
+        // Once enabled the switch is locked; only the off→on transition opens the warning dialog.
+        if (this.isUL2011SafetyCompliant) {
+            this.ul2011Switch = true
+            return
+        }
+        if (newVal) {
+            this.ul2011Dialog = true
+        }
+    }
+
+    cancelUl2011() {
+        this.ul2011Dialog = false
+        this.ul2011Switch = false
+    }
+
+    async confirmUl2011() {
+        this.ul2011Dialog = false
+        await this.$store.dispatch('gui/saveSetting', {
+            name: 'general.ul2011SafetyCompliant',
+            value: true,
+        })
+        this.ul2011Switch = true
     }
 }
 </script>

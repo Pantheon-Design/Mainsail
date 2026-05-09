@@ -973,7 +973,13 @@
             "Reset": "reset",
             "Restore": "Restore",
             "RestoreDialog": "Please select all the sections you want to restore:",
-            "TimeFormat": "Time Format"
+            "TimeFormat": "Time Format",
+            "UL2011Compliant": "UL 2011 Safety Compliant",
+            "UL2011CompliantDescription": "Locks Mainsail into a single-operator, read-only configuration mode. Once enabled it cannot be turned off from the UI.",
+            "UL2011CompliantLockedNotice": "Enabled. To revert, SSH into the printer and clear the setting from Moonraker's database (namespace mainsail, key general.ul2011SafetyCompliant).",
+            "UL2011CompliantWarningTitle": "Enable UL 2011 Safety Compliant mode?",
+            "UL2011CompliantWarningMessage": "This will permanently enable two safety controls on this printer:\n\n• Single-instance access — only one Mainsail tab can control the printer at a time. Other tabs will see a blocking dialog and may force-takeover.\n\n• Read-only configs — config files cannot be edited or deleted from Mainsail. The editor opens every file in read-only mode.\n\nThis setting CANNOT be turned off from the Mainsail UI. To revert, you must SSH into the printer and remove the entry from Moonraker's database.",
+            "UL2011CompliantWarningEnable": "Enable and lock"
         },
         "HeightmapTab": {
             "ColorSchemes": "Color Schemes",
