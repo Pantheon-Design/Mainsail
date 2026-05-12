@@ -56,6 +56,12 @@ export interface ServerState {
     websocket_count: number
     moonraker_version: string
 
+    // Parsed contents of /home/hs3/printer_data/config/features.yml. Loaded on
+    // server init and reloaded when filelist_changed reports a write to it.
+    // null means the file is missing or failed to parse — KS-side gate logic
+    // treats null as "config verification disabled".
+    machineConfig: any | null
+
     console_cleared_this_session?: boolean
 
     power?: ServerPowerState

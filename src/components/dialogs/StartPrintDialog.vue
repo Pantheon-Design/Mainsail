@@ -51,6 +51,7 @@
     import { ServerSpoolmanStateSpool } from '@/store/server/spoolman/types'
     import { defaultBigThumbnailBackground } from '@/store/variables'
     import StartPrintDialogSpoolTracker from '@/components/dialogs/StartPrintDialogSpoolTracker.vue'
+    import { checkConfig } from '@/plugins/configVerifier'
 
     @Component({
         components: {
@@ -127,8 +128,10 @@
         get alerts() {
             let alerts = []
 
-            // If config_verifier is not enabled, no alerts needed
-            if (!this.file.enable_config_verifier) {
+            // Gate on whether features.yml loaded successfully (analogous to
+            // the old enable_config_verifier metadata flag, but live).
+            const machineConfig = this.$store.state.server.machineConfig
+            if (machineConfig == null) {
                 return alerts
             }
 
@@ -142,8 +145,8 @@
                     return alerts
                 }
 
-                // Handle filament type and nozzle size check
-                let configVerifier = [...this.file.config_verifier];  // Shallow copy of the config_verifier array
+                // Live comparison of gcode YAML vs printer features.yml.
+                let configVerifier = checkConfig(this.file.config_yml, machineConfig)
 
                 // Handle filament type check
                 if (this.file.filament_type !== this.$store.state.printer.toolhead.filament_type) {
@@ -160,15 +163,6 @@
 
                 // Scenario 3: config check passed - no alerts needed
                 if (configVerifier.length === 0) {
-                    return alerts
-                }
-
-                // Scenario 4: Gcode_yml format is invalid
-                if (this.file.config_verifier == undefined) {
-                    alerts.push({
-                        text: `Gcode_yml format is invalid. Please try update PantheonSlicer profiles or check ${this.file.slicer} template_custom_gcode content. Print quality may be degraded.`,
-                        color: 'warning',
-                    })
                     return alerts
                 }
 

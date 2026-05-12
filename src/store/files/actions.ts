@@ -199,6 +199,15 @@ export const actions: ActionTree<FileState, RootState> = {
     },
 
     async filelist_changed({ commit, dispatch }, payload) {
+        // Reload printer machine config when features.yml is written / edited.
+        if (
+            payload.item?.root === 'config' &&
+            payload.item?.path === 'features.yml' &&
+            ['create_file', 'modify_file', 'move_file'].includes(payload.action)
+        ) {
+            dispatch('server/loadMachineConfig', null, { root: true })
+        }
+
         switch (payload.action) {
             case 'create_file':
                 commit('setCreateFile', payload)
