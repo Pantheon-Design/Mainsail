@@ -781,12 +781,34 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         fleetFilename: '',
         size: 0,
         config_yml: null as string | null,
+        filament_type: null as string | null,
+        nozzle_diameter: null as number | null,
     }
 
     get fleetAlerts() {
         const machineConfig = this.$store.state.server.machineConfig
         if (machineConfig == null) return []
-        const strings = checkConfig(this.fleetDialog.config_yml, machineConfig)
+        const strings: string[] = checkConfig(this.fleetDialog.config_yml, machineConfig)
+
+        // Live filament / nozzle checks — mirrors StartPrintDialog.vue:149-159
+        // so fleet files surface the same warnings before download.
+        const toolhead = this.$store.state.printer?.toolhead
+        const printerFilament = toolhead?.filament_type
+        if (this.fleetDialog.filament_type != null && printerFilament != null
+            && this.fleetDialog.filament_type !== printerFilament) {
+            strings.push(
+                `Warning! Filament type mismatch: expected ${this.fleetDialog.filament_type}, but the printer filament is set to ${printerFilament}`
+            )
+        }
+
+        const printerNozzle = parseFloat(toolhead?.nozzle_size)
+        if (this.fleetDialog.nozzle_diameter != null && !isNaN(printerNozzle)
+            && this.fleetDialog.nozzle_diameter !== printerNozzle) {
+            strings.push(
+                `Warning! Nozzle diameter mismatch: expected ${this.fleetDialog.nozzle_diameter} mm, but the printer nozzle size is set to ${toolhead.nozzle_size} mm`
+            )
+        }
+
         return strings.map((str: string) => {
             if (str.startsWith('Warning')) {
                 return { text: `${str}. Running this file may damage your machine.`, color: 'orange' }
@@ -1363,6 +1385,8 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                 this.fleetDialog.fleetFilename = (item as any).fleetFilename
                 this.fleetDialog.size = (item as any).size ?? 0
                 this.fleetDialog.config_yml = (item as any).config_yml ?? null
+                this.fleetDialog.filament_type = (item as any).filament_type ?? null
+                this.fleetDialog.nozzle_diameter = (item as any).nozzle_diameter ?? null
                 return
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state
