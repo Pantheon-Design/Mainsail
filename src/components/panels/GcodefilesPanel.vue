@@ -356,6 +356,9 @@
                     <div v-if="fleetDialog.size > 0" class="text--secondary text-body-2 mt-1">
                         Size: {{ formatFilesize(fleetDialog.size) }}
                     </div>
+                    <v-alert v-for="alert in fleetAlerts" :key="alert.text" text :color="alert.color" class="mt-3 mb-0">
+                        {{ alert.text }}
+                    </v-alert>
                 </v-card-text>
                 <v-card-actions>
                     <v-btn text @click="fleetDialog.show = false">Cancel</v-btn>
@@ -682,6 +685,7 @@ import {
 } from '@mdi/js'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
 import AddBatchToQueueDialog from '@/components/dialogs/AddBatchToQueueDialog.vue'
+import { checkConfig } from '@/plugins/configVerifier'
 import ControlMixin from '@/components/mixins/control'
 import PathNavigation from '@/components/ui/PathNavigation.vue'
 
@@ -776,6 +780,22 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         filename: '',
         fleetFilename: '',
         size: 0,
+        config_yml: null as string | null,
+    }
+
+    get fleetAlerts() {
+        const machineConfig = this.$store.state.server.machineConfig
+        if (machineConfig == null) return []
+        const strings = checkConfig(this.fleetDialog.config_yml, machineConfig)
+        return strings.map((str: string) => {
+            if (str.startsWith('Warning')) {
+                return { text: `${str}. Running this file may damage your machine.`, color: 'orange' }
+            }
+            if (str.startsWith('Caution')) {
+                return { text: `${str}. Print quality may be degraded.`, color: 'info' }
+            }
+            return { text: str, color: 'error' }
+        })
     }
 
     private contextMenu: contextMenu = {
@@ -1337,11 +1357,12 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
             } else if ((item as any).isFleetRemote) {
-                // Fleet remote file: show download dialog
+                // Fleet remote file: show download dialog with live config check
                 this.fleetDialog.show = true
                 this.fleetDialog.filename = item.filename
                 this.fleetDialog.fleetFilename = (item as any).fleetFilename
                 this.fleetDialog.size = (item as any).size ?? 0
+                this.fleetDialog.config_yml = (item as any).config_yml ?? null
                 return
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state
