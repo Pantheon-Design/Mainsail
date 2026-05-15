@@ -221,7 +221,9 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
             })
         }
 
-        return tabs.sort((a, b) => {
+        const filteredTabs = this.isUL2011SafetyCompliant ? tabs.filter((tab) => tab.name !== 'console') : tabs
+
+        return filteredTabs.sort((a, b) => {
             if (a.name === 'general') return -1
             if (b.name === 'general') return 1
 
