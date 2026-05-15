@@ -299,6 +299,12 @@ export default class PageConsole extends Mixins(BaseMixin) {
         this.$store.dispatch('gui/updateConsoleFilter', filter)
     }
 
+    created() {
+        if (this.isUL2011SafetyCompliant) {
+            this.$router.replace('/')
+        }
+    }
+
     mounted() {
         if (this.consoleDirection === 'shell') this.scrollToBottom()
     }

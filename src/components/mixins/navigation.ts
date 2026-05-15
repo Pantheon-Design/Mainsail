@@ -159,6 +159,7 @@ export default class NavigationMixin extends Mixins(BaseMixin) {
             return false
         else if (route.klipperComponent && !(route.klipperComponent in this.klipperConfigfileSettings)) return false
         else if (route.klipperIsConnected && !this.klippyIsConnected) return false
+        else if (route.ul2011Hidden && this.isUL2011SafetyCompliant) return false
 
         return true
     }

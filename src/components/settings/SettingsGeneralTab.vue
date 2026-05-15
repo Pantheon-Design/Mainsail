@@ -286,6 +286,7 @@ export default class SettingsGeneralTab extends Mixins(BaseMixin, SettingsGenera
             value: true,
         })
         this.ul2011Switch = true
+        this.$socket.emit('machine.services.restart', { service: 'klipper_screen' })
     }
 }
 </script>

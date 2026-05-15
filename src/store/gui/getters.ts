@@ -82,6 +82,11 @@ export const getters: GetterTree<GuiState, any> = {
             allPanels = allPanels.filter((name) => name !== 'spoolTracker')
         }
 
+        // remove miniconsole panel when UL 2011 Safety Compliant mode is enabled
+        if (state.general?.ul2011SafetyCompliant === true) {
+            allPanels = allPanels.filter((name) => name !== 'miniconsole')
+        }
+
         return allPanels
     },
 

@@ -59,6 +59,7 @@ const routes: AppRoute[] = [
         alwaysShow: true,
         showInNavi: true,
         klipperIsConnected: true,
+        ul2011Hidden: true,
         position: 30,
     },
     {
@@ -152,6 +153,7 @@ export interface AppRoute {
     moonrakerComponent?: string
     klipperComponent?: string
     klipperIsConnected?: boolean
+    ul2011Hidden?: boolean
     children?: AppRoute[]
     position?: number
     fullscreen?: boolean
