@@ -29,12 +29,9 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     async initStore({ commit, dispatch }, payload) {
-        //Vue.$toast.success("init Store :");
-        //console.log(payload);
         dispatch('reset')
         Object.keys(payload).forEach((printerId: string) => {
             const printer = payload[printerId]
-            //Vue.$toast.success(printer);
             commit('store', { id: printerId, values: printer })
             dispatch(
                 'farm/registerPrinter',
@@ -52,8 +49,6 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     upload({ state, rootState }, id) {
-
-        //console.log(state.printers);
         if (rootState.instancesDB === 'browser') {
             const printers: any[] = []
             Object.keys(state.printers).forEach((id: string) => {
@@ -65,6 +60,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     position: state.printers[id].position ?? { x: 400, y: 400 },
                     gridPosition: state.printers[id].gridPosition ?? { x: 1, y: 1 },
                     printerModel: state.printers[id].printerModel ?? 'HS-3',
+                    // NEW: default legacy printers to the Print Farm tab
+                    location: state.printers[id].location ?? 'farm',
                 })
             })
 
@@ -78,15 +75,9 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 position: state.printers[id].position ?? { x: 400, y: 400 },
                 gridPosition: state.printers[id].gridPosition ?? { x: 1, y: 1 },
                 printerModel: state.printers[id].printerModel ?? 'HS-3',
+                // NEW: default legacy printers to the Print Farm tab
+                location: state.printers[id].location ?? 'farm',
             }
-            //console.log('=============================================')
-            //console.log(`API database post item: ${value.hostname} :` + value.lastPrintedFilament);
-            //console.log(state);
-            //console.log('upload root state: ');
-            //console.log(rootState);
-            //console.log('upload value')
-            //console.log(value);
-            //console.log('=============================================')
 
             Vue.$socket.emit('server.database.post_item', {
                 namespace: 'mainsail',
@@ -107,7 +98,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 hostname: payload.values.hostname ?? '',
                 port: payload.values.port ?? 7125,
                 position: payload.values.position,
-                printerModel: payload.values.printerModel ?? 'HS-3', 
+                printerModel: payload.values.printerModel ?? 'HS-3',
             },
             { root: true }
         )
@@ -155,8 +146,6 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
     },
 
     getRemotePrintersInfo({ state, rootState }, id) {
-        //console.log(state)
-        
         Vue.$socket.emit(
             'server.database.get_item',
             {
@@ -164,9 +153,5 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
             },
             { action: 'farm/' + id + '/getRemotePrintersInfo' }
         )
-        
     },
-
-
-
 }

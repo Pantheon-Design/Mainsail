@@ -21,6 +21,7 @@
                     <v-divider v-if="index" class="my-2"></v-divider>
                     <settings-row
                         :title="formatPrinterName(printer)"
+                        :sub-title="locationLabel(printer.location)"
                         :loading="printer.socket.isConnecting"
                         :icon="printer.socket.isConnected ? mdiCheckboxMarkedCircle : mdiCancel">
                         <v-btn small outlined :disabled="!canAddPrinters" @click="editPrinter(printer)">
@@ -85,6 +86,15 @@
                               outlined
                               hide-details="auto" />
                 </settings-row>
+                <v-divider class="my-2"></v-divider>
+                <!-- NEW: Location field — chooses which map tab the printer appears on -->
+                <settings-row :title="'Location'">
+                    <v-select v-model="form.location"
+                              :items="locationItems"
+                              dense
+                              outlined
+                              hide-details="auto" />
+                </settings-row>
             </v-card-text>
             <v-card-actions class="d-flex justify-end">
                 <v-btn text @click="form.bool = false">{{ $t('Settings.Cancel') }}</v-btn>
@@ -114,6 +124,7 @@ interface printerForm {
     id: string | null
     namespace: string | null
     printerModel: 'HS-3' | 'HS-Pro'
+    location: 'farm' | 'ground'
 }
 
 @Component({
@@ -127,6 +138,12 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     mdiAlertOutline = mdiAlertOutline
 
     fleetDaemonUrlInput = ''
+
+    // NEW: options for the Location select
+    readonly locationItems = [
+        { text: 'Print Farm', value: 'farm' },
+        { text: 'Ground Floor', value: 'ground' },
+    ]
 
     get fleetDaemonUrl() {
         return this.$store.getters['gui/fleetDaemonUrl']
@@ -150,6 +167,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         id: null,
         namespace: null,
         printerModel: 'HS-3',
+        location: 'farm',
     }
 
     get printers() {
@@ -168,11 +186,18 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         return printer.hostname + (printer.port !== 80 ? ':' + printer.port : '')
     }
 
+    // NEW: human-readable label for the list row (defaults legacy printers to Print Farm)
+    locationLabel(location?: 'farm' | 'ground') {
+        return (location ?? 'farm') === 'ground' ? 'Ground Floor' : 'Print Farm'
+    }
+
     createPrinter() {
         this.form.hostname = ''
         this.form.port = 7125
         this.form.id = null
         this.form.namespace = null
+        this.form.printerModel = 'HS-3'
+        this.form.location = 'farm'
         this.form.bool = true
     }
 
@@ -180,8 +205,9 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         const printer = {
             hostname: this.form.hostname,
             port: this.form.port,
-            position: {x:500, y:0},
-            printerModel: this.form.printerModel
+            position: { x: 500, y: 0 },
+            printerModel: this.form.printerModel,
+            location: this.form.location,
         }
 
         this.$store.dispatch('gui/remoteprinters/store', { values: printer })
@@ -191,6 +217,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.id = null
         this.form.bool = false
         this.form.printerModel = 'HS-3'
+        this.form.location = 'farm'
 
         this.refreshPrinterList()
     }
@@ -200,6 +227,8 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.hostname = printer.hostname
         this.form.port = printer.port
         this.form.printerModel = printer.printerModel ?? 'HS-3'
+        // NEW: default legacy printers (no location key) to the Print Farm tab
+        this.form.location = printer.location ?? 'farm'
         this.form.bool = true
     }
 
@@ -208,7 +237,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
             hostname: this.form.hostname,
             port: this.form.port,
             printerModel: this.form.printerModel,
-
+            location: this.form.location,
         }
 
         this.$store.dispatch('gui/remoteprinters/update', { id: this.form.id, values })
@@ -218,12 +247,12 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.port = 7125
         this.form.bool = false
         this.form.printerModel = 'HS-3'
+        this.form.location = 'farm'
         this.refreshPrinterList()
     }
 
     delPrinter(id: string) {
         this.$store.dispatch('gui/remoteprinters/delete', id)
-         Vue.$toast.success('123123');
         this.refreshPrinterList()
     }
 
@@ -241,6 +270,5 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
                 Vue.$toast.error('Failed to refresh printer list');
             });
     }
-
 }
 </script>

@@ -18,4 +18,7 @@ export interface GuiRemoteprintersStatePrinter {
     position?: { x: number, y: number }
     gridPosition?: { x: number, y: number }
     printerModel?: 'HS-3' | 'HS-Pro'
+    // NEW: which map tab the printer lives on. Optional for backward compatibility —
+    // printers saved before this field existed have no value and default to 'farm'.
+    location?: 'farm' | 'ground'
 }
