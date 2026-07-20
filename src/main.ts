@@ -8,6 +8,7 @@ import store from '@/store'
 import router from '@/plugins/router'
 import { WebSocketPlugin } from '@/plugins/webSocketClient'
 import { fleetDaemonClient } from '@/plugins/fleetDaemonClient'
+import { installMockFleet, mockFleetEnabled } from '@/plugins/mockFleet'
 // vue-observe-visibility
 import { ObserveVisibility } from 'vue-observe-visibility'
 //vue-meta
@@ -88,10 +89,16 @@ const initLoad = async () => {
 
     const url = store.getters['socket/getWebsocketUrl']
     Vue.use(WebSocketPlugin, { url, store })
-    if (store?.state?.instancesDB === 'moonraker') Vue.$socket.connect()
 
-    // Start persistent fleet daemon WebSocket connection
-    fleetDaemonClient.start()
+    if (mockFleetEnabled) {
+        window.console.warn('VUE_APP_MOCK_FLEET is set: faking Moonraker/fleet daemon connection with mock printers')
+        installMockFleet(store)
+    } else {
+        if (store?.state?.instancesDB === 'moonraker') Vue.$socket.connect()
+
+        // Start persistent fleet daemon WebSocket connection
+        fleetDaemonClient.start()
+    }
 }
 
 initLoad().then(() =>
