@@ -40,7 +40,7 @@ import { GuiStateMapDrawingStroke } from '@/store/gui/types'
 export default class MapDrawingToolbar extends Mixins(BaseMixin) {
     @Prop({ type: String, default: '#ff0000' }) declare color: string
     @Prop({ type: Number, default: 3 }) declare strokeWidth: number
-    @Prop({ type: String, default: 'mapdrawing.strokes' }) declare storageKey: string
+    @Prop({ type: String, default: 'mapdrawing.farmStrokes' }) declare storageKey: string
 
     private colorPalette = ['#ff0000', '#ff9800', '#ffeb3b', '#4caf50', '#2196f3', '#9c27b0', '#ffffff', '#000000']
 

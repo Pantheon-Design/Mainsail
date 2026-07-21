@@ -36,7 +36,7 @@ export default class MapDrawingOverlay extends Mixins(BaseMixin) {
     @Prop({ type: Boolean, default: false }) declare editable: boolean
     @Prop({ type: Number, default: 1000 }) declare width: number
     @Prop({ type: Number, default: 500 }) declare height: number
-    @Prop({ type: String, default: 'mapdrawing.strokes' }) declare storageKey: string
+    @Prop({ type: String, default: 'mapdrawing.farmStrokes' }) declare storageKey: string
     @Prop({ type: String, default: '#ff0000' }) declare color: string
     @Prop({ type: Number, default: 3 }) declare strokeWidth: number
 
