@@ -139,6 +139,21 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
         settingsScroll: any
     }
 
+    mounted() {
+        // Allow any page to open this dialog on a specific tab, e.g.
+        // this.$root.$emit('open-settings', 'remote-printers')
+        this.$root.$on('open-settings', this.openOnTab)
+    }
+
+    beforeDestroy() {
+        this.$root.$off('open-settings', this.openOnTab)
+    }
+
+    openOnTab(tab?: string) {
+        if (tab) this.activeTab = tab
+        this.showSettings = true
+    }
+
     get tabTitles() {
         const tabs = [
             {

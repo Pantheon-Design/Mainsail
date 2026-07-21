@@ -31,6 +31,9 @@
                    @click="toggleEditMode">
                 {{ isEditing ? 'Save' : 'Edit' }}
             </v-btn>
+            <v-btn small title="Add printer" @click="openPrinterSettings">
+                <v-icon small>{{ mdiPlus }}</v-icon>
+            </v-btn>
             <v-btn v-if="isEditing" small :color="isDrawing ? 'success' : undefined" :class="{ 'save-pulse': isDrawing }"
                    @click="toggleDrawMode">
                 {{ isDrawing ? 'Save Drawing' : 'Draw' }}
@@ -123,6 +126,7 @@ import BaseMixin from '@/components/mixins/base'
 import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue'
 import MapDrawingToolbar from '@/components/panels/MapDrawingToolbar.vue'
 import Vue from 'vue'
+import { mdiPlus } from '@mdi/js'
 import {
     getPrinterStatus as getPrinterStatusUtil,
     computeRemainingFilamentG,
@@ -154,6 +158,8 @@ export default class PageFarm extends Mixins(BaseMixin) {
         disconnected: { color: '#8a8a8a', label: 'Offline' },
     }
     readonly STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+
+    mdiPlus = mdiPlus
 
     activeLocation: MapLocation = 'farm'
     isEditing = false
@@ -454,6 +460,10 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     toggleDrawMode() {
         this.isDrawing = !this.isDrawing
+    }
+
+    openPrinterSettings() {
+        this.$root.$emit('open-settings', 'remote-printers')
     }
 
     // ---------- drag to place ----------
