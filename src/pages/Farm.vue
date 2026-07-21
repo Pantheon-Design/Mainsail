@@ -69,6 +69,10 @@
                     <span v-for="(l, i) in groundLabels" :key="'gl-' + i" class="area-label" :style="l.style">{{ l.text }}</span>
                 </template>
 
+                <!-- Bay door: thickened right-border segment (rows 5-9), both locations -->
+                <div class="bay-door" :style="bayDoorStyle"></div>
+                <span class="area-label" :style="bayDoorLabelStyle">Bay Door</span>
+
                 <!-- Grid lines -->
                 <div class="grid-lines" :style="gridLinesStyle"></div>
 
@@ -387,6 +391,29 @@ export default class PageFarm extends Mixins(BaseMixin) {
         return labels
     }
 
+    // Bay door: on the right border of the grid, spanning these rows (inclusive)
+    readonly BAY_DOOR_START_ROW = 5
+    readonly BAY_DOOR_END_ROW = 9
+
+    get bayDoorStyle() {
+        return {
+            left: this.pad + this.gridW + 'px',
+            top: this.pad + (this.BAY_DOOR_START_ROW - 1) * this.CELL + 'px',
+            height: (this.BAY_DOOR_END_ROW - this.BAY_DOOR_START_ROW + 1) * this.CELL + 'px',
+        }
+    }
+
+    get bayDoorLabelStyle() {
+        const centerY = this.pad + ((this.BAY_DOOR_START_ROW - 1 + this.BAY_DOOR_END_ROW) / 2) * this.CELL
+        return {
+            right: '2px',
+            top: centerY + 'px',
+            transform: 'translateY(-50%)',
+            writingMode: 'vertical-rl',
+            fontSize: '11px',
+        }
+    }
+
     // Ground floor: 3 areas in grid-cell units
     readonly GROUND_ROOMS = [
         { name: 'Production', gx: 1, gy: 1, wc: 3, hc: 12, side: 'left' },
@@ -690,6 +717,14 @@ export default class PageFarm extends Mixins(BaseMixin) {
     position: absolute;
     width: 2.5px;
     background: rgba(60, 55, 48, 0.5);
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 0;
+}
+.bay-door {
+    position: absolute;
+    width: 7px;
+    background: rgba(60, 55, 48, 0.65);
     transform: translateX(-50%);
     pointer-events: none;
     z-index: 0;
