@@ -1,15 +1,15 @@
 <template>
     <div class="grid-tile"
          :class="{
-             'tile-square': model === 'HS-Pro',
-             'tile-round': model !== 'HS-Pro',
+             'tile-square': isSquare,
+             'tile-round': !isSquare,
              editing: isEditing,
              clickable: !isEditing
          }"
          :style="tileStyle"
          @click="onTileClick">
         <div class="status-ring" :style="borderStyle"></div>
-        <div v-if="isPrinting && model === 'HS-Pro'" class="square-printing-arm" :style="{ '--ring-thickness': '0.6em' }"></div>
+        <div v-if="isPrinting && isSquare" class="square-printing-arm" :style="{ '--ring-thickness': '0.6em' }"></div>
         <div class="tile-body" :style="bodyStyle">
             <div class="hostname" :title="hostname" :style="{ color: fgColorHi }">{{ hostname }}</div>
             <div class="bottom-group">
@@ -33,6 +33,7 @@ import { Component, Mixins, Prop } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import ThemeMixin from '@/components/mixins/theme'
 import { FarmPrinterState } from '@/store/farm/printer/types'
+import { PrinterModel, SQUARE_PRINTER_MODELS } from '@/store/gui/remoteprinters/types'
 import {
     getStatusBorderStyle,
     displayFilamentType,
@@ -44,7 +45,11 @@ import {
 export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) {
     @Prop({ type: Object, required: true }) declare printer: FarmPrinterState
     @Prop({ type: Boolean, default: false }) declare isEditing: boolean
-    @Prop({ type: String, default: null }) declare model: 'HS-3' | 'HS-Pro' | null
+    @Prop({ type: String, default: null }) declare model: PrinterModel | null
+
+    get isSquare(): boolean {
+        return this.model !== null && SQUARE_PRINTER_MODELS.includes(this.model)
+    }
     @Prop({ type: Boolean, default: false }) declare fleetDaemonConnected: boolean
 
     get hostname(): string {
@@ -87,7 +92,7 @@ export default class FarmPrinterGridPanel extends Mixins(BaseMixin, ThemeMixin) 
     }
 
     get bodyStyle(): Record<string, string> {
-        return this.model === 'HS-Pro'
+        return this.isSquare
             ? { inset: '14px' }
             : { inset: '22%' }
     }

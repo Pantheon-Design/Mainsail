@@ -433,6 +433,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         const modelColors: Record<string, string> = {
             'HS-3': '#2196f3',
             'HS-Pro': '#ff9800',
+            'Tallboi': '#9c27b0',
         }
         const data = this.analytics.model_summary.map((r: FleetModelSummary) => ({
             name: r.printer_model,

@@ -69,6 +69,7 @@ import SimplifiedPrinterMapPanel from '@/components/panels/SimplifiedPrinterMapP
 import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue'
 import Vue from 'vue'
 import { fleetDaemonClient } from '@/plugins/fleetDaemonClient'
+import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import {
     mdiViewDashboard,
     mdiReload,
@@ -197,7 +198,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         return 'disconnected'
     }
 
-    getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+    getPrinterModel(hostname: string): PrinterModel | null {
         const key = hostname.toLowerCase()
         const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
         for (const printer of Object.values(remotePrinters)) {
@@ -211,18 +212,20 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     getStyle(printer: any) {
         const hostname = printer.socket?.hostname || ''
         const position = this.positions[hostname.toLowerCase()] || printer.socket?.position || this.getPrinterPosition(hostname)
-        const size = "20px"
+        const size = 20
 
         const model = printer.socket?.printerModel || this.getPrinterModel(hostname)
-        const clip = model === 'HS-Pro' ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)' : 'circle(50%)'
+        const isSquare = SQUARE_PRINTER_MODELS.includes(model)
+        const heightScale = PRINTER_MODEL_HEIGHT_SCALE[model as PrinterModel] ?? 1
+        const clip = isSquare ? 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)' : 'circle(50%)'
 
         return {
             position: 'absolute',
             left: (position.x) + 'px',
             top: (position.y) + 'px',
-            width: size,
-            height: size,
-            borderRadius: model === 'HS-Pro' ? '0%' : '50%',
+            width: size + 'px',
+            height: size * heightScale + 'px',
+            borderRadius: isSquare ? '0%' : '50%',
             clipPath: clip,
             backgroundColor: 'transparent',
             cursor: 'pointer'
@@ -232,7 +235,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     spinningBorderStyle(printer: any) {
         const hostname = printer.socket?.hostname || ''
         const model = printer.socket?.printerModel || this.getPrinterModel(hostname)
-        const isSquare = model === 'HS-Pro'
+        const isSquare = SQUARE_PRINTER_MODELS.includes(model)
 
         const fleetDisconnected = printer.fleet_to_printer_ws === false
 

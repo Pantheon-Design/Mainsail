@@ -1,3 +1,5 @@
+import { PrinterModel, SQUARE_PRINTER_MODELS } from '@/store/gui/remoteprinters/types'
+
 export type PrinterStatus = 'disconnected' | 'error' | 'printing' | 'complete' | 'ready'
 
 export function getPrinterStatus(printer: any, fleetDaemonConnected: boolean): PrinterStatus {
@@ -16,13 +18,13 @@ export function getPrinterStatus(printer: any, fleetDaemonConnected: boolean): P
 
 export function getStatusBorderStyle(
     printer: any,
-    model: 'HS-3' | 'HS-Pro' | null | undefined,
+    model: PrinterModel | null | undefined,
     fleetDaemonConnected: boolean,
     borderEm = 0.25,
     printingEffect: 'spin' | 'arm' = 'spin',
     blueColor = 'blue'
 ): Record<string, string | number> {
-    const isSquare = model === 'HS-Pro'
+    const isSquare = model != null && SQUARE_PRINTER_MODELS.includes(model)
     const radius = isSquare ? '0%' : '50%'
 
     const base: Record<string, string | number> = {

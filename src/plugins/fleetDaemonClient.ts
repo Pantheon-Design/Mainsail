@@ -1,5 +1,6 @@
 import store from '@/store'
 import Vue from 'vue'
+import { PrinterModel } from '@/store/gui/remoteprinters/types'
 
 /**
  * Singleton WebSocket client for fleet_daemon.
@@ -168,7 +169,7 @@ class FleetDaemonClient {
         return { x: 400, y: 400 }
     }
 
-    private getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+    private getPrinterModel(hostname: string): PrinterModel | null {
         const key = hostname.toLowerCase()
         const remotePrinters = store.state.gui?.remoteprinters?.printers || {}
         for (const printer of Object.values(remotePrinters)) {

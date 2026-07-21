@@ -136,6 +136,7 @@ import {
     computeRemainingFilamentG,
     PrinterStatus,
 } from '@/components/panels/farmPrinterStatus'
+import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 
 type MapLocation = 'farm' | 'ground'
 
@@ -231,12 +232,22 @@ export default class PageFarm extends Mixins(BaseMixin) {
         return 'farm'
     }
 
-    getPrinterModel(hostname: string): 'HS-3' | 'HS-Pro' | null {
+    getPrinterModel(hostname: string): PrinterModel | null {
         const key = hostname.toLowerCase()
         for (const printer of Object.values(this.remotePrinters)) {
             if ((printer as any).hostname?.toLowerCase() === key) return (printer as any).printerModel ?? null
         }
         return null
+    }
+
+    isSquareModel(hostname: string): boolean {
+        const model = this.getPrinterModel(hostname)
+        return model !== null && SQUARE_PRINTER_MODELS.includes(model)
+    }
+
+    modelHeightScale(hostname: string): number {
+        const model = this.getPrinterModel(hostname)
+        return (model && PRINTER_MODEL_HEIGHT_SCALE[model]) || 1
     }
 
     get activePrinterEntries(): [string, any][] {
@@ -336,11 +347,11 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     markerDotStyle(printer: any, hostname: string) {
         const status = this.getPrinterStatus(printer)
-        const square = this.getPrinterModel(hostname) === 'HS-Pro'
+        const square = this.isSquareModel(hostname)
         const off = status === 'disconnected'
         return {
             width: this.CELL - 10 + 'px',
-            height: this.CELL - 10 + 'px',
+            height: (this.CELL - 10) * this.modelHeightScale(hostname) + 'px',
             borderRadius: square ? '22%' : '50%',
             backgroundColor: this.STATUS_META[status].color,
             border: off ? '2px dashed #c4c4c4' : '2px solid rgba(255,255,255,.9)',
@@ -352,10 +363,10 @@ export default class PageFarm extends Mixins(BaseMixin) {
     }
 
     markerRingStyle(printer: any, hostname: string) {
-        const square = this.getPrinterModel(hostname) === 'HS-Pro'
+        const square = this.isSquareModel(hostname)
         return {
             width: this.CELL - 8 + 'px',
-            height: this.CELL - 8 + 'px',
+            height: (this.CELL - 8) * this.modelHeightScale(hostname) + 'px',
             borderRadius: square ? '26%' : '50%',
             border: '2.5px solid ' + this.STATUS_META.printing.color,
         }

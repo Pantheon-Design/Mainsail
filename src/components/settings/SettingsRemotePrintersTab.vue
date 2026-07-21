@@ -79,7 +79,7 @@
                 <v-divider class="my-2"></v-divider>
                 <settings-row :title="'Printer Model'">
                     <v-select v-model="form.printerModel"
-                              :items="['HS-3', 'HS-Pro']"
+                              :items="printerModels"
                               dense
                               outlined
                               hide-details="auto" />
@@ -111,7 +111,7 @@
 import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '../mixins/base'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
-import { GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
+import { GuiRemoteprintersStatePrinter, PrinterModel, PRINTER_MODELS } from '@/store/gui/remoteprinters/types'
 import { mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
 import Vue from 'vue';
 
@@ -121,7 +121,7 @@ interface printerForm {
     port: number
     id: string | null
     namespace: string | null
-    printerModel: 'HS-3' | 'HS-Pro'
+    printerModel: PrinterModel
     location: 'farm' | 'ground'
 }
 
@@ -134,6 +134,8 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     mdiAlertOutline = mdiAlertOutline
 
     fleetDaemonUrlInput = ''
+
+    readonly printerModels = PRINTER_MODELS
 
     // NEW: options for the Location select
     readonly locationItems = [
@@ -162,7 +164,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         port: 7125,
         id: null,
         namespace: null,
-        printerModel: 'HS-3',
+        printerModel: 'HS-Pro',
         location: 'farm',
     }
 
@@ -192,7 +194,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.port = 7125
         this.form.id = null
         this.form.namespace = null
-        this.form.printerModel = 'HS-3'
+        this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
         this.form.bool = true
     }
@@ -212,7 +214,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.port = 7125
         this.form.id = null
         this.form.bool = false
-        this.form.printerModel = 'HS-3'
+        this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
 
         this.refreshPrinterList()
@@ -242,7 +244,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.hostname = ''
         this.form.port = 7125
         this.form.bool = false
-        this.form.printerModel = 'HS-3'
+        this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
         this.refreshPrinterList()
     }
