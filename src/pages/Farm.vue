@@ -711,7 +711,6 @@ export default class PageFarm extends Mixins(BaseMixin) {
     position: absolute;
     box-sizing: border-box;
     border: 2.5px solid rgba(60, 55, 48, 0.5);
-    background: rgba(120, 110, 95, 0.05);
 }
 .area-divider {
     position: absolute;
