@@ -20,6 +20,15 @@ class FleetDaemonClient {
         if (this.started) return
         this.started = true
         this.connect()
+
+        // The URL can change after startup (loaded from the Moonraker DB during
+        // gui/init, or edited in the settings tab) — reconnect when it does.
+        store.watch(
+            () => store.getters['gui/fleetDaemonUrl'],
+            () => {
+                if (this.started) this.reconnect()
+            }
+        )
     }
 
     /** Force reconnect (e.g. after changing the fleet daemon URL). */

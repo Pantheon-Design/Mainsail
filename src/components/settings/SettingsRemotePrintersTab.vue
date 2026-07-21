@@ -156,7 +156,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     saveFleetDaemonUrl() {
         const url = this.fleetDaemonUrlInput.trim()
         if (url) {
-            this.$store.commit('gui/saveSetting', { name: 'fleetDaemonUrl', value: url })
+            this.$store.dispatch('gui/saveSetting', { name: 'fleetDaemonUrl', value: url })
         }
     }
 
