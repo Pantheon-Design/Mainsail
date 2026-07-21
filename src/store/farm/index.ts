@@ -45,24 +45,26 @@ export const farm: Module<FarmState, RootState> = {
         },
     },
     actions: {
-        registerPrinter({ commit, dispatch }, payload) {
+        registerPrinter({ commit, dispatch, rootState }, payload) {
             if (!this.hasModule(['farm', payload.id])) {
                 this.registerModule(['farm', payload.id], printer)
                 commit('farm/' + payload.id + '/setSocketData', { ...payload, _namespace: payload.id }, { root: true })
 
                 if ('settings' in payload)
                     commit('farm/' + payload.id + '/setSettings', payload.settings, { root: true })
-                dispatch('farm/' + payload.id + '/connect', {}, { root: true })
+                // In moonraker mode fleet_daemon owns the printer connections; Mainsail only
+                // connects directly in browser-instances mode (TheSelectPrinterDialog)
+                if (rootState.instancesDB !== 'moonraker')
+                    dispatch('farm/' + payload.id + '/connect', {}, { root: true })
             }
         },
-        updatePrinter({ dispatch, commit }, payload) {
+        updatePrinter({ dispatch, commit, rootState }, payload) {
             commit(payload.id + '/setSocketData', {
                 hostname: payload.values.hostname,
                 port: payload.values.port,
-                isConnecting: true,
                 position: payload.values.position
             })
-            dispatch(payload.id + '/reconnect')
+            if (rootState.instancesDB !== 'moonraker') dispatch(payload.id + '/reconnect')
         },
         updatePrinterOnDrag({ dispatch, commit }, payload) {
             commit(payload.id + '/setSocketData', {

@@ -21,9 +21,7 @@
                     <v-divider v-if="index" class="my-2"></v-divider>
                     <settings-row
                         :title="formatPrinterName(printer)"
-                        :sub-title="locationLabel(printer.location)"
-                        :loading="printer.socket.isConnecting"
-                        :icon="printer.socket.isConnected ? mdiCheckboxMarkedCircle : mdiCancel">
+                        :sub-title="locationLabel(printer.location)">
                         <v-btn small outlined :disabled="!canAddPrinters" @click="editPrinter(printer)">
                             <v-icon left small>{{ mdiPencil }}</v-icon>
                             {{ $t('Settings.Edit') }}
@@ -114,7 +112,7 @@ import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '../mixins/base'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import { GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
-import { mdiCancel, mdiCheckboxMarkedCircle, mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
+import { mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
 import Vue from 'vue';
 
 interface printerForm {
@@ -131,8 +129,6 @@ interface printerForm {
     components: { SettingsRow },
 })
 export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
-    mdiCheckboxMarkedCircle = mdiCheckboxMarkedCircle
-    mdiCancel = mdiCancel
     mdiPencil = mdiPencil
     mdiDelete = mdiDelete
     mdiAlertOutline = mdiAlertOutline
