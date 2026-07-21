@@ -6,7 +6,7 @@
                 <h2 class="fleet-title">Fleet Map</h2>
                 <span class="fleet-total">{{ totalPrinterCount }} total</span>
                 <div class="status-counters">
-                    <span v-for="s in totalStatusList" :key="'total-' + s.key" class="status-counter" :class="s.key">
+                    <span v-for="s in totalStatusList" :key="'total-' + s.key" class="status-counter">
                         <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
                               :style="{ backgroundColor: s.color }"></span>
                         {{ s.label }} {{ s.count }}
@@ -47,7 +47,7 @@
 
         <!-- Per-tab status legend -->
         <div class="status-counters mb-3">
-            <span v-for="s in activeStatusList" :key="'active-' + s.key" class="status-counter" :class="s.key">
+            <span v-for="s in activeStatusList" :key="'active-' + s.key" class="status-counter">
                 <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
                       :style="{ backgroundColor: s.color }"></span>
                 {{ s.label }} {{ s.count }}
