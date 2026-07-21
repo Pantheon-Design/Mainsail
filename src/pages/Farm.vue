@@ -91,6 +91,7 @@
                      :class="{ draggable: isEditing && !isDrawing }"
                      :data-printer-id="hostname"
                      @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
+                     @click="isEditing ? null : openPrinter(printer)"
                      @mouseover="showTooltip(printer, hostname, $event)"
                      @mouseleave="hideTooltip">
                     <div v-if="markerStatus(printer) === 'printing'" class="marker-ring"
@@ -502,6 +503,17 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     openPrinterSettings() {
         this.$root.$emit('open-settings', 'remote-printers')
+    }
+
+    openPrinter(printer: any) {
+        const socket = printer?.socket
+        const hostname = socket?.hostname ?? ''
+        if (!hostname) return
+        const protocol = window.location.protocol
+        const webPort = socket?.webPort ?? 80
+        let url = protocol + '//' + hostname
+        if (webPort !== 80) url += ':' + webPort
+        window.open(url)
     }
 
     // ---------- drag to place ----------
