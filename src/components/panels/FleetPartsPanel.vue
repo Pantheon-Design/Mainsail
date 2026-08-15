@@ -1221,7 +1221,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async applyFilters() {
-        const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
         const params = new URLSearchParams()
         if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
         if (this.filterPrinter) params.set('printer', this.filterPrinter)
@@ -1243,7 +1243,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async loadMore() {
-        const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
         const params = new URLSearchParams()
         if (this.appliedQrCode) params.set('qr_code', this.appliedQrCode)
         if (this.filterPrinter) params.set('printer', this.filterPrinter)
@@ -1950,7 +1950,7 @@ export default class FleetPartsPanel extends Vue {
         this.detailDialog = true
         try {
             // Fetch all records for this job (base + parts)
-            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+            const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
             const params = new URLSearchParams()
             params.set('printer', item.printer_hostname)
             params.set('moonraker_job_id', item.moonraker_job_id)
@@ -1988,7 +1988,7 @@ export default class FleetPartsPanel extends Vue {
         if (!this.deleteTarget) return
         this.deleteLoading = true
         try {
-            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+            const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
             await axios.delete(`${baseUrl}/history/part/${this.deleteTarget.id}`)
             this.showSnackbar(`Part deleted: ${this.deleteTarget.qr_code}`, 'success')
             this.deleteDialog = false
@@ -2053,7 +2053,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     get fleetDaemonUrl(): string {
-        return this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        return this.$store.getters['gui/fleetDaemonUrl']
     }
 
     downloadArchivedGcode(record: any) {

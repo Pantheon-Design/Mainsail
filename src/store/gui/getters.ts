@@ -163,5 +163,8 @@ export const getters: GetterTree<GuiState, any> = {
         return false
     },
 
-    fleetDaemonUrl: (state) => state.fleetDaemonUrl ?? 'http://pantheonfleet.local:8090',
+    // Default: the daemon runs on the same host that serves this UI, so derive
+    // the URL from how the browser reached us — works on LAN (.local) and over
+    // ZeroTier/VPN (IP), where mDNS names don't resolve. Daemon is plain HTTP.
+    fleetDaemonUrl: (state) => state.fleetDaemonUrl ?? `http://${window.location.hostname}:8090`,
 }

@@ -863,7 +863,7 @@ export default class SpoolListPanel extends Vue {
         // Fetch jobs/parts that used this spool
         if (spool.qr_code) {
             this.detailSpoolJobsLoading = true
-            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+            const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
             import('axios').then(({ default: axios }) => {
                 axios.get(`${baseUrl}/history`, {
                     params: { spool_qr_code: spool.qr_code, limit: 500 }

@@ -47,7 +47,7 @@
             <v-card-text class="py-1 d-flex align-center">
                 <div>
                     <b class="mr-1">Path:</b>
-                    <a class="text-decoration-none" @click="navigateToFleetPath('')">/home/hs3/Fleetdaemon/gcodes</a>
+                    <a class="text-decoration-none" @click="navigateToFleetPath('')">Fleet Library</a>
                     <template v-for="(segment, i) in fleetPathSegments">
                         <span :key="'sep-' + i"> / </span>
                         <a :key="'seg-' + i" class="text-decoration-none" @click="navigateToFleetPath(fleetPathUpTo(i))">{{ segment }}</a>

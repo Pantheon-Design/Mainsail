@@ -6,7 +6,7 @@
                 <settings-row :title="'Fleet Daemon URL'">
                     <v-text-field
                         v-model="fleetDaemonUrlInput"
-                        placeholder="http://pantheonfleet.local:8090"
+                        :placeholder="defaultFleetDaemonUrl"
                         hide-details="auto"
                         dense
                         outlined
@@ -147,15 +147,18 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         return this.$store.getters['gui/fleetDaemonUrl']
     }
 
+    get defaultFleetDaemonUrl() {
+        return `http://${window.location.hostname}:8090 (default)`
+    }
+
     created() {
-        this.fleetDaemonUrlInput = this.fleetDaemonUrl
+        // Show only an explicit override; empty field = same-host default.
+        this.fleetDaemonUrlInput = this.$store.state.gui.fleetDaemonUrl ?? ''
     }
 
     saveFleetDaemonUrl() {
         const url = this.fleetDaemonUrlInput.trim()
-        if (url) {
-            this.$store.dispatch('gui/saveSetting', { name: 'fleetDaemonUrl', value: url })
-        }
+        this.$store.dispatch('gui/saveSetting', { name: 'fleetDaemonUrl', value: url || null })
     }
 
     private form: printerForm = {

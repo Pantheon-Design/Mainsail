@@ -45,7 +45,7 @@ class FleetDaemonClient {
     }
 
     private get wsUrl(): string {
-        const httpUrl: string = store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        const httpUrl: string = store.getters['gui/fleetDaemonUrl']
         return httpUrl.replace(/^http/, 'ws') + '/ws'
     }
 

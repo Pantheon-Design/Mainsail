@@ -203,7 +203,7 @@ export interface GuiState {
             }
         }
     }
-    fleetDaemonUrl: string
+    fleetDaemonUrl: string | null
     mapdrawing: {
         farmStrokes: GuiStateMapDrawingStroke[]
         groundStrokes: GuiStateMapDrawingStroke[]

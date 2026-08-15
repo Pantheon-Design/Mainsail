@@ -491,7 +491,7 @@ export default class FleetHistoryListPanel extends Vue {
     }
 
     get fleetDaemonUrl(): string {
-        return this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        return this.$store.getters['gui/fleetDaemonUrl']
     }
 
     onHistoryUpdated() {
@@ -694,7 +694,7 @@ export default class FleetHistoryListPanel extends Vue {
         let qr = this.addPartQrCode.trim()
         if (qr.match(/^#[01]/) && qr.length > 2) qr = qr.slice(2)
         try {
-            const baseUrl = this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+            const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
             const response = await axios.post(`${baseUrl}/history/qr-link`, {
                 printer_hostname: this.addPartJob.printer_hostname,
                 moonraker_job_id: this.addPartJob.moonraker_job_id,

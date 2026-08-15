@@ -262,7 +262,7 @@ export default class FleetArchivePanel extends Vue {
     }
 
     get fleetDaemonUrl(): string {
-        return this.$store.getters['gui/fleetDaemonUrl'] ?? 'http://pantheonfleet.local:8090'
+        return this.$store.getters['gui/fleetDaemonUrl']
     }
 
     refreshStatus() {
