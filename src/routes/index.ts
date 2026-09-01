@@ -27,7 +27,6 @@ const routes: AppRoute[] = [
         name: 'dashboard',
         title: 'Dashboard',
         path: '/',
-        redirect: '/allPrinters',
         icon: mdiMonitorDashboard,
         component: Dashboard,
         alwaysShow: true,
