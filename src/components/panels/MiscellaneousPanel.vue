@@ -2,7 +2,6 @@
 
 <template>
     <panel
-        v-if="showMiscellaneousPanel"
         :icon="mdiDipSwitch"
         :title="$t('Panels.MiscellaneousPanel.Headline')"
         :collapsible="true"
@@ -40,6 +39,9 @@
                 :enabled="sensor.enabled"
                 :filament_detected="sensor.filament_detected"></filament-sensor>
         </div>
+        <div v-if="!hasMiscellaneousObjects" class="text-center text--disabled py-3">
+            {{ $t('Panels.MiscellaneousPanel.NoObjects') }}
+        </div>
     </panel>
 </template>
 
@@ -69,10 +71,8 @@ export default class MiscellaneousPanel extends Mixins(BaseMixin) {
         return this.$store.getters['printer/getLights'] ?? []
     }
 
-    get showMiscellaneousPanel() {
-        return (
-            this.klipperReadyForGui && (this.miscellaneous.length || this.filamentSensors.length || this.lights.length)
-        )
+    get hasMiscellaneousObjects(): boolean {
+        return this.miscellaneous.length > 0 || this.filamentSensors.length > 0 || this.lights.length > 0
     }
 }
 </script>

@@ -167,6 +167,11 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
                 title: this.$t('Settings.UiSettingsTab.UiSettings'),
             },
             {
+                icon: mdiMonitorDashboard,
+                name: 'dashboard',
+                title: this.$t('Settings.DashboardTab.Dashboard'),
+            },
+            {
                 icon: mdiPrinter3d,
                 name: 'remote-printers',
                 title: this.$t('Settings.RemotePrintersTab.RemotePrinters'),

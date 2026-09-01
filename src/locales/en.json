@@ -645,6 +645,7 @@
                 "Red": "red",
                 "White": "white"
             },
+            "NoObjects": "No fans, lights or filament sensors available",
             "RunoutSensor": {
                 "Detected": "detected",
                 "Empty": "empty"
@@ -748,6 +749,7 @@
             "Max": "max",
             "Min": "min",
             "Name": "Name",
+            "NoSensors": "No heaters or temperature sensors available",
             "Presets": "Presets",
             "SetupTemperatures": "Setup Temperatures",
             "ShowChart": "Show Chart",

@@ -60,12 +60,6 @@ export const getters: GetterTree<GuiState, any> = {
             allPanels = allPanels.filter((name) => name !== 'extruder-control')
         }
 
-        // remove temperature panel, if sensors < 1
-        const printerTemperatureSensors = rootState.printer?.heaters?.available_sensors ?? []
-        if (printerTemperatureSensors.length < 1) {
-            allPanels = allPanels.filter((name) => name !== 'temperature')
-        }
-
         // remove webcam panel, if no webcam exists
         const webcams = getters['webcams/getWebcams']
         if (webcams.length === 0) {

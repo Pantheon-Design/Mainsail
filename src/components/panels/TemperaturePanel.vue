@@ -1,6 +1,5 @@
 <template>
     <panel
-        v-if="klipperReadyForGui"
         :icon="mdiThermometerLines"
         :title="$t('Panels.TemperaturePanel.Headline')"
         :collapsible="true"
@@ -11,6 +10,9 @@
         </template>
         <v-card-text class="pa-0">
             <temperature-panel-list />
+            <div v-if="!hasTemperatureObjects" class="text-center text--disabled py-3">
+                {{ $t('Panels.TemperaturePanel.NoSensors') }}
+            </div>
             <template v-if="boolTempchart">
                 <v-divider class="my-0" />
                 <temp-chart />
@@ -44,6 +46,16 @@ export default class TemperaturePanel extends Mixins(BaseMixin, ControlMixin) {
 
     get boolTempchart(): boolean {
         return this.$store.state.gui.view.tempchart.boolTempchart ?? false
+    }
+
+    get hasTemperatureObjects(): boolean {
+        const heaters = this.$store.state.printer?.heaters ?? {}
+        const count =
+            (heaters.available_heaters?.length ?? 0) +
+            (heaters.available_sensors?.length ?? 0) +
+            (heaters.available_monitors?.length ?? 0)
+
+        return count > 0
     }
 }
 </script>
