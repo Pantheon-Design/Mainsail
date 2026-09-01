@@ -1,6 +1,14 @@
 import { FileStateFile } from '@/store/files/types'
 import { PrinterStateMacroParams } from '@/store/printer/types'
 import Vue from 'vue'
+import {
+    mdiFlash,
+    mdiGauge,
+    mdiLightningBoltOutline,
+    mdiMeterElectricOutline,
+    mdiScale,
+    mdiThermometer,
+} from '@mdi/js'
 
 export const setDataDeep = (currentState: any, payload: any) => {
     if (payload !== null && typeof payload === 'object') {
@@ -281,4 +289,29 @@ export function sortResolutions(a: string, b: string) {
     const bSplit = parseInt(b.split('x')[0])
 
     return aSplit - bSplit
+}
+
+export const unitToSymbol = (unit: string): string => {
+    return (
+        {
+            // Energy
+            wh: mdiLightningBoltOutline,
+            kwh: mdiLightningBoltOutline,
+            mwh: mdiLightningBoltOutline,
+            j: mdiLightningBoltOutline,
+            // Power
+            w: mdiFlash,
+            // Electrical
+            v: mdiFlash,
+            a: mdiMeterElectricOutline,
+            // Temperature
+            '°c': mdiThermometer,
+            c: mdiThermometer,
+            '°f': mdiThermometer,
+            f: mdiThermometer,
+            '°': mdiThermometer,
+            // Mass
+            g: mdiScale,
+        }[unit?.toLowerCase()] ?? mdiGauge
+    )
 }
