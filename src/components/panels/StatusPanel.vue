@@ -401,15 +401,16 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     }
 
     btnReprintJob() {
-        // retrieve enable_prime from Vuex state
-        const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
+        // is_primed is owned by Moonraker (machine_state); see GcodefilesPanel.clickRow
+        const machineState = this.$store.state?.printer?.machine_state ?? {}
+        const primeEnabled = machineState.enable_prime !== 0
+        const isPrimed = machineState.is_primed === 1
 
-        if (enablePrime === undefined || enablePrime === 1) {
-            // If enable_prime does not exist OR is 1, show the Prime Printer Dialog
+        if (primeEnabled && !isPrimed) {
+            // Not primed since the last print / restart: warn first
             this.selectedFilename = this.current_filename
             this.show_prime_printer_dialog = true;
-        } else if (enablePrime === 0) {
-            // If enable_prime is 0, start printing immediately
+        } else {
             this.$socket.emit('printer.print.start', { filename: this.current_filename }, { loading: 'statusPrintReprint' });
         }
     }
