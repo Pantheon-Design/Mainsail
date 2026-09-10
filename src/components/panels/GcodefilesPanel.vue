@@ -356,6 +356,9 @@
                     <div v-if="fleetDialog.size > 0" class="text--secondary text-body-2 mt-1">
                         Size: {{ formatFilesize(fleetDialog.size) }}
                     </div>
+                    <v-alert v-for="alert in fleetAlerts" :key="alert.text" text :color="alert.color" class="mt-3 mb-0">
+                        {{ alert.text }}
+                    </v-alert>
                 </v-card-text>
                 <v-card-actions>
                     <v-btn text @click="fleetDialog.show = false">Cancel</v-btn>
@@ -682,6 +685,7 @@ import {
 } from '@mdi/js'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
 import AddBatchToQueueDialog from '@/components/dialogs/AddBatchToQueueDialog.vue'
+import { checkConfig } from '@/plugins/configVerifier'
 import ControlMixin from '@/components/mixins/control'
 import PathNavigation from '@/components/ui/PathNavigation.vue'
 
@@ -776,6 +780,44 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
         filename: '',
         fleetFilename: '',
         size: 0,
+        config_yml: null as string | null,
+        filament_type: null as string | null,
+        nozzle_diameter: null as number | null,
+    }
+
+    get fleetAlerts() {
+        const machineConfig = this.$store.state.server.machineConfig
+        if (machineConfig == null) return []
+        const strings: string[] = checkConfig(this.fleetDialog.config_yml, machineConfig)
+
+        // Live filament / nozzle checks — mirrors StartPrintDialog.vue:149-159
+        // so fleet files surface the same warnings before download.
+        const toolhead = this.$store.state.printer?.toolhead
+        const printerFilament = toolhead?.filament_type
+        if (this.fleetDialog.filament_type != null && printerFilament != null
+            && this.fleetDialog.filament_type !== printerFilament) {
+            strings.push(
+                `Warning! Filament type mismatch: expected ${this.fleetDialog.filament_type}, but the printer filament is set to ${printerFilament}`
+            )
+        }
+
+        const printerNozzle = parseFloat(toolhead?.nozzle_size)
+        if (this.fleetDialog.nozzle_diameter != null && !isNaN(printerNozzle)
+            && this.fleetDialog.nozzle_diameter !== printerNozzle) {
+            strings.push(
+                `Warning! Nozzle diameter mismatch: expected ${this.fleetDialog.nozzle_diameter} mm, but the printer nozzle size is set to ${toolhead.nozzle_size} mm`
+            )
+        }
+
+        return strings.map((str: string) => {
+            if (str.startsWith('Warning')) {
+                return { text: `${str}. Running this file may damage your machine.`, color: 'orange' }
+            }
+            if (str.startsWith('Caution')) {
+                return { text: `${str}. Print quality may be degraded.`, color: 'info' }
+            }
+            return { text: str, color: 'error' }
+        })
     }
 
     private contextMenu: contextMenu = {
@@ -1337,11 +1379,14 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
             } else if ((item as any).isFleetRemote) {
-                // Fleet remote file: show download dialog
+                // Fleet remote file: show download dialog with live config check
                 this.fleetDialog.show = true
                 this.fleetDialog.filename = item.filename
                 this.fleetDialog.fleetFilename = (item as any).fleetFilename
                 this.fleetDialog.size = (item as any).size ?? 0
+                this.fleetDialog.config_yml = (item as any).config_yml ?? null
+                this.fleetDialog.filament_type = (item as any).filament_type ?? null
+                this.fleetDialog.nozzle_diameter = (item as any).nozzle_diameter ?? null
                 return
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state

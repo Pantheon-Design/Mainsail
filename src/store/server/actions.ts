@@ -1,4 +1,6 @@
 import Vue from 'vue'
+import axios from 'axios'
+import yaml from 'js-yaml'
 import router from '@/plugins/router'
 import { ActionTree } from 'vuex'
 import { ServerState, ServerStateEvent } from '@/store/server/types'
@@ -32,7 +34,25 @@ export const actions: ActionTree<ServerState, RootState> = {
         Vue.$socket.emit('machine.proc_stats', {}, { action: 'server/initProcStats' })
         Vue.$socket.emit('server.database.list', { root: 'config' }, { action: 'server/checkDatabases' })
 
+        dispatch('loadMachineConfig')
+
         await dispatch('socket/removeInitModule', 'server', { root: true })
+    },
+
+    async loadMachineConfig({ commit, rootGetters }) {
+        const url =
+            rootGetters['socket/getUrl'] +
+            '/server/files/config/features.yml?' +
+            Date.now()
+        try {
+            const res = await axios.get(url, { responseType: 'blob' })
+            const text = await res.data.text()
+            const parsed = yaml.load(text)
+            commit('setMachineConfig', parsed && typeof parsed === 'object' ? parsed : null)
+        } catch (err) {
+            // 404 (features.yml absent) or parse error — config verification stays disabled.
+            commit('setMachineConfig', null)
+        }
     },
 
     identify({ dispatch, rootState }): void {
