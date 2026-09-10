@@ -21,6 +21,21 @@
                 </template>
             </router-link>
             <v-toolbar-title class="text-no-wrap ml-0 pl-2 mr-2">{{ printerName }}</v-toolbar-title>
+            <v-tooltip v-if="isFleetWorker" bottom>
+                <template #activator="{ on, attrs }">
+                    <v-chip
+                        small
+                        label
+                        outlined
+                        color="primary"
+                        class="fleet-worker-chip mr-2 d-none d-sm-flex"
+                        v-bind="attrs"
+                        v-on="on">
+                        {{ $t('App.TopBar.FleetWorker') }}
+                    </v-chip>
+                </template>
+                <span>{{ $t('App.TopBar.FleetWorkerTooltip') }}</span>
+            </v-tooltip>
             <printer-selector v-if="countPrinters" />
             <v-spacer />
             <input
@@ -197,6 +212,11 @@ export default class TheTopbar extends Mixins(BaseMixin) {
 
     get countPrinters() {
         return this.$store.getters['farm/countPrinters']
+    }
+
+    get isFleetWorker(): boolean {
+        // Set by Moonraker's fleet_integration from fleet_daemon's worker list.
+        return this.$store.state.printer.machine_state?.is_fleet_worker === 1
     }
 
     get boolHideUploadAndPrintButton() {
