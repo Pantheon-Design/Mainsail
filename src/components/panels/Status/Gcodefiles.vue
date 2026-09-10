@@ -77,6 +77,10 @@
             :file="dialogFile"
             :current-path="currentPath"
             @closeDialog="closeDialog" />
+        <prime-printer-dialog
+            :bool="showPrimeDialog"
+            :filename="primeDialogFilename"
+            @closeDialog="closePrimeDialog" />
         <v-menu v-model="contextMenu.shown" :position-x="contextMenu.x" :position-y="contextMenu.y" absolute offset-y>
             <v-list>
                 <v-list-item :disabled="printerIsPrinting || !klipperReadyForGui" @click="showDialog(contextMenu.item)">
@@ -187,6 +191,7 @@ import BaseMixin from '@/components/mixins/base'
 import ControlMixin from '@/components/mixins/control'
 import { FileStateGcodefile } from '@/store/files/types'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
+import PrimePrinterDialog from '@/components/dialogs/PrimePrinterDialog.vue'
 import {
     mdiFile,
     mdiPlay,
@@ -213,6 +218,7 @@ interface dialogRenameObject {
     components: {
         Panel,
         StartPrintDialog,
+        PrimePrinterDialog,
         AddBatchToQueueDialog,
     },
 })
@@ -230,6 +236,8 @@ export default class StatusPanelGcodefiles extends Mixins(BaseMixin, ControlMixi
 
     private deleteDialog = false
     private showDialogBool = false
+    private showPrimeDialog = false
+    private primeDialogFilename = ''
     private dialogFile: FileStateGcodefile = {
         isDirectory: false,
         filename: '',
@@ -400,10 +408,22 @@ export default class StatusPanelGcodefiles extends Mixins(BaseMixin, ControlMixi
     }
 
     showDialog(file: FileStateGcodefile) {
-        if (this.$store.state.printer.machine_state.is_purging === 1) {
+        const machineState = this.$store.state?.printer?.machine_state ?? {}
+
+        if (machineState.is_purging === 1) {
             this.$toast.warning("Purging wet filament. A print has already been started, it will begin after the purge.");
             return
-        } 
+        }
+
+        // Same guard as GcodefilesPanel.clickRow: while the printer has not been
+        // primed since the last print / restart, warn and only allow a forced print
+        // after the filename is typed in. is_primed is owned by Moonraker (machine_state).
+        if (machineState.enable_prime !== 0 && machineState.is_primed !== 1) {
+            this.primeDialogFilename = file.filename
+            this.showPrimeDialog = true
+            return
+        }
+
         this.currentPath =
             file.filename.lastIndexOf('/') >= 0 ? '/' + file.filename.slice(0, file.filename.lastIndexOf('/')) : ''
         this.dialogFile = { ...file }
@@ -415,6 +435,10 @@ export default class StatusPanelGcodefiles extends Mixins(BaseMixin, ControlMixi
 
     closeDialog() {
         this.showDialogBool = false
+    }
+
+    closePrimeDialog() {
+        this.showPrimeDialog = false
     }
 
     addToQueue(item: FileStateGcodefile) {

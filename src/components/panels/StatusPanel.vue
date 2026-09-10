@@ -212,10 +212,19 @@ export default class StatusPanel extends Mixins(BaseMixin) {
                 )
             }
 
-            return this.printer_state.charAt(0).toUpperCase() + this.printer_state.slice(1)
+            const stateText = this.printer_state.charAt(0).toUpperCase() + this.printer_state.slice(1)
+            return stateText + this.primeStateSuffix
         }
 
         return this.$t('Panels.StatusPanel.Unknown')
+    }
+
+    get primeStateSuffix() {
+        // Idle states only (printing/paused/busy return above). Shown whenever the
+        // prime function is enabled; is_primed is owned by Moonraker (machine_state).
+        const machineState = this.$store.state?.printer?.machine_state ?? {}
+        if (machineState.enable_prime === 0) return ''
+        return machineState.is_primed === 1 ? ' (primed)' : ' (not primed)'
     }
 
     get toolbarButtons() {
