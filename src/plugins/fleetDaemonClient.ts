@@ -112,6 +112,12 @@ class FleetDaemonClient {
                     if (message.event === 'download_queue_updated') {
                         fleetDaemonEvents.$emit('download_queue_updated')
                     }
+                    if (message.event === 'jobs_updated') {
+                        fleetDaemonEvents.$emit('jobs_updated')
+                    }
+                    if (message.event === 'workers_updated') {
+                        fleetDaemonEvents.$emit('workers_updated')
+                    }
                     if (message.event === 'toast') {
                         fleetDaemonEvents.$emit('toast', {
                             level: message.level ?? 'info',

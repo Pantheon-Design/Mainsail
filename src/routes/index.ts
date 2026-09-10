@@ -20,6 +20,7 @@ import {
     mdiTimelapse,
     mdiWrench,
     mdiPrinter3dNozzle,
+    mdiBriefcaseOutline,
 } from '@mdi/js'
 
 const routes: AppRoute[] = [
@@ -96,6 +97,16 @@ const routes: AppRoute[] = [
         showInNavi: true,
         position: 60,
         fullscreen: true,
+    },
+    {
+        name: 'jobs',
+        title: 'Jobs',
+        path: '/jobs',
+        icon: mdiBriefcaseOutline,
+        component: () => import('../pages/Jobs.vue'),
+        alwaysShow: true,
+        showInNavi: true,
+        position: 64,
     },
     {
         name: 'fleet-history',

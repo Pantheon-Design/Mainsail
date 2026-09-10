@@ -3,6 +3,9 @@ import { history } from './history'
 import { spools } from './spools'
 import { gcodes } from './gcodes'
 import { archive } from './archive'
+import { jobs } from './jobs'
+import { customers } from './customers'
+import { workers } from './workers'
 
 const state = {}
 const getters = {}
@@ -20,5 +23,8 @@ export const fleet: Module<any, any> = {
         spools,
         gcodes,
         archive,
+        jobs,
+        customers,
+        workers,
     },
 }

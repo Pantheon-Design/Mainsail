@@ -1,5 +1,5 @@
 import { ActionTree } from 'vuex'
-import { FleetGcodesState } from './types'
+import { FleetGcodesState, FleetGcodeFile } from './types'
 import { RootState } from '@/store/types'
 import axios, { AxiosProgressEvent } from 'axios'
 
@@ -158,6 +158,26 @@ export const actions: ActionTree<FleetGcodesState, RootState> = {
         } catch (error) {
             const msg = extractError(error)
             throw new Error(`Cancel download failed: ${msg}`)
+        }
+    },
+
+    /**
+     * Read-only directory listing that does NOT touch `files` / `currentPath`
+     * (used by the job form's FleetGcodePicker so it never disturbs the
+     * GcodefilesPanel browser state).
+     */
+    async fetchDirectory({ rootGetters }, path?: string): Promise<FleetGcodeFile[]> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const p = path ?? ''
+            const response = await axios.get(
+                `${baseUrl}/gcodes?path=${encodeURIComponent(p)}&include_cache_status=false`
+            )
+            if (response.data?.storage_available === false) throw new Error('Fleet gcode storage (NAS) unavailable')
+            return response.data.files ?? []
+        } catch (error) {
+            const msg = extractError(error)
+            throw new Error(`Load fleet gcodes failed: ${msg}`)
         }
     },
 }
