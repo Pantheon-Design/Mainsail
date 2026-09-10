@@ -225,6 +225,7 @@ export default class TemperaturePanelListItem extends Mixins(BaseMixin) {
 
     get additionalSensorName() {
         if (this.objectName === 'z_thermal_adjust') return 'z_thermal_adjust'
+        if (this.objectName === 'secondary_z_thermal_adjust') return 'secondary_z_thermal_adjust'
 
         const additionalSensorName = additionalSensors.find((sensorName) => {
             const objectName = `${sensorName} ${this.name}`

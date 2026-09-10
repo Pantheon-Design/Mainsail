@@ -27,6 +27,7 @@ export default class TemperaturePanelListItemAdditionalSensor extends Mixins(Bas
 
     get additionalValues() {
         if (this.objectName === 'z_thermal_adjust') return ['current_z_adjust']
+        if (this.objectName === 'secondary_z_thermal_adjust') return ['current_z_adjust']
 
         return Object.keys(this.printerObject).filter((key) => key !== 'temperature')
     }

@@ -1,6 +1,17 @@
 <template>
     <div>
         <panel :title="$t('Files.GCodeFiles')" :icon="mdiFileDocumentMultipleOutline" card-class="gcode-files-panel">
+            <template v-if="hasFleetIntegration && !fleetConnected" #buttons-title>
+                <v-chip
+                    small
+                    color="error"
+                    text-color="white"
+                    class="ml-3"
+                    title="Moonraker lost its connection to fleet_daemon">
+                    <v-icon left small>{{ mdiAlertCircleOutline }}</v-icon>
+                    fleet_daemon offline
+                </v-chip>
+            </template>
             <v-card-text>
                 <v-row>
                     <v-col class="col-12 d-flex align-center">
@@ -172,6 +183,22 @@
                     </v-col>
                 </v-row>
             </v-card-text>
+            <!-- Fleet download progress banner -->
+            <v-alert
+                v-if="isFleetDownloading"
+                type="info"
+                dense
+                class="mx-4 mb-2">
+                <v-row align="center" no-gutters>
+                    <v-col>
+                        <v-icon small class="mr-2">{{ mdiCloudDownloadOutline }}</v-icon>
+                        Fleet: {{ fleetDownloadStatus?.status }} — {{ fleetDownloadStatus?.filename }}
+                    </v-col>
+                    <v-col cols="auto">
+                        <v-progress-circular indeterminate size="20" width="2" />
+                    </v-col>
+                </v-row>
+            </v-alert>
             <v-divider class="mb-3"></v-divider>
             <v-data-table
                 v-model="selectedFiles"
@@ -239,6 +266,14 @@
                             <template v-if="item.isDirectory">
                                 <v-icon>{{ mdiFolder }}</v-icon>
                             </template>
+                            <template v-else-if="item.isFleetRemote">
+                                <v-tooltip top>
+                                    <template #activator="{ on, attrs }">
+                                        <v-icon color="info" v-bind="attrs" v-on="on">{{ mdiCloudDownloadOutline }}</v-icon>
+                                    </template>
+                                    <span>Available on Fleet - Click to Download &amp; Print</span>
+                                </v-tooltip>
+                            </template>
                             <template v-else-if="item.small_thumbnail">
                                 <v-tooltip
                                     top
@@ -304,6 +339,41 @@
                 </template>
             </v-data-table>
         </panel>
+        <!-- Fleet file action dialog -->
+        <v-dialog v-model="fleetDialog.show" max-width="420">
+            <v-card>
+                <v-card-title class="text-h6">
+                    <v-icon class="mr-2" color="info">{{ mdiCloudDownloadOutline }}</v-icon>
+                    Fleet File
+                </v-card-title>
+                <v-card-text>
+                    <div class="mb-2">
+                        <strong>{{ fleetDialog.filename }}</strong>
+                    </div>
+                    <div class="text--secondary text-body-2">
+                        This file is available on the fleet server. Download it to this printer to start printing.
+                    </div>
+                    <div v-if="fleetDialog.size > 0" class="text--secondary text-body-2 mt-1">
+                        Size: {{ formatFilesize(fleetDialog.size) }}
+                    </div>
+                    <v-alert v-for="alert in fleetAlerts" :key="alert.text" text :color="alert.color" class="mt-3 mb-0">
+                        {{ alert.text }}
+                    </v-alert>
+                </v-card-text>
+                <v-card-actions>
+                    <v-btn text @click="fleetDialog.show = false">Cancel</v-btn>
+                    <v-spacer></v-spacer>
+                    <v-btn color="primary" text @click="fleetDownloadOnly">
+                        <v-icon small class="mr-1">{{ mdiCloudDownloadOutline }}</v-icon>
+                        Download
+                    </v-btn>
+                    <v-btn color="primary" @click="fleetDownloadAndPrintFromDialog">
+                        <v-icon small class="mr-1">{{ mdiPlay }}</v-icon>
+                        Download &amp; Print
+                    </v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
         <start-print-dialog
             :bool="dialogPrintFile.show"
             :file="dialogPrintFile.item"
@@ -593,6 +663,7 @@ import {
     mdiCheckboxMarked,
     mdiCloseThick,
     mdiCloudDownload,
+    mdiCloudDownloadOutline,
     mdiCog,
     mdiDelete,
     mdiFile,
@@ -610,9 +681,11 @@ import {
     mdiVideo3d,
     mdiFileDocumentEditOutline,
     mdiContentCopy,
+    mdiAlertCircleOutline,
 } from '@mdi/js'
 import StartPrintDialog from '@/components/dialogs/StartPrintDialog.vue'
 import AddBatchToQueueDialog from '@/components/dialogs/AddBatchToQueueDialog.vue'
+import { checkConfig } from '@/plugins/configVerifier'
 import ControlMixin from '@/components/mixins/control'
 import PathNavigation from '@/components/ui/PathNavigation.vue'
 
@@ -669,6 +742,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     mdiFire = mdiFire
     mdiVideo3d = mdiVideo3d
     mdiCloudDownload = mdiCloudDownload
+    mdiCloudDownloadOutline = mdiCloudDownloadOutline
     mdiRenameBox = mdiRenameBox
     mdiFileDocumentEditOutline = mdiFileDocumentEditOutline
     mdiDelete = mdiDelete
@@ -676,6 +750,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     mdiCheckboxBlankOutline = mdiCheckboxBlankOutline
     mdiCheckboxMarked = mdiCheckboxMarked
     mdiDragVertical = mdiDragVertical
+    mdiAlertCircleOutline = mdiAlertCircleOutline
 
     formatFilesize = formatFilesize
     formatPrintTime = formatPrintTime
@@ -698,6 +773,51 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     private dialogCreateDirectory = {
         show: false,
         name: '',
+    }
+
+    private fleetDialog = {
+        show: false,
+        filename: '',
+        fleetFilename: '',
+        size: 0,
+        config_yml: null as string | null,
+        filament_type: null as string | null,
+        nozzle_diameter: null as number | null,
+    }
+
+    get fleetAlerts() {
+        const machineConfig = this.$store.state.server.machineConfig
+        if (machineConfig == null) return []
+        const strings: string[] = checkConfig(this.fleetDialog.config_yml, machineConfig)
+
+        // Live filament / nozzle checks — mirrors StartPrintDialog.vue:149-159
+        // so fleet files surface the same warnings before download.
+        const toolhead = this.$store.state.printer?.toolhead
+        const printerFilament = toolhead?.filament_type
+        if (this.fleetDialog.filament_type != null && printerFilament != null
+            && this.fleetDialog.filament_type !== printerFilament) {
+            strings.push(
+                `Warning! Filament type mismatch: expected ${this.fleetDialog.filament_type}, but the printer filament is set to ${printerFilament}`
+            )
+        }
+
+        const printerNozzle = parseFloat(toolhead?.nozzle_size)
+        if (this.fleetDialog.nozzle_diameter != null && !isNaN(printerNozzle)
+            && this.fleetDialog.nozzle_diameter !== printerNozzle) {
+            strings.push(
+                `Warning! Nozzle diameter mismatch: expected ${this.fleetDialog.nozzle_diameter} mm, but the printer nozzle size is set to ${toolhead.nozzle_size} mm`
+            )
+        }
+
+        return strings.map((str: string) => {
+            if (str.startsWith('Warning')) {
+                return { text: `${str}. Running this file may damage your machine.`, color: 'orange' }
+            }
+            if (str.startsWith('Caution')) {
+                return { text: `${str}. Print quality may be degraded.`, color: 'info' }
+            }
+            return { text: str, color: 'error' }
+        })
     }
 
     private contextMenu: contextMenu = {
@@ -993,7 +1113,60 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     }
 
     get files() {
-        return this.$store.getters['files/getGcodeFiles'](this.currentPath, this.showHiddenFiles, this.showPrintedFiles)
+        const localFiles = this.$store.getters['files/getGcodeFiles'](this.currentPath, this.showHiddenFiles, this.showPrintedFiles)
+
+        // If browsing fleet_gcodes directory, merge in fleet files not yet downloaded
+        if (this.isFleetPath && this.hasFleetIntegration) {
+            const fleetFiles = this.$store.state.fleet?.files ?? []
+            const localFilenames = new Set(localFiles.map((f: any) => f.filename))
+
+            // Get the subpath within fleet_gcodes (if browsing a subfolder)
+            const fleetSubpath = this.currentPath.replace(/^\/?fleet_gcodes\/?/, '')
+
+            const remoteFiles = fleetFiles
+                .filter((f: any) => {
+                    if (f.is_local) return false
+                    // Match files in the current subfolder
+                    if (fleetSubpath) {
+                        if (!f.filename.startsWith(fleetSubpath + '/')) return false
+                        // Only show direct children, not nested
+                        const remainder = f.filename.slice(fleetSubpath.length + 1)
+                        return !remainder.includes('/')
+                    }
+                    // Root of fleet_gcodes: only show files without subdirectory
+                    return !f.filename.includes('/')
+                })
+                .filter((f: any) => {
+                    const basename = f.filename.split('/').pop()
+                    return !localFilenames.has(basename)
+                })
+                .map((f: any) => ({
+                    ...f,
+                    fleetFilename: f.filename,
+                    filename: f.filename.split('/').pop(),
+                    isDirectory: false,
+                    modified: new Date(f.modified_epoch * 1000),
+                    isFleetRemote: true,
+                    small_thumbnail: null,
+                    big_thumbnail: null,
+                    big_thumbnail_url: null,
+                    preheat_gcode: null,
+                    count_printed: 0,
+                }))
+
+            return [...localFiles, ...remoteFiles]
+        }
+
+        return localFiles
+    }
+
+    get isFleetPath(): boolean {
+        return this.currentPath === '/fleet_gcodes' || this.currentPath.startsWith('/fleet_gcodes/')
+    }
+
+    get hasFleetIntegration(): boolean {
+        const components = this.$store.state.server?.components ?? []
+        return components.includes('fleet_integration')
     }
 
     get filteredHeaders() {
@@ -1188,7 +1361,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     }
 
     refreshMetadata(data: FileStateGcodefile[]) {
-        const items = data.filter((file) => !file.isDirectory && !file.metadataRequested && !file.metadataPulled)
+        const items = data.filter((file) => !file.isDirectory && !file.metadataRequested && !file.metadataPulled && !(file as any).isFleetRemote)
         this.$store.dispatch(
             'files/requestMetadata',
             items.map((file: FileStateGcodefile) => ({
@@ -1199,13 +1372,22 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     clickRow(item: FileStateGcodefile, force = false) {
         this.selectedFilename = ''
-        // this.$toast.warning(this.$store.state.printer.machine_state.enable_prime)
 
         if (!this.contextMenu.shown || force) {
             if (force) this.contextMenu.shown = false
 
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
+            } else if ((item as any).isFleetRemote) {
+                // Fleet remote file: show download dialog with live config check
+                this.fleetDialog.show = true
+                this.fleetDialog.filename = item.filename
+                this.fleetDialog.fleetFilename = (item as any).fleetFilename
+                this.fleetDialog.size = (item as any).size ?? 0
+                this.fleetDialog.config_yml = (item as any).config_yml ?? null
+                this.fleetDialog.filament_type = (item as any).filament_type ?? null
+                this.fleetDialog.nozzle_diameter = (item as any).nozzle_diameter ?? null
+                return
             } else if (this.isGcodeFile(item)) {
                 // Retrieve enable_prime safely from Vuex state
                 const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
@@ -1522,6 +1704,61 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
     closePrimePrint() {
         this.show_prime_printer_dialog = false
+    }
+
+    // ------------------------------------------------------------------
+    // Fleet Download & Print
+    // ------------------------------------------------------------------
+
+    get fleetDownloadStatus() {
+        return this.$store.state.fleet?.downloadStatus ?? null
+    }
+
+    get fleetConnected(): boolean {
+        return this.$store.state.fleet?.connected ?? false
+    }
+
+    get isFleetDownloading(): boolean {
+        const s = this.fleetDownloadStatus?.status
+        return s === 'requesting' || s === 'downloading' || s === 'processing' || s === 'starting_print'
+    }
+
+    fleetDownloadAndPrintFromDialog() {
+        const filename = this.fleetDialog.fleetFilename
+        this.fleetDialog.show = false
+        this.fleetDownloadAndPrint(filename)
+    }
+
+    fleetDownloadOnly() {
+        const filename = this.fleetDialog.fleetFilename
+        this.fleetDialog.show = false
+        this.fleetDownload(filename)
+    }
+
+    async fleetDownloadAndPrint(filename: string) {
+        if (this.isFleetDownloading) {
+            this.$toast.warning('A fleet download is already in progress')
+            return
+        }
+        try {
+            this.$toast.info(`Downloading & printing ${filename} from fleet...`)
+            this.$store.dispatch('fleet/downloadAndPrint', { filename })
+        } catch (e) {
+            this.$toast.error(`Fleet download failed: ${e}`)
+        }
+    }
+
+    async fleetDownload(filename: string) {
+        if (this.isFleetDownloading) {
+            this.$toast.warning('A fleet download is already in progress')
+            return
+        }
+        try {
+            this.$toast.info(`Downloading ${filename} from fleet...`)
+            this.$store.dispatch('fleet/download', { filename })
+        } catch (e) {
+            this.$toast.error(`Fleet download failed: ${e}`)
+        }
     }
 }
 </script>
