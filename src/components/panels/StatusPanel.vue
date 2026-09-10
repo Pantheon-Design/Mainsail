@@ -212,10 +212,19 @@ export default class StatusPanel extends Mixins(BaseMixin) {
                 )
             }
 
-            return this.printer_state.charAt(0).toUpperCase() + this.printer_state.slice(1)
+            const stateText = this.printer_state.charAt(0).toUpperCase() + this.printer_state.slice(1)
+            return stateText + this.primeStateSuffix
         }
 
         return this.$t('Panels.StatusPanel.Unknown')
+    }
+
+    get primeStateSuffix() {
+        // Idle states only (printing/paused/busy return above). Shown whenever the
+        // prime function is enabled; is_primed is owned by Moonraker (machine_state).
+        const machineState = this.$store.state?.printer?.machine_state ?? {}
+        if (machineState.enable_prime === 0) return ''
+        return machineState.is_primed === 1 ? ' (primed)' : ' (not primed)'
     }
 
     get toolbarButtons() {
@@ -401,15 +410,16 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     }
 
     btnReprintJob() {
-        // retrieve enable_prime from Vuex state
-        const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
+        // is_primed is owned by Moonraker (machine_state); see GcodefilesPanel.clickRow
+        const machineState = this.$store.state?.printer?.machine_state ?? {}
+        const primeEnabled = machineState.enable_prime !== 0
+        const isPrimed = machineState.is_primed === 1
 
-        if (enablePrime === undefined || enablePrime === 1) {
-            // If enable_prime does not exist OR is 1, show the Prime Printer Dialog
+        if (primeEnabled && !isPrimed) {
+            // Not primed since the last print / restart: warn first
             this.selectedFilename = this.current_filename
             this.show_prime_printer_dialog = true;
-        } else if (enablePrime === 0) {
-            // If enable_prime is 0, start printing immediately
+        } else {
             this.$socket.emit('printer.print.start', { filename: this.current_filename }, { loading: 'statusPrintReprint' });
         }
     }

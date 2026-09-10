@@ -1389,27 +1389,25 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
                 this.fleetDialog.nozzle_diameter = (item as any).nozzle_diameter ?? null
                 return
             } else if (this.isGcodeFile(item)) {
-                // Retrieve enable_prime safely from Vuex state
-                const enablePrime = this.$store.state?.printer?.machine_state?.enable_prime;
+                // machine_state is synthesized by Moonraker. is_primed is 1 only after the
+                // operator confirmed a clear bed on the touchscreen; Moonraker resets it on
+                // Klipper restart / power cycle and on every print start and end.
+                const machineState = this.$store.state?.printer?.machine_state ?? {}
+                const primeEnabled = machineState.enable_prime !== 0
+                const isPrimed = machineState.is_primed === 1
 
-                if (this.$store.state.printer.machine_state.is_purging === 1) {
+                if (machineState.is_purging === 1) {
                     this.$toast.warning("Purging wet filament. A print has already been started, it will begin after the purge.");
                     return
-                } 
+                }
 
-                // Handle different printer states
                 if (['printing', 'paused'].includes(this.printer_state)) {
                     // Block action if the printer is currently printing or paused
-                } else if (['error', 'cancelled', 'complete'].includes(this.printer_state)) {
-                    // If the printer state is error, cancelled, or complete, show the Prime Printer dialog
+                } else if (primeEnabled && !isPrimed) {
+                    // Not primed since the last print / restart: warn, and only allow a
+                    // forced print after the filename is typed in
                     this.selectedFilename = item.filename
-
-                    if (enablePrime === 1) {
-                        this.show_prime_printer_dialog = true;
-                    } else if (enablePrime === 0) {
-                        this.dialogPrintFile.show = true;
-                        this.dialogPrintFile.item = item;
-                    }
+                    this.show_prime_printer_dialog = true;
                 } else {
                     // Default action: Show the print dialog for G-code files
                     this.dialogPrintFile.show = true;
