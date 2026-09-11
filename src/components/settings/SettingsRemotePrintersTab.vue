@@ -19,9 +19,7 @@
                 </v-alert>
                 <div v-for="(printer, index) in printers" :key="printer.id">
                     <v-divider v-if="index" class="my-2"></v-divider>
-                    <settings-row
-                        :title="formatPrinterName(printer)"
-                        :sub-title="locationLabel(printer.location)">
+                    <settings-row :title="formatPrinterName(printer)" :sub-title="locationLabel(printer.location)">
                         <v-btn small outlined :disabled="!canAddPrinters" @click="editPrinter(printer)">
                             <v-icon left small>{{ mdiPencil }}</v-icon>
                             {{ $t('Settings.Edit') }}
@@ -78,20 +76,12 @@
                 </settings-row>
                 <v-divider class="my-2"></v-divider>
                 <settings-row :title="'Printer Model'">
-                    <v-select v-model="form.printerModel"
-                              :items="printerModels"
-                              dense
-                              outlined
-                              hide-details="auto" />
+                    <v-select v-model="form.printerModel" :items="printerModels" dense outlined hide-details="auto" />
                 </settings-row>
                 <v-divider class="my-2"></v-divider>
                 <!-- NEW: Location field — chooses which map tab the printer appears on -->
                 <settings-row :title="'Location'">
-                    <v-select v-model="form.location"
-                              :items="locationItems"
-                              dense
-                              outlined
-                              hide-details="auto" />
+                    <v-select v-model="form.location" :items="locationItems" dense outlined hide-details="auto" />
                 </settings-row>
             </v-card-text>
             <v-card-actions class="d-flex justify-end">
@@ -113,7 +103,7 @@ import BaseMixin from '../mixins/base'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import { GuiRemoteprintersStatePrinter, PrinterModel, PRINTER_MODELS } from '@/store/gui/remoteprinters/types'
 import { mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
-import Vue from 'vue';
+import Vue from 'vue'
 
 interface printerForm {
     bool: boolean
@@ -157,7 +147,10 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     }
 
     saveFleetDaemonUrl() {
-        const url = this.fleetDaemonUrlInput.trim()
+        let url = this.fleetDaemonUrlInput.trim().replace(/\/+$/, '')
+        // A bare "host:port" is not a valid origin for XHR; assume http.
+        if (url && !/^([a-z][a-z0-9+.-]*:)?\/\//i.test(url)) url = `http://${url}`
+        this.fleetDaemonUrlInput = url
         this.$store.dispatch('gui/saveSetting', { name: 'fleetDaemonUrl', value: url || null })
     }
 
@@ -259,17 +252,17 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
 
     refreshPrinterList() {
         fetch(`${this.fleetDaemonUrl}/refresh_printer_list`, { method: 'POST' })
-            .then(res => {
+            .then((res) => {
                 if (res.ok) {
-                    Vue.$toast.success('Printer list refreshed');
+                    Vue.$toast.success('Printer list refreshed')
                 } else {
-                    throw new Error('Failed to refresh printer list');
+                    throw new Error('Failed to refresh printer list')
                 }
             })
-            .catch(err => {
-                console.error(err);
-                Vue.$toast.error('Failed to refresh printer list');
-            });
+            .catch((err) => {
+                console.error(err)
+                Vue.$toast.error('Failed to refresh printer list')
+            })
     }
 }
 </script>
