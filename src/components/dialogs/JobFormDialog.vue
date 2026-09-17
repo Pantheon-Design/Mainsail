@@ -69,9 +69,6 @@
                                 <v-icon small class="mr-1">{{ mdiFile }}</v-icon>
                                 <span class="text-truncate flex-grow-1" :title="it.gcode_filename">{{ it.gcode_filename }}</span>
                                 <v-chip v-if="it.metaLoading" x-small class="ml-1">reading…</v-chip>
-                                <v-btn v-if="isEdit && it.id" x-small icon :loading="it.saving" title="Save changes" @click="saveItem(it)">
-                                    <v-icon small>{{ mdiContentSave }}</v-icon>
-                                </v-btn>
                                 <v-btn x-small icon :loading="it.saving" title="Remove" @click="removeItem(idx)">
                                     <v-icon small>{{ mdiDelete }}</v-icon>
                                 </v-btn>
@@ -122,7 +119,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Prop, Watch } from 'vue-property-decorator'
-import { mdiAccountPlus, mdiCalendar, mdiContentSave, mdiDelete, mdiFile, mdiFilePlus } from '@mdi/js'
+import { mdiAccountPlus, mdiCalendar, mdiDelete, mdiFile, mdiFilePlus } from '@mdi/js'
 import FleetGcodePicker from '@/components/FleetGcodePicker.vue'
 import {
     FleetCustomer,
@@ -146,6 +143,8 @@ interface ItemRow {
     filament_grams: number | null
     metaLoading: boolean
     saving: boolean
+    /** JSON of the payload as last persisted (edit mode); used to detect changes on Save. */
+    persisted: string | null
 }
 
 let rowSeq = 0
@@ -154,7 +153,6 @@ let rowSeq = 0
 export default class JobFormDialog extends Vue {
     mdiAccountPlus = mdiAccountPlus
     mdiCalendar = mdiCalendar
-    mdiContentSave = mdiContentSave
     mdiDelete = mdiDelete
     mdiFile = mdiFile
     mdiFilePlus = mdiFilePlus
@@ -222,7 +220,11 @@ export default class JobFormDialog extends Vue {
                 description: j.description ?? '',
                 due_date: j.due_date ? j.due_date.slice(0, 10) : '',
             }
-            this.items = this.job.items.map((i) => this.rowFromItem(i))
+            this.items = this.job.items.map((i) => {
+                const row = this.rowFromItem(i)
+                row.persisted = JSON.stringify(this.itemPayload(row))
+                return row
+            })
         } else {
             this.form = this.emptyForm()
             this.items = []
@@ -240,6 +242,7 @@ export default class JobFormDialog extends Vue {
             filament_grams: i.filament_grams,
             metaLoading: false,
             saving: false,
+            persisted: null,
         }
     }
 
@@ -257,6 +260,7 @@ export default class JobFormDialog extends Vue {
                 filament_grams: null,
                 metaLoading: true,
                 saving: false,
+                persisted: null,
             }
             this.items.push(row)
             this.prefillRow(row)
@@ -305,6 +309,7 @@ export default class JobFormDialog extends Vue {
             })
             row.id = item.id
             row.key = `item-${item.id}`
+            row.persisted = JSON.stringify(this.itemPayload(row))
         } catch (e: any) {
             this.error = e?.message ?? String(e)
         } finally {
@@ -312,21 +317,26 @@ export default class JobFormDialog extends Vue {
         }
     }
 
+    /** Persist one existing row (edit mode). Throws on failure. */
     async saveItem(row: ItemRow) {
         if (!this.job || row.id === null) return
         row.saving = true
-        this.error = ''
         try {
+            const payload = this.itemPayload(row)
             await this.$store.dispatch('fleet/jobs/updateItem', {
                 jobId: this.job.job.id,
                 itemId: row.id,
-                ...this.itemPayload(row),
+                ...payload,
             })
-        } catch (e: any) {
-            this.error = e?.message ?? String(e)
+            row.persisted = JSON.stringify(payload)
         } finally {
             row.saving = false
         }
+    }
+
+    /** Rows whose quantity / model / filament / grams differ from what the daemon has. */
+    changedRows(): ItemRow[] {
+        return this.items.filter((r) => r.id !== null && r.persisted !== JSON.stringify(this.itemPayload(r)))
     }
 
     async removeItem(idx: number) {
@@ -395,6 +405,10 @@ export default class JobFormDialog extends Vue {
                     description: this.form.description || '',
                     due_date: this.dueDateIso() ?? '',
                 })
+                // Item edits (quantity, model, filament, grams) are saved here too.
+                for (const row of this.changedRows()) {
+                    await this.saveItem(row)
+                }
                 this.$emit('saved', this.job.job.id)
             } else {
                 const payload: JobCreatePayload = {
