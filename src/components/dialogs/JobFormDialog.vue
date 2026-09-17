@@ -62,13 +62,13 @@
                             </v-btn>
                         </div>
                         <div v-if="items.length === 0" class="text--secondary text-caption mb-3">
-                            No files yet. Add files from the fleet library; printer model, filament and grams are read from the gcode.
+                            No files yet. Add files from the fleet library. Printer, filament and grams are prefilled from the
+                            file name (e.g. HS-Pro_0.2mm_part_PETG-CF_13h26m_258.879g) when present.
                         </div>
                         <v-card v-for="(it, idx) in items" :key="it.key" outlined class="mb-2 pa-2">
                             <div class="d-flex align-center mb-1">
                                 <v-icon small class="mr-1">{{ mdiFile }}</v-icon>
                                 <span class="text-truncate flex-grow-1" :title="it.gcode_filename">{{ it.gcode_filename }}</span>
-                                <v-chip v-if="it.metaLoading" x-small class="ml-1">reading…</v-chip>
                                 <v-btn x-small icon :loading="it.saving" title="Remove" @click="removeItem(idx)">
                                     <v-icon small>{{ mdiDelete }}</v-icon>
                                 </v-btn>
@@ -125,7 +125,6 @@ import {
     FleetCustomer,
     FleetJobDetail,
     FleetJobItem,
-    FleetGcodeMeta,
     FLEET_PRINTER_MODELS,
     JobCreatePayload,
     JobItemCreatePayload,
@@ -141,7 +140,6 @@ interface ItemRow {
     printer_model: ItemPrinterModelChoice
     filament_type: string | null
     filament_grams: number | null
-    metaLoading: boolean
     saving: boolean
     /** JSON of the payload as last persisted (edit mode); used to detect changes on Save. */
     persisted: string | null
@@ -240,7 +238,6 @@ export default class JobFormDialog extends Vue {
             printer_model: i.printer_model ?? 'any',
             filament_type: i.filament_type,
             filament_grams: i.filament_grams,
-            metaLoading: false,
             saving: false,
             persisted: null,
         }
@@ -250,42 +247,26 @@ export default class JobFormDialog extends Vue {
         this.pickerDialog = false
         for (const p of paths) {
             if (this.items.some((it) => it.gcode_filename === p)) continue
+            // Prefill from the FILE NAME only (never from file contents):
+            // leading HS-Pro / HS-3 / Tallboi -> printer, a PETG-CF-style token
+            // -> filament, a 258.879g token -> grams. Missing = left blank.
+            const hint = parseGcodeFilename(p)
             const row: ItemRow = {
                 key: `new-${++rowSeq}`,
                 id: null,
                 gcode_filename: p,
-                quantity: 1,
-                printer_model: 'any',
-                filament_type: null,
-                filament_grams: null,
-                metaLoading: true,
+                quantity: hint.quantity ?? 1,
+                printer_model: hint.printer_model ?? 'any',
+                filament_type: hint.filament_type,
+                filament_grams: hint.filament_grams,
                 saving: false,
                 persisted: null,
             }
             this.items.push(row)
-            this.prefillRow(row)
-        }
-    }
-
-    /** Gcode footer metadata first, filename hints only for still-empty fields. */
-    async prefillRow(row: ItemRow) {
-        try {
-            const meta: FleetGcodeMeta = await this.$store.dispatch('fleet/jobs/fetchGcodeMeta', row.gcode_filename)
-            if (meta.printer_model) row.printer_model = meta.printer_model
-            if (meta.filament_type) row.filament_type = meta.filament_type
-            if (meta.filament_used_g != null) row.filament_grams = Math.round(meta.filament_used_g * 10) / 10
-        } catch (e) {
-            // metadata is optional; fall through to filename hints
-        } finally {
-            row.metaLoading = false
-        }
-        const hint = parseGcodeFilename(row.gcode_filename)
-        if ((row.printer_model === 'any' || !row.printer_model) && hint.printer_model) row.printer_model = hint.printer_model
-        if (!row.filament_type && hint.filament_type) row.filament_type = hint.filament_type
-        if (hint.quantity && row.quantity === 1) row.quantity = hint.quantity
-        if (this.isEdit && this.job && row.id === null) {
-            // In edit mode a newly picked file is created on the job right away.
-            await this.createItemOnJob(row)
+            if (this.isEdit && this.job) {
+                // In edit mode a newly picked file is created on the job right away.
+                await this.createItemOnJob(row)
+            }
         }
     }
 
@@ -296,6 +277,8 @@ export default class JobFormDialog extends Vue {
             printer_model: row.printer_model ?? 'any',
             filament_type: row.filament_type ? String(row.filament_type).trim() : null,
             filament_grams: row.filament_grams != null && row.filament_grams > 0 ? Number(row.filament_grams) : null,
+            // Blank fields stay blank; the daemon must not read the gcode footer.
+            autofill_from_gcode: false,
         }
     }
 

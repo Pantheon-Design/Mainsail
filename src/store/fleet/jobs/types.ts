@@ -210,11 +210,13 @@ export interface FleetGcodeMeta {
 export interface JobItemCreatePayload {
     gcode_filename: string
     quantity: number
-    /** null = autofill from gcode meta; 'any' = explicitly unconstrained */
+    /** 'any' = explicitly unconstrained; null = let the daemon autofill (only when autofill_from_gcode) */
     printer_model?: ItemPrinterModelChoice
     filament_type?: string | null
     filament_grams?: number | null
     notes?: string | null
+    /** false = the daemon must NOT read the gcode footer to fill blanks (UI prefills from the file name only) */
+    autofill_from_gcode?: boolean
 }
 
 export interface JobItemUpdatePayload {
@@ -223,6 +225,7 @@ export interface JobItemUpdatePayload {
     filament_type?: string | null
     filament_grams?: number | null
     notes?: string | null
+    autofill_from_gcode?: boolean
 }
 
 export interface JobCreatePayload {
