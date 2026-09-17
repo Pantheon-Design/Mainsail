@@ -41,15 +41,15 @@
             </template>
             <template #item.print_state="{ item }">
                 <v-chip x-small :color="statusColor(item)" text-color="white">{{ statusText(item) }}</v-chip>
-                <div v-if="item.filename" class="text-caption text-truncate" style="max-width: 200px" :title="item.filename">{{ item.filename }}</div>
+                <div v-if="liveFilename(item)" class="text-caption text-truncate" style="max-width: 200px" :title="liveFilename(item)">{{ liveFilename(item) }}</div>
             </template>
             <template #item.filament_type="{ item }">
-                <span>{{ item.filament_type || '—' }}</span>
-                <div class="text-caption text--secondary">{{ item.remaining_weight != null ? Math.round(item.remaining_weight) + ' g left' : '' }}</div>
+                <span>{{ liveFilament(item) || '—' }}</span>
+                <div class="text-caption text--secondary">{{ liveRemaining(item) != null ? Math.round(liveRemaining(item)) + ' g left' : '' }}</div>
             </template>
             <template #item.primed="{ item }">
-                <v-chip v-if="item.primed === true" x-small color="green" text-color="white">primed</v-chip>
-                <v-chip v-else-if="item.primed === false" x-small color="grey" text-color="white">not primed</v-chip>
+                <v-chip v-if="livePrimed(item) === true" x-small color="green" text-color="white">primed</v-chip>
+                <v-chip v-else-if="livePrimed(item) === false" x-small color="grey" text-color="white">not primed</v-chip>
                 <span v-else class="text--secondary text-caption">n/a</span>
             </template>
             <template #item.reason="{ item }">
@@ -114,6 +114,30 @@ export default class WorkerListPanel extends Vue {
     /** Live state from the daemon WebSocket when available, else the /workers snapshot. */
     livePrinter(w: FleetWorker): any | null {
         return this.$store.state.farm.fleetDaemonPrinters?.[w.printer_hostname] ?? null
+    }
+
+    // The columns below prefer the 1 Hz WebSocket stream (updates within a
+    // second of the printer changing) and fall back to the REST snapshot.
+    livePrimed(w: FleetWorker): boolean | null {
+        const ms = this.livePrinter(w)?.machine_state
+        if (ms && ms.is_primed != null) return ms.is_primed === 1
+        return w.primed
+    }
+
+    liveFilename(w: FleetWorker): string | null {
+        const live = this.livePrinter(w)
+        return live?.print_stats?.filename ?? w.filename ?? null
+    }
+
+    liveFilament(w: FleetWorker): string | null {
+        const live = this.livePrinter(w)
+        return live?.toolhead?.filament_type ?? w.filament_type ?? null
+    }
+
+    liveRemaining(w: FleetWorker): number | null {
+        const live = this.livePrinter(w)
+        const v = live?.toolhead?.remaining_weight
+        return v != null ? Number(v) : w.remaining_weight
     }
 
     statusText(w: FleetWorker): string {

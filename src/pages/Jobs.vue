@@ -45,19 +45,50 @@ export default class Jobs extends Vue {
     loadError = ''
     private jobsTimer: ReturnType<typeof setTimeout> | null = null
     private workersTimer: ReturnType<typeof setTimeout> | null = null
+    private pollTimer: ReturnType<typeof setInterval> | null = null
+    private polling = false
+
+    /** Fallback poll period (ms). WS events trigger refreshes immediately; this only covers missed events. */
+    static readonly POLL_MS = 10000
 
     async mounted() {
         await this.loadAll()
         fleetDaemonEvents.$on('jobs_updated', this.onJobsUpdated)
         fleetDaemonEvents.$on('workers_updated', this.onWorkersUpdated)
+        document.addEventListener('visibilitychange', this.onVisibility)
+        this.pollTimer = setInterval(this.poll, Jobs.POLL_MS)
         this.checkOpenJob()
     }
 
     beforeDestroy() {
         fleetDaemonEvents.$off('jobs_updated', this.onJobsUpdated)
         fleetDaemonEvents.$off('workers_updated', this.onWorkersUpdated)
+        document.removeEventListener('visibilitychange', this.onVisibility)
         if (this.jobsTimer) clearTimeout(this.jobsTimer)
         if (this.workersTimer) clearTimeout(this.workersTimer)
+        if (this.pollTimer) clearInterval(this.pollTimer)
+    }
+
+    onVisibility() {
+        if (document.visibilityState === 'visible') this.poll()
+    }
+
+    /** Periodic refresh of everything the page shows, including an open job dialog. */
+    async poll() {
+        if (this.polling || document.visibilityState !== 'visible') return
+        this.polling = true
+        try {
+            const current = this.$store.state.fleet.jobs.currentJob
+            await Promise.allSettled([
+                this.$store.dispatch('fleet/jobs/loadJobs'),
+                this.$store.dispatch('fleet/workers/loadWorkers'),
+                this.$store.dispatch('fleet/workers/loadSchedulerStatus'),
+                this.activeTab === 1 ? this.$store.dispatch('fleet/customers/loadCustomers') : Promise.resolve(),
+                current ? this.$store.dispatch('fleet/jobs/loadJob', current.job.id) : Promise.resolve(),
+            ])
+        } finally {
+            this.polling = false
+        }
     }
 
     async loadAll() {
