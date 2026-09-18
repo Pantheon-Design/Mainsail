@@ -26,10 +26,22 @@
                             <v-btn small color="primary" :loading="quickAdd.saving" :disabled="!quickAdd.name" @click="saveQuickCustomer">Add</v-btn>
                         </div>
                         <v-row dense>
-                            <v-col cols="6">
+                            <v-col cols="4">
+                                <v-text-field
+                                    v-model.number="form.quantity"
+                                    type="number"
+                                    min="1"
+                                    label="Quantity *"
+                                    hint="copies of this job"
+                                    persistent-hint
+                                    dense
+                                    outlined
+                                    :error="!(form.quantity >= 1)" />
+                            </v-col>
+                            <v-col cols="4">
                                 <v-select v-model="form.job_type" :items="jobTypeOptions" label="Type" dense outlined />
                             </v-col>
-                            <v-col cols="6">
+                            <v-col cols="4">
                                 <v-select v-model="form.priority" :items="priorityOptions" label="Priority" dense outlined />
                             </v-col>
                         </v-row>
@@ -75,7 +87,7 @@
                             </div>
                             <v-row dense>
                                 <v-col cols="6" sm="2">
-                                    <v-text-field v-model.number="it.quantity" type="number" min="1" label="Qty" dense outlined hide-details />
+                                    <v-text-field v-model.number="it.quantity" type="number" min="1" label="Runs / copy" dense outlined hide-details />
                                 </v-col>
                                 <v-col cols="6" sm="3">
                                     <v-select v-model="it.printer_model" :items="modelOptions" label="Printer" dense outlined hide-details />
@@ -105,7 +117,7 @@
             <v-card-actions>
                 <v-spacer />
                 <v-btn text @click="close">Cancel</v-btn>
-                <v-btn color="primary" :loading="saving" :disabled="!form.name || !allNozzlesValid" @click="save">
+                <v-btn color="primary" :loading="saving" :disabled="!form.name || !(form.quantity >= 1) || !allNozzlesValid" @click="save">
                     {{ isEdit ? 'Save' : 'Create job' }}
                 </v-btn>
             </v-card-actions>
@@ -224,6 +236,7 @@ export default class JobFormDialog extends Vue {
             customer_id: null as number | null,
             job_type: 'production',
             priority: 'medium',
+            quantity: 1,
             operator_name: '',
             description: '',
             due_date: '' as string | null,
@@ -242,6 +255,7 @@ export default class JobFormDialog extends Vue {
                 customer_id: j.customer_id,
                 job_type: j.job_type,
                 priority: j.priority,
+                quantity: j.quantity ?? 1,
                 operator_name: j.operator_name ?? '',
                 description: j.description ?? '',
                 due_date: j.due_date ? j.due_date.slice(0, 10) : '',
@@ -415,6 +429,7 @@ export default class JobFormDialog extends Vue {
                     customer_id: this.form.customer_id ?? 0,
                     job_type: this.form.job_type,
                     priority: this.form.priority,
+                    quantity: Math.max(1, Number(this.form.quantity) || 1),
                     operator_name: this.form.operator_name || '',
                     description: this.form.description || '',
                     due_date: this.dueDateIso() ?? '',
@@ -436,6 +451,7 @@ export default class JobFormDialog extends Vue {
                     operator_name: this.form.operator_name || null,
                     job_type: this.form.job_type as any,
                     priority: this.form.priority as any,
+                    quantity: Math.max(1, Number(this.form.quantity) || 1),
                     due_date: this.dueDateIso(),
                     items: this.items.map((r) => this.itemPayload(r)),
                 }

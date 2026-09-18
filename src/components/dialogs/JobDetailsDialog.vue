@@ -27,7 +27,7 @@
 
                 <v-row dense class="mb-2">
                     <v-col cols="6" md="3"><div class="text-caption text--secondary">Customer</div>{{ detail.job.customer_name || '—' }}</v-col>
-                    <v-col cols="6" md="2"><div class="text-caption text--secondary">Type</div>{{ detail.job.job_type }}</v-col>
+                    <v-col cols="6" md="2"><div class="text-caption text--secondary">Type / quantity</div>{{ detail.job.job_type }} × {{ detail.job.quantity }}</v-col>
                     <v-col cols="6" md="2"><div class="text-caption text--secondary">Operator</div>{{ detail.job.operator_name || '—' }}</v-col>
                     <v-col cols="6" md="2"><div class="text-caption text--secondary">Due</div><span :class="dueClass(detail.job)">{{ formatDate(detail.job.due_date) }}</span></v-col>
                     <v-col cols="6" md="3"><div class="text-caption text--secondary">Created / Finished</div>{{ formatDateTime(detail.job.created_at) }} / {{ formatDateTime(detail.job.finished_at) }}</v-col>
@@ -45,7 +45,7 @@
                         <v-chip v-if="item.filament_grams" x-small class="mr-1">{{ item.filament_grams }} g</v-chip>
                         <v-spacer />
                         <span class="text-caption">
-                            {{ item.success_count }} / {{ item.quantity }} done
+                            {{ item.success_count }} / {{ item.total_runs }} done
                             <span v-if="item.active_count"> · {{ item.active_count }} printing</span>
                             <span v-if="stats(item).totalFailed" class="error--text"> · {{ stats(item).totalFailed }} failed</span>
                             <span v-if="item.remaining"> · {{ item.remaining }} remaining</span>
@@ -145,7 +145,8 @@ export default class JobDetailsDialog extends Vue {
     }
 
     stats(item: FleetJobItem) {
-        return computeRunStats(item)
+        // Progress is over the total runs (runs per copy × copies).
+        return computeRunStats({ ...item, quantity: item.total_runs ?? item.quantity })
     }
 
     barTitle(item: FleetJobItem) {

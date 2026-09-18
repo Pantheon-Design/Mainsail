@@ -42,6 +42,8 @@ export interface FleetJob {
     job_type: JobType
     priority: JobPriority
     status: JobStatus
+    /** copies of the job; item quantities are runs per copy */
+    quantity: number
     due_date: string | null
     started_at: string | null
     finished_at: string | null
@@ -76,6 +78,9 @@ export interface FleetJobItem {
     cancelled_count: number
     qc_passed: number
     qc_failed: number
+    /** quantity (runs per copy) × job.quantity */
+    total_runs: number
+    runs_per_copy: number
     remaining: number
 }
 
@@ -240,6 +245,8 @@ export interface JobCreatePayload {
     operator_name?: string | null
     job_type: JobType
     priority: JobPriority
+    /** copies */
+    quantity: number
     /** ISO 8601 */
     due_date?: string | null
     items: JobItemCreatePayload[]
@@ -252,6 +259,7 @@ export interface JobUpdatePayload {
     operator_name?: string | null
     job_type?: JobType
     priority?: JobPriority
+    quantity?: number
     /** ISO 8601; '' clears */
     due_date?: string
     ready_to_ship?: boolean
