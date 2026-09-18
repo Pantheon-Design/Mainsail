@@ -63,6 +63,23 @@
             class="worker-map-layout px-2 pb-2"
             :class="{ 'worker-map-layout--stacked': stacked, 'worker-map-layout--resizing': resizingSide }">
             <div class="worker-map-main">
+                <!-- TOTAL fleet status across both floors (same legend as the Fleet Map page) -->
+                <div class="fleet-title-row mb-4">
+                    <span class="fleet-title">Fleet total</span>
+                    <span class="fleet-total">{{ totalPrinterCount }} total</span>
+                    <div class="status-counters">
+                        <span class="status-counter status-counter--total"
+                              :title="`${totalWorkerCount} of ${totalPrinterCount} printers are enabled as fleet workers`">
+                            <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
+                            Workers {{ totalWorkerCount }}
+                        </span>
+                        <span v-for="s in totalStatusList" :key="'total-' + s.key" class="status-counter">
+                            <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
+                                  :style="{ backgroundColor: s.color }"></span>
+                            {{ s.label }} {{ s.count }}
+                        </span>
+                    </div>
+                </div>
                 <farm-map-section
                     location="farm"
                     name="Print Farm"
@@ -198,7 +215,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component'
 import { mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
-import { getPrinterStatus } from '@/components/panels/farmPrinterStatus'
+import { getPrinterStatus, PrinterStatus } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 
 const VIEW_KEY = 'fleetWorkersView'
@@ -364,6 +381,39 @@ export default class WorkerListPanel extends Vue {
 
     get enabledCount(): number {
         return this.enabledHostnames.length
+    }
+
+    // Status color/label vocabulary (matches Farm.vue + FarmMapSection)
+    readonly STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
+        printing: { color: '#2196f3', label: 'Printing' },
+        ready: { color: 'hsl(90, 100%, 32%)', label: 'Ready' },
+        complete: { color: '#1976d2', label: 'Complete' },
+        error: { color: '#d32f2f', label: 'Error' },
+        disconnected: { color: '#8a8a8a', label: 'Offline' },
+    }
+    readonly STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+
+    get fleetDaemonPrinters(): Record<string, any> {
+        return this.$store.state.farm.fleetDaemonPrinters || {}
+    }
+
+    /** Every printer the daemon knows about, across both floors. */
+    get totalPrinterCount(): number {
+        return Object.keys(this.fleetDaemonPrinters).length
+    }
+
+    /** Daemon printers currently enabled as workers (sums the per-floor "Workers" counts). */
+    get totalWorkerCount(): number {
+        const enabled = new Set(this.enabledHostnames.map((h) => h.toLowerCase()))
+        return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(h.toLowerCase())).length
+    }
+
+    get totalStatusList() {
+        const counts: Record<PrinterStatus, number> = { printing: 0, ready: 0, complete: 0, error: 0, disconnected: 0 }
+        Object.values(this.fleetDaemonPrinters).forEach((printer: any) => {
+            counts[getPrinterStatus(printer, this.$store.state.farm.fleetDaemonConnected)]++
+        })
+        return this.STATUS_ORDER.map((k) => ({ key: k, label: this.STATUS_META[k].label, color: this.STATUS_META[k].color, count: counts[k] }))
     }
 
     get workersSorted(): FleetWorker[] {
@@ -559,5 +609,51 @@ export default class WorkerListPanel extends Vue {
 .job-link {
     cursor: pointer;
     text-decoration: underline;
+}
+
+/* Total fleet status (mirrors Farm.vue header + FarmMapSection legend) */
+.fleet-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.fleet-title {
+    font-size: 14px;
+    font-weight: 700;
+}
+.fleet-total {
+    font-size: 13px;
+    opacity: 0.75;
+    font-weight: 600;
+    padding-left: 14px;
+    border-left: 1px solid rgba(128, 128, 128, 0.4);
+}
+.status-counters {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.status-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.status-counter--total {
+    font-weight: 700;
+    padding-right: 12px;
+    border-right: 1px solid rgba(128, 128, 128, 0.4);
+}
+.status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-dot.square {
+    border-radius: 2px;
 }
 </style>
