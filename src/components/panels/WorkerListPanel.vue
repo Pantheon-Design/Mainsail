@@ -14,9 +14,27 @@
                 <v-btn small value="list" title="List"><v-icon small>{{ mdiFormatListBulleted }}</v-icon></v-btn>
                 <v-btn small value="map" title="Map"><v-icon small>{{ mdiMapOutline }}</v-icon></v-btn>
             </v-btn-toggle>
-            <v-btn small text @click="bulk(true)">Enable all</v-btn>
-            <v-btn small text @click="bulk(false)">Disable all</v-btn>
+            <v-btn small text color="error" :disabled="enabledCount === 0" @click="disableAllDialog = true">
+                Disable all
+            </v-btn>
         </v-card-title>
+
+        <!-- Disable-all confirmation -->
+        <v-dialog v-model="disableAllDialog" max-width="440">
+            <v-card>
+                <v-card-title>Disable all workers?</v-card-title>
+                <v-card-text>
+                    This turns off <strong>{{ enabledCount }}</strong> worker{{ enabledCount === 1 ? '' : 's' }}.
+                    The scheduler will stop sending new jobs to every printer. Prints already running keep going and
+                    stay tracked. You can re-enable printers one at a time from the list or the map.
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="disableAllDialog = false">Cancel</v-btn>
+                    <v-btn color="error" :loading="bulkBusy" @click="confirmDisableAll">Disable all</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
         <v-card-subtitle class="pb-1">
             Every printer connected to fleet_daemon is listed. Workers receive jobs automatically; manual prints of a job's
             file on any printer are still tracked.
@@ -24,9 +42,14 @@
 
         <v-alert v-if="error" type="error" dense dismissible class="mx-4" @input="error = ''">{{ error }}</v-alert>
 
-        <!-- Map view: the fleet map as a toggle surface + a simplified side list -->
-        <v-row v-if="view === 'map'" dense class="px-2 pb-2">
-            <v-col cols="12" lg="8">
+        <!-- Map view: the fleet map as a toggle surface + a simplified side list.
+             The divider between them is draggable; the chosen list width is remembered. -->
+        <div
+            v-if="view === 'map'"
+            ref="mapLayout"
+            class="worker-map-layout px-2 pb-2"
+            :class="{ 'worker-map-layout--stacked': stacked, 'worker-map-layout--resizing': resizingSide }">
+            <div class="worker-map-main">
                 <farm-map-section
                     location="farm"
                     name="Print Farm"
@@ -42,8 +65,16 @@
                     :worker-hostnames="enabledHostnames"
                     :highlight-hostname="hoverHost"
                     @toggle-worker="toggleByHostname" />
-            </v-col>
-            <v-col cols="12" lg="4">
+            </div>
+            <div
+                v-if="!stacked"
+                class="worker-side-resizer"
+                title="Drag to resize the worker list · double-click to reset"
+                @pointerdown="startSideResize"
+                @dblclick="resetSideWidth">
+                <div class="worker-side-resizer__grip" />
+            </div>
+            <div class="worker-side-col" :style="sideColStyle">
                 <v-simple-table dense class="worker-side-list">
                     <thead>
                         <tr>
@@ -81,8 +112,8 @@
                         </tr>
                     </tbody>
                 </v-simple-table>
-            </v-col>
-        </v-row>
+            </div>
+        </div>
 
         <v-data-table
             v-else
@@ -155,6 +186,10 @@ import { getPrinterStatus } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 
 const VIEW_KEY = 'fleetWorkersView'
+const SIDE_WIDTH_KEY = 'fleetWorkersSideWidth'
+/** Side-list width bounds (px) while dragging. */
+const SIDE_MIN_WIDTH = 260
+const MAP_MIN_WIDTH = 360
 
 @Component({ components: { FarmMapSection } })
 export default class WorkerListPanel extends Vue {
@@ -168,12 +203,92 @@ export default class WorkerListPanel extends Vue {
     /** Printer hovered in the side list; highlighted on the map. */
     hoverHost = ''
 
+    /** Width (px) of the side list in map view; null = default share of the row. */
+    sideWidth: number | null = null
+    resizingSide = false
+    private resizeStartX = 0
+    private resizeStartWidth = 0
+    private onSidePointerMove: ((e: PointerEvent) => void) | null = null
+    private onSidePointerUp: ((e: PointerEvent) => void) | null = null
+
     created() {
         try {
             const v = localStorage.getItem(VIEW_KEY)
             if (v === 'map' || v === 'list') this.view = v
+            const w = Number(localStorage.getItem(SIDE_WIDTH_KEY))
+            if (Number.isFinite(w) && w >= SIDE_MIN_WIDTH) this.sideWidth = w
         } catch (e) {
-            // storage unavailable — keep default
+            // storage unavailable — keep defaults
+        }
+    }
+
+    beforeDestroy() {
+        this.stopSideResize()
+    }
+
+    /** Below the lg breakpoint the map and list stack, so there is nothing to resize. */
+    get stacked(): boolean {
+        return this.$vuetify.breakpoint.mdAndDown
+    }
+
+    get sideColStyle(): Record<string, string> {
+        if (this.stacked) return { width: '100%' }
+        if (this.sideWidth == null) return { width: '33.333%' }
+        return { width: `${this.sideWidth}px` }
+    }
+
+    startSideResize(e: PointerEvent) {
+        if (this.stacked || e.button !== 0) return
+        e.preventDefault()
+        const sideEl = (this.$refs.mapLayout as HTMLElement | undefined)?.querySelector<HTMLElement>('.worker-side-col')
+        if (!sideEl) return
+        this.resizingSide = true
+        this.resizeStartX = e.clientX
+        this.resizeStartWidth = sideEl.offsetWidth
+        this.onSidePointerMove = (ev: PointerEvent) => this.moveSideResize(ev)
+        this.onSidePointerUp = () => this.stopSideResize(true)
+        window.addEventListener('pointermove', this.onSidePointerMove)
+        window.addEventListener('pointerup', this.onSidePointerUp)
+        window.addEventListener('pointercancel', this.onSidePointerUp)
+        document.body.style.cursor = 'col-resize'
+        document.body.style.userSelect = 'none'
+    }
+
+    moveSideResize(e: PointerEvent) {
+        const layout = this.$refs.mapLayout as HTMLElement | undefined
+        if (!layout) return
+        // The list sits on the right, so dragging left makes it wider.
+        const wanted = this.resizeStartWidth - (e.clientX - this.resizeStartX)
+        const max = Math.max(SIDE_MIN_WIDTH, layout.clientWidth - MAP_MIN_WIDTH)
+        this.sideWidth = Math.round(Math.min(max, Math.max(SIDE_MIN_WIDTH, wanted)))
+    }
+
+    stopSideResize(persist = false) {
+        if (this.onSidePointerMove) window.removeEventListener('pointermove', this.onSidePointerMove)
+        if (this.onSidePointerUp) {
+            window.removeEventListener('pointerup', this.onSidePointerUp)
+            window.removeEventListener('pointercancel', this.onSidePointerUp)
+        }
+        this.onSidePointerMove = null
+        this.onSidePointerUp = null
+        if (!this.resizingSide) return
+        this.resizingSide = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        if (persist) this.saveSideWidth()
+    }
+
+    resetSideWidth() {
+        this.sideWidth = null
+        this.saveSideWidth()
+    }
+
+    saveSideWidth() {
+        try {
+            if (this.sideWidth == null) localStorage.removeItem(SIDE_WIDTH_KEY)
+            else localStorage.setItem(SIDE_WIDTH_KEY, String(this.sideWidth))
+        } catch (e) {
+            // ignore
         }
     }
 
@@ -189,6 +304,8 @@ export default class WorkerListPanel extends Vue {
     toggling: string | null = null
     justDisabled: string | null = null
     ticking = false
+    disableAllDialog = false
+    bulkBusy = false
 
     headers = [
         { text: 'Worker', value: 'enabled', width: 110, sortable: false },
@@ -214,6 +331,10 @@ export default class WorkerListPanel extends Vue {
 
     get enabledHostnames(): string[] {
         return this.workers.filter((w) => w.enabled).map((w) => w.printer_hostname)
+    }
+
+    get enabledCount(): number {
+        return this.enabledHostnames.length
     }
 
     get workersSorted(): FleetWorker[] {
@@ -314,15 +435,19 @@ export default class WorkerListPanel extends Vue {
         }
     }
 
-    async bulk(enabled: boolean) {
+    async confirmDisableAll() {
         this.error = ''
+        this.bulkBusy = true
         try {
             await this.$store.dispatch('fleet/workers/bulkSetEnabled', {
                 hostnames: this.workers.filter((w) => w.in_printer_list).map((w) => w.printer_hostname),
-                enabled,
+                enabled: false,
             })
+            this.disableAllDialog = false
         } catch (e: any) {
             this.error = e?.message ?? String(e)
+        } finally {
+            this.bulkBusy = false
         }
     }
 
@@ -348,6 +473,54 @@ export default class WorkerListPanel extends Vue {
 </script>
 
 <style scoped>
+.worker-map-layout {
+    display: flex;
+    align-items: flex-start;
+}
+.worker-map-layout--stacked {
+    flex-direction: column;
+}
+.worker-map-layout--resizing {
+    cursor: col-resize;
+}
+.worker-map-layout--resizing .worker-map-main {
+    /* keep the map from swallowing pointer events mid-drag */
+    pointer-events: none;
+}
+.worker-map-main {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.worker-map-layout--stacked .worker-map-main {
+    width: 100%;
+}
+.worker-side-col {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+.worker-side-resizer {
+    flex: 0 0 10px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: col-resize;
+    touch-action: none;
+    user-select: none;
+}
+.worker-side-resizer__grip {
+    width: 2px;
+    height: 100%;
+    min-height: 120px;
+    border-radius: 1px;
+    background: rgba(128, 128, 128, 0.35);
+    transition: background 0.15s;
+}
+.worker-side-resizer:hover .worker-side-resizer__grip,
+.worker-map-layout--resizing .worker-side-resizer__grip {
+    background: var(--v-primary-base, #2196f3);
+}
 .worker-side-list >>> td {
     vertical-align: middle;
 }

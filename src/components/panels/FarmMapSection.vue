@@ -29,8 +29,13 @@
             <span class="edit-hint">{{ editHint }}</span>
         </div>
 
-        <!-- Per-section status legend -->
+        <!-- Per-section status legend (workers mode leads with the worker total) -->
         <div class="status-counters mb-3">
+            <span v-if="mode === 'workers'" class="status-counter status-counter--total"
+                  :title="`${workerCount} of ${printerCount} printers in this section are enabled as fleet workers`">
+                <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
+                Workers {{ workerCount }}
+            </span>
             <span v-for="s in activeStatusList" :key="'active-' + s.key" class="status-counter">
                 <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
                       :style="{ backgroundColor: s.color }"></span>
@@ -255,6 +260,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get printerCount(): number {
         return this.activePrinterEntries.length
+    }
+
+    /** Printers in this section currently enabled as fleet workers (workers mode). */
+    get workerCount(): number {
+        return this.activePrinterEntries.filter(([hostname]) => this.isWorker(hostname)).length
     }
 
     getPrinterStatus(printer: any): PrinterStatus {
@@ -619,6 +629,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     gap: 5px;
     font-size: 12px;
     font-weight: 500;
+}
+.status-counter--total {
+    font-weight: 700;
+    padding-right: 12px;
+    border-right: 1px solid rgba(128, 128, 128, 0.4);
 }
 .status-dot {
     width: 9px;
