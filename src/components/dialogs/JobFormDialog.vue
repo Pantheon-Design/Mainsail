@@ -1,12 +1,12 @@
 <template>
-    <v-dialog :value="value" max-width="1000" persistent scrollable @input="$emit('input', $event)">
+    <v-dialog :value="value" max-width="1500" width="95vw" persistent scrollable @input="$emit('input', $event)">
         <v-card>
             <v-card-title>{{ isEdit ? 'Edit Job' : 'New Job' }}</v-card-title>
             <v-card-text>
                 <v-alert v-if="error" type="error" dense class="mb-3">{{ error }}</v-alert>
                 <v-row>
                     <!-- Job fields -->
-                    <v-col cols="12" md="5">
+                    <v-col cols="12" md="4">
                         <v-text-field v-model="form.name" label="Job name *" dense outlined :rules="[(v) => !!v || 'Required']" />
                         <div class="d-flex align-start">
                             <v-select
@@ -65,7 +65,7 @@
                     </v-col>
 
                     <!-- Items -->
-                    <v-col cols="12" md="7">
+                    <v-col cols="12" md="8">
                         <div class="d-flex align-center mb-2">
                             <span class="text-subtitle-1">G-code files</span>
                             <v-spacer />
@@ -86,27 +86,26 @@
                                 </v-btn>
                             </div>
                             <v-row dense>
-                                <v-col cols="6" sm="2">
+                                <v-col cols="6" md="2">
                                     <v-text-field v-model.number="it.quantity" type="number" min="1" label="Runs / copy" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="6" sm="3">
+                                <v-col cols="6" md="3">
                                     <v-select v-model="it.printer_model" :items="modelOptions" label="Printer" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="6" sm="3">
+                                <v-col cols="6" md="3">
                                     <v-combobox v-model="it.filament_type" :items="filamentSuggestions" label="Filament" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="6" sm="2">
+                                <v-col cols="6" md="2">
                                     <v-combobox
                                         v-model="it.nozzle_diameter"
                                         :items="nozzleOptions"
-                                        label="Nozzle *"
-                                        suffix="mm"
+                                        label="Nozzle (mm) *"
                                         dense
                                         outlined
                                         hide-details
                                         :error="!nozzleValid(it)" />
                                 </v-col>
-                                <v-col cols="6" sm="2">
+                                <v-col cols="6" md="2">
                                     <v-text-field v-model.number="it.filament_grams" type="number" min="0" label="Grams" dense outlined hide-details />
                                 </v-col>
                             </v-row>
