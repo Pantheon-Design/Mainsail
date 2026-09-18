@@ -74,6 +74,8 @@
         "TopBar": {
             "CannotUploadTheFile": "Cannot upload the file!",
             "EmergencyStop": "Emergency Stop",
+            "FleetWorker": "Fleet Managed Worker",
+            "FleetWorkerTooltip": "Managed by fleet_daemon: jobs may be started automatically on this printer",
             "SAVE_CONFIG": "SAVE CONFIG",
             "Uploading": "Uploading",
             "UploadOfFileSuccessful": "Upload of {file} successful!",

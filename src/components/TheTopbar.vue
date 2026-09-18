@@ -1,6 +1,12 @@
 <template>
     <div>
-        <v-app-bar app elevate-on-scroll :height="topbarHeight" class="topbar pa-0" clipped-left>
+        <v-app-bar
+            app
+            elevate-on-scroll
+            :height="topbarHeight"
+            class="topbar pa-0"
+            :class="{ 'fleet-worker-topbar': isFleetWorker }"
+            clipped-left>
             <v-app-bar-nav-icon tile @click.stop="naviDrawer = !naviDrawer" />
             <router-link to="/">
                 <template v-if="sidebarLogo">
@@ -21,6 +27,21 @@
                 </template>
             </router-link>
             <v-toolbar-title class="text-no-wrap ml-0 pl-2 mr-2">{{ printerName }}</v-toolbar-title>
+            <v-tooltip v-if="isFleetWorker" bottom>
+                <template #activator="{ on, attrs }">
+                    <v-chip
+                        small
+                        label
+                        color="amber"
+                        text-color="black"
+                        class="fleet-worker-chip font-weight-bold mr-2"
+                        v-bind="attrs"
+                        v-on="on">
+                        {{ $t('App.TopBar.FleetWorker') }}
+                    </v-chip>
+                </template>
+                <span>{{ $t('App.TopBar.FleetWorkerTooltip') }}</span>
+            </v-tooltip>
             <printer-selector v-if="countPrinters" />
             <v-spacer />
             <input
@@ -199,6 +220,11 @@ export default class TheTopbar extends Mixins(BaseMixin) {
         return this.$store.getters['farm/countPrinters']
     }
 
+    get isFleetWorker(): boolean {
+        // Set by Moonraker's fleet_integration from fleet_daemon's worker list.
+        return this.$store.state.printer.machine_state?.is_fleet_worker === 1
+    }
+
     get boolHideUploadAndPrintButton() {
         return this.$store.state.gui.uiSettings.boolHideUploadAndPrintButton ?? false
     }
@@ -352,6 +378,47 @@ export default class TheTopbar extends Mixins(BaseMixin) {
 @media (min-width: 768px) {
     header.topbar {
         z-index: 8 !important;
+    }
+}
+
+/* Fleet-managed worker: pulsing, half-transparent yellow/black construction stripes */
+/*noinspection CssUnusedSymbol*/
+header.topbar.fleet-worker-topbar {
+    overflow: hidden;
+}
+/*noinspection CssUnusedSymbol*/
+header.topbar.fleet-worker-topbar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: repeating-linear-gradient(-45deg, #f9c400 0 20px, #151515 20px 40px);
+    opacity: 0.5;
+    animation: fleet-worker-pulse 1.6s ease-in-out infinite;
+}
+/*noinspection CssUnusedSymbol*/
+::v-deep header.topbar.fleet-worker-topbar .v-toolbar__content {
+    position: relative;
+    z-index: 1;
+}
+/*noinspection CssUnusedSymbol*/
+::v-deep header.topbar.fleet-worker-topbar .v-toolbar__title {
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+}
+@keyframes fleet-worker-pulse {
+    0%,
+    100% {
+        opacity: 0.05;
+    }
+    50% {
+        opacity: 0.25;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    header.topbar.fleet-worker-topbar::before {
+        animation: none;
+        opacity: 0.5;
     }
 }
 </style>

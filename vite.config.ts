@@ -115,5 +115,9 @@ export default defineConfig({
     server: {
         host: '0.0.0.0',
         port: 8080,
+        watch: {
+            // Visual Studio keeps its index files locked, which crashes the watcher on Windows (EBUSY)
+            ignored: ['**/.vs/**', '**/.git/**'],
+        },
     },
 })

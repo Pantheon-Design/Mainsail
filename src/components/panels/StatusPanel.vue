@@ -213,7 +213,7 @@ export default class StatusPanel extends Mixins(BaseMixin) {
             }
 
             const stateText = this.printer_state.charAt(0).toUpperCase() + this.printer_state.slice(1)
-            return stateText + this.primeStateSuffix
+            return stateText + this.primeStateSuffix + this.fleetWorkerSuffix
         }
 
         return this.$t('Panels.StatusPanel.Unknown')
@@ -225,6 +225,13 @@ export default class StatusPanel extends Mixins(BaseMixin) {
         const machineState = this.$store.state?.printer?.machine_state ?? {}
         if (machineState.enable_prime === 0) return ''
         return machineState.is_primed === 1 ? ' (primed)' : ' (not primed)'
+    }
+
+    get fleetWorkerSuffix() {
+        // Idle states only. is_fleet_worker is owned by Moonraker (machine_state),
+        // mirrored from fleet_daemon's worker list.
+        const machineState = this.$store.state?.printer?.machine_state ?? {}
+        return machineState.is_fleet_worker === 1 ? ' · Fleet worker' : ''
     }
 
     get toolbarButtons() {
