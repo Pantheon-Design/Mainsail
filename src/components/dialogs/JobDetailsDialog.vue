@@ -27,10 +27,23 @@
 
                 <v-row dense class="mb-2">
                     <v-col cols="6" md="3"><div class="text-caption text--secondary">Customer</div>{{ detail.job.customer_name || '—' }}</v-col>
-                    <v-col cols="6" md="2"><div class="text-caption text--secondary">Type / quantity</div>{{ detail.job.job_type }} × {{ detail.job.quantity }}</v-col>
+                    <v-col cols="6" md="2"><div class="text-caption text--secondary">Type</div>{{ detail.job.job_type }}</v-col>
                     <v-col cols="6" md="2"><div class="text-caption text--secondary">Operator</div>{{ detail.job.operator_name || '—' }}</v-col>
                     <v-col cols="6" md="2"><div class="text-caption text--secondary">Due</div><span :class="dueClass(detail.job)">{{ formatDate(detail.job.due_date) }}</span></v-col>
                     <v-col cols="6" md="3"><div class="text-caption text--secondary">Created / Finished</div>{{ formatDateTime(detail.job.created_at) }} / {{ formatDateTime(detail.job.finished_at) }}</v-col>
+                    <v-col cols="12">
+                        <div class="text-caption text--secondary">Each copy consists of</div>
+                        <span v-if="detail.items.length === 0" class="text--secondary">no items yet</span>
+                        <template v-else>
+                            <v-chip v-for="item in detail.items" :key="'copy-' + item.id" x-small class="mr-1 mb-1" :title="item.gcode_filename">
+                                {{ baseName(item.gcode_filename) }} ×{{ item.quantity }}
+                            </v-chip>
+                            <span class="text-caption ml-1">
+                                = {{ runsPerCopy }} run{{ runsPerCopy === 1 ? '' : 's' }} per copy · {{ detail.job.quantity }}
+                                {{ detail.job.quantity === 1 ? 'copy' : 'copies' }} · {{ totalRuns }} runs total
+                            </span>
+                        </template>
+                    </v-col>
                     <v-col v-if="detail.job.description" cols="12"><div class="text-caption text--secondary">Description</div>{{ detail.job.description }}</v-col>
                 </v-row>
 
@@ -142,6 +155,18 @@ export default class JobDetailsDialog extends Vue {
         if (s !== 'cancelled' && s !== 'complete') t.push({ text: 'Cancel job', value: 'cancelled' })
         if (s === 'in_progress' || s === 'pending') t.push({ text: 'Mark complete', value: 'complete' })
         return t
+    }
+
+    get runsPerCopy(): number {
+        return (this.detail?.items ?? []).reduce((n, i) => n + (Number(i.quantity) || 0), 0)
+    }
+
+    get totalRuns(): number {
+        return this.runsPerCopy * (this.detail?.job.quantity ?? 1)
+    }
+
+    baseName(path: string): string {
+        return path.split('/').pop() ?? path
     }
 
     stats(item: FleetJobItem) {
