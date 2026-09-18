@@ -9,6 +9,24 @@
                 </v-btn-toggle>
             </v-col>
             <v-spacer></v-spacer>
+            <v-col v-if="analyticsView === 'jobs' && analytics && analytics.filament_kpis" cols="auto">
+                <v-tooltip top>
+                    <template #activator="{ on, attrs }">
+                        <v-btn
+                            small
+                            outlined
+                            class="px-2"
+                            v-bind="attrs"
+                            :disabled="analyticsLoading"
+                            v-on="on"
+                            @click="exportFilamentCsv">
+                            <v-icon small left>{{ mdiDatabaseExportOutline }}</v-icon>
+                            Export Filament CSV
+                        </v-btn>
+                    </template>
+                    <span>Download one row per job in the selected range with filament and spool details</span>
+                </v-tooltip>
+            </v-col>
             <v-col cols="auto">
                 <v-btn-toggle v-model="analyticsDays" dense mandatory @change="onDateRangeChange">
                     <v-btn small :value="0">All Time</v-btn>
@@ -91,6 +109,157 @@
                         />
                     </v-card-text>
                 </v-card>
+
+                <!-- 3b. Filament Insights (spool-linked jobs, real preset density) -->
+                <template v-if="analytics.filament_kpis">
+                    <v-card flat class="mb-4">
+                        <v-card-title class="subtitle-2 d-flex align-center flex-wrap">
+                            <span>Filament Insights (spool-linked jobs)</span>
+                            <v-spacer />
+                            <span class="caption text--secondary">
+                                Mass from the linked spool's filament preset density · jobs without a spool are excluded
+                            </span>
+                        </v-card-title>
+                        <v-card-text>
+                            <v-alert
+                                v-if="analytics.filament_kpis.spool_linked_jobs === 0"
+                                type="info"
+                                text
+                                dense
+                                class="mb-0">
+                                No spool-linked jobs in this range — link spools to printers to get filament mass insights.
+                            </v-alert>
+                            <v-row v-else dense>
+                                <v-col v-for="kpi in filamentKpiCards" :key="kpi.label" cols="6" sm="4" md="2">
+                                    <v-card outlined>
+                                        <v-card-text class="pa-3 text-center">
+                                            <div class="caption text--secondary">{{ kpi.label }}</div>
+                                            <div class="headline font-weight-bold">{{ kpi.value }}</div>
+                                            <div v-if="kpi.sub" class="caption text--secondary">{{ kpi.sub }}</div>
+                                        </v-card-text>
+                                    </v-card>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+
+                    <template v-if="analytics.filament_kpis.spool_linked_jobs > 0">
+                        <!-- Filament by Type -->
+                        <v-row dense class="mb-4">
+                            <v-col cols="12" md="5">
+                                <v-card flat>
+                                    <v-card-title class="subtitle-2">Filament by Type (kg)</v-card-title>
+                                    <v-card-text>
+                                        <e-chart
+                                            :option="filamentTypeDonutOptions"
+                                            :autoresize="true"
+                                            :init-options="{ renderer: 'svg' }"
+                                            style="height: 280px; width: 100%"
+                                        />
+                                    </v-card-text>
+                                </v-card>
+                            </v-col>
+                            <v-col cols="12" md="7">
+                                <v-card flat>
+                                    <v-card-title class="subtitle-2">Filament by Type</v-card-title>
+                                    <v-data-table
+                                        dense
+                                        :headers="filamentTypeHeaders"
+                                        :items="analytics.filament_by_type || []"
+                                        :items-per-page="10"
+                                        sort-by="mass_kg"
+                                        sort-desc
+                                        item-key="filament_type"
+                                        class="transparent">
+                                        <template #item.mass_kg="{ item }">{{ item.mass_kg.toFixed(3) }}</template>
+                                        <template #item.wasted_kg="{ item }">{{ item.wasted_kg.toFixed(3) }}</template>
+                                        <template #item.share_pct="{ item }">{{ item.share_pct }}%</template>
+                                        <template #item.avg_g_per_job="{ item }">{{ item.avg_g_per_job.toFixed(1) }}</template>
+                                    </v-data-table>
+                                </v-card>
+                            </v-col>
+                        </v-row>
+
+                        <!-- Filament by Printer -->
+                        <v-card flat class="mb-4">
+                            <v-card-title class="subtitle-2">Filament by Printer (kg · used vs wasted)</v-card-title>
+                            <v-card-text>
+                                <e-chart
+                                    :option="filamentPrinterChartOptions"
+                                    :autoresize="true"
+                                    :init-options="{ renderer: 'svg' }"
+                                    :style="filamentPrinterChartHeight"
+                                />
+                            </v-card-text>
+                        </v-card>
+
+                        <!-- Waste by Status + Top Files -->
+                        <v-row dense class="mb-4">
+                            <v-col cols="12" md="5">
+                                <v-card flat>
+                                    <v-card-title class="subtitle-2 d-flex align-center flex-wrap">
+                                        <span>Filament Waste by Status (kg)</span>
+                                        <v-spacer />
+                                        <span class="caption text--secondary">Completed: {{ completedFilamentKg.toFixed(3) }} kg</span>
+                                    </v-card-title>
+                                    <v-card-text>
+                                        <v-alert v-if="filamentWasteRows.length === 0" type="success" text dense class="mb-0">
+                                            No filament lost to failed or cancelled jobs in this range.
+                                        </v-alert>
+                                        <e-chart
+                                            v-else
+                                            :option="filamentWasteDonutOptions"
+                                            :autoresize="true"
+                                            :init-options="{ renderer: 'svg' }"
+                                            style="height: 280px; width: 100%"
+                                        />
+                                    </v-card-text>
+                                </v-card>
+                            </v-col>
+                            <v-col cols="12" md="7">
+                                <v-card flat>
+                                    <v-card-title class="subtitle-2">Top Files by Filament</v-card-title>
+                                    <v-data-table
+                                        dense
+                                        :headers="filamentFileHeaders"
+                                        :items="analytics.filament_top_files || []"
+                                        :items-per-page="15"
+                                        hide-default-footer
+                                        item-key="filename"
+                                        class="transparent">
+                                        <template #item.mass_kg="{ item }">{{ item.mass_kg.toFixed(3) }}</template>
+                                        <template #item.avg_g_per_job="{ item }">{{ item.avg_g_per_job.toFixed(1) }}</template>
+                                    </v-data-table>
+                                </v-card>
+                            </v-col>
+                        </v-row>
+
+                        <!-- Top Spools -->
+                        <v-card flat class="mb-4">
+                            <v-card-title class="subtitle-2">Top Spools by Consumption</v-card-title>
+                            <v-data-table
+                                dense
+                                :headers="filamentSpoolHeaders"
+                                :items="analytics.filament_top_spools || []"
+                                :items-per-page="20"
+                                hide-default-footer
+                                item-key="spool_qr_code"
+                                class="transparent">
+                                <template #item.color_hex="{ item }">
+                                    <span
+                                        class="fleet-color-swatch"
+                                        :style="{ backgroundColor: item.color_hex ? `#${item.color_hex}` : 'transparent' }"
+                                        :title="item.color_hex ? `#${item.color_hex}` : ''"></span>
+                                </template>
+                                <template #item.mass_kg="{ item }">{{ item.mass_kg.toFixed(3) }}</template>
+                                <template #item.remaining_weight="{ item }">
+                                    {{ item.remaining_weight != null ? item.remaining_weight.toFixed(0) : '—' }}
+                                </template>
+                                <template #item.last_used="{ item }">{{ formatDate(item.last_used) }}</template>
+                            </v-data-table>
+                        </v-card>
+                    </template>
+                </template>
 
                 <!-- 4. 8-Week Utilization Heatmap -->
                 <v-card flat class="mb-4">
@@ -340,15 +509,47 @@ import BaseMixin from '@/components/mixins/base'
 import ThemeMixin from '@/components/mixins/theme'
 import {
     FleetAnalytics, FleetDailyUtilization, FleetPrinterHealth, FleetModelSummary,
-    FleetPartAnalytics,
+    FleetPartAnalytics, FleetFilamentByType, FleetFilamentByPrinter, FleetFilamentWasteByStatus,
 } from '@/store/fleet/history/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
+import { mdiDatabaseExportOutline } from '@mdi/js'
 
 @Component
 export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
+    mdiDatabaseExportOutline = mdiDatabaseExportOutline
+
     heatmapModelFilter = 'all'
     analyticsView = 'jobs'
     analyticsDays = 0
+
+    readonly filamentTypeHeaders = [
+        { text: 'Type', value: 'filament_type', sortable: true },
+        { text: 'Jobs', value: 'jobs', sortable: true, align: 'end' },
+        { text: 'Linked', value: 'linked_jobs', sortable: true, align: 'end' },
+        { text: 'kg', value: 'mass_kg', sortable: true, align: 'end' },
+        { text: 'Share', value: 'share_pct', sortable: true, align: 'end' },
+        { text: 'Avg g/job', value: 'avg_g_per_job', sortable: true, align: 'end' },
+        { text: 'Wasted kg', value: 'wasted_kg', sortable: true, align: 'end' },
+    ]
+
+    readonly filamentFileHeaders = [
+        { text: 'File', value: 'filename', sortable: true },
+        { text: 'Jobs', value: 'jobs', sortable: true, align: 'end' },
+        { text: 'kg', value: 'mass_kg', sortable: true, align: 'end' },
+        { text: 'Avg g/job', value: 'avg_g_per_job', sortable: true, align: 'end' },
+    ]
+
+    readonly filamentSpoolHeaders = [
+        { text: '', value: 'color_hex', sortable: false, width: 32 },
+        { text: 'Spool QR', value: 'spool_qr_code', sortable: true },
+        { text: 'Vendor', value: 'vendor_name', sortable: true },
+        { text: 'Filament', value: 'filament_name', sortable: true },
+        { text: 'Material', value: 'material', sortable: true },
+        { text: 'Jobs', value: 'jobs', sortable: true, align: 'end' },
+        { text: 'kg', value: 'mass_kg', sortable: true, align: 'end' },
+        { text: 'Remaining g', value: 'remaining_weight', sortable: true, align: 'end' },
+        { text: 'Last Used', value: 'last_used', sortable: true },
+    ]
 
     mounted() {
         fleetDaemonEvents.$on('history_updated', this.onHistoryUpdated)
@@ -372,6 +573,16 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         } else {
             this.$store.dispatch('fleet/history/loadAnalytics', this.analyticsDays)
         }
+    }
+
+    exportFilamentCsv() {
+        const baseUrl = this.$store.getters['gui/fleetDaemonUrl']
+        window.open(`${baseUrl}/history/export/filament.csv?days=${this.analyticsDays}`, '_blank')
+    }
+
+    formatDate(iso: string | null): string {
+        if (!iso) return '—'
+        return new Date(iso).toLocaleDateString()
     }
 
     @Watch('analyticsView')
@@ -530,6 +741,157 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
             xAxis: { type: 'category', data: months, axisLabel: { color: this.fgColor() } },
             yAxis: { type: 'value', axisLabel: { color: this.fgColor(), formatter: '{value} kg' } },
             series,
+        }
+    }
+
+    // ---------- Filament insights (spool-linked, real preset density) ----------
+
+    get filamentKpiCards() {
+        const k = this.analytics?.filament_kpis
+        if (!k) return []
+        return [
+            {
+                label: 'Spool-Linked Jobs',
+                value: `${k.spool_linked_jobs.toLocaleString()} / ${k.total_jobs.toLocaleString()}`,
+                sub: `${k.coverage_pct}% coverage`,
+            },
+            {
+                label: 'Filament Used',
+                value: `${k.mass_kg.toFixed(2)} kg`,
+                sub: `${k.distinct_types} material${k.distinct_types === 1 ? '' : 's'}`,
+            },
+            { label: 'Avg per Job', value: `${k.avg_g_per_job.toFixed(1)} g`, sub: '' },
+            { label: 'Avg per Print Hour', value: `${k.avg_g_per_hour.toFixed(1)} g/h`, sub: '' },
+            {
+                label: 'Wasted (not completed)',
+                value: `${k.wasted_kg.toFixed(2)} kg`,
+                sub: `${k.waste_pct}% of used`,
+            },
+            { label: 'Distinct Spools', value: k.distinct_spools.toLocaleString(), sub: '' },
+        ]
+    }
+
+    get filamentTypeDonutOptions() {
+        const rows = this.analytics?.filament_by_type ?? []
+        const data = rows
+            .filter((r: FleetFilamentByType) => r.mass_kg > 0)
+            .map((r: FleetFilamentByType) => ({ name: r.filament_type, value: r.mass_kg }))
+        return {
+            animation: false,
+            tooltip: {
+                trigger: 'item',
+                formatter: (params: any) => {
+                    const r = rows.find((x: FleetFilamentByType) => x.filament_type === params.name)
+                    if (!r) return params.name
+                    return `<b>${r.filament_type}</b><br/>Filament: ${r.mass_kg.toFixed(3)} kg (${r.share_pct}%)<br/>Jobs: ${r.jobs} (${r.linked_jobs} linked)<br/>Avg: ${r.avg_g_per_job.toFixed(1)} g/job<br/>Wasted: ${r.wasted_kg.toFixed(3)} kg`
+                },
+            },
+            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor() } },
+            series: [{
+                type: 'pie',
+                radius: ['45%', '70%'],
+                data,
+                label: { color: this.fgColor(), formatter: '{b}\n{d}%' },
+            }],
+        }
+    }
+
+    get filamentPrinterRows(): FleetFilamentByPrinter[] {
+        const rows = this.analytics?.filament_by_printer ?? []
+        // ascending so the largest consumer ends up at the top of a horizontal bar chart
+        return [...rows].filter((r) => r.linked_jobs > 0).sort((a, b) => a.mass_kg - b.mass_kg)
+    }
+
+    get filamentPrinterChartHeight(): string {
+        const rows = this.filamentPrinterRows.length
+        return `height: ${Math.max(200, rows * 28 + 60)}px; width: 100%`
+    }
+
+    get filamentPrinterChartOptions() {
+        const rows = this.filamentPrinterRows
+        if (!rows.length) return {}
+        return {
+            animation: false,
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' },
+                formatter: (params: any[]) => {
+                    const r = rows[params[0].dataIndex]
+                    if (!r) return ''
+                    return `<b>${r.printer_hostname}</b> (${r.printer_model})<br/>Filament: ${r.mass_kg.toFixed(3)} kg<br/>Wasted: ${r.wasted_kg.toFixed(3)} kg<br/>Jobs: ${r.jobs} (${r.linked_jobs} linked)<br/>Avg: ${r.avg_g_per_job.toFixed(1)} g/job`
+                },
+            },
+            legend: { data: ['Used (completed)', 'Wasted'], textStyle: { color: this.fgColor() } },
+            grid: { left: 140, right: 60, top: 30, bottom: 20 },
+            xAxis: { type: 'value', axisLabel: { color: this.fgColor(), formatter: '{value} kg' } },
+            yAxis: {
+                type: 'category',
+                data: rows.map((r) => r.printer_hostname),
+                axisLabel: { color: this.fgColor(), fontSize: 10 },
+            },
+            series: [
+                {
+                    name: 'Used (completed)',
+                    type: 'bar',
+                    stack: 'total',
+                    itemStyle: { color: '#4caf50' },
+                    data: rows.map((r) => Math.round(Math.max(0, r.mass_kg - r.wasted_kg) * 1000) / 1000),
+                },
+                {
+                    name: 'Wasted',
+                    type: 'bar',
+                    stack: 'total',
+                    itemStyle: { color: '#f44336' },
+                    data: rows.map((r) => r.wasted_kg),
+                    label: {
+                        show: true,
+                        position: 'right',
+                        color: this.fgColor(),
+                        formatter: (p: any) => `${rows[p.dataIndex]?.mass_kg.toFixed(2) ?? ''} kg`,
+                    },
+                },
+            ],
+        }
+    }
+
+    get filamentWasteRows(): FleetFilamentWasteByStatus[] {
+        const rows = this.analytics?.filament_waste_by_status ?? []
+        return rows.filter((r) => r.status !== 'completed' && r.mass_kg > 0)
+    }
+
+    get completedFilamentKg(): number {
+        const rows = this.analytics?.filament_waste_by_status ?? []
+        return rows.filter((r) => r.status === 'completed').reduce((sum, r) => sum + r.mass_kg, 0)
+    }
+
+    get filamentWasteDonutOptions() {
+        const rows = this.filamentWasteRows
+        const colorMap: Record<string, string> = {
+            cancelled: '#9e9e9e', error: '#f44336',
+            klippy_shutdown: '#e91e63', klippy_disconnect: '#ff5722',
+            in_progress: '#2196f3', interrupted: '#ff9800', server_exit: '#795548',
+        }
+        return {
+            animation: false,
+            tooltip: {
+                trigger: 'item',
+                formatter: (params: any) => {
+                    const r = rows.find((x) => x.status === params.name)
+                    if (!r) return params.name
+                    return `<b>${r.status}</b><br/>Filament: ${r.mass_kg.toFixed(3)} kg (${params.percent}%)<br/>Jobs: ${r.jobs}`
+                },
+            },
+            legend: { orient: 'vertical', right: 10, textStyle: { color: this.fgColor() } },
+            series: [{
+                type: 'pie',
+                radius: ['45%', '70%'],
+                data: rows.map((r) => ({
+                    name: r.status,
+                    value: r.mass_kg,
+                    itemStyle: { color: colorMap[r.status] ?? '#607d8b' },
+                })),
+                label: { color: this.fgColor() },
+            }],
         }
     }
 
@@ -927,3 +1289,14 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
     }
 }
 </script>
+
+<style scoped>
+.fleet-color-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    vertical-align: middle;
+}
+</style>

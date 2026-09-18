@@ -104,6 +104,67 @@ export interface FleetModelSummary {
     completion_rate: number
 }
 
+// ---- Spool-based filament insights (mass from the linked spool's filament preset
+// density/diameter; jobs without a linked spool are excluded from mass figures) ----
+
+export interface FleetFilamentKpis {
+    total_jobs: number
+    spool_linked_jobs: number
+    coverage_pct: number
+    mass_kg: number
+    avg_g_per_job: number
+    avg_g_per_hour: number
+    wasted_kg: number
+    waste_pct: number
+    distinct_spools: number
+    distinct_types: number
+}
+
+export interface FleetFilamentByType {
+    filament_type: string
+    jobs: number
+    linked_jobs: number
+    mass_kg: number
+    wasted_kg: number
+    avg_g_per_job: number
+    share_pct: number
+}
+
+export interface FleetFilamentByPrinter {
+    printer_hostname: string
+    printer_model: string
+    jobs: number
+    linked_jobs: number
+    mass_kg: number
+    wasted_kg: number
+    avg_g_per_job: number
+}
+
+export interface FleetFilamentWasteByStatus {
+    status: string
+    jobs: number
+    mass_kg: number
+}
+
+export interface FleetFilamentTopSpool {
+    spool_qr_code: string | null
+    vendor_name: string | null
+    filament_name: string | null
+    material: string | null
+    color_hex: string | null
+    jobs: number
+    mass_kg: number
+    remaining_weight: number | null
+    last_used: string | null
+}
+
+export interface FleetFilamentTopFile {
+    filename: string
+    jobs: number
+    mass_kg: number
+    avg_g_per_job: number
+}
+
 export interface FleetAnalytics {
     kpis: FleetAnalyticsKpis
     monthly_summary: FleetMonthlySummary[]
@@ -114,6 +175,13 @@ export interface FleetAnalytics {
     weekly_success_rate: FleetWeeklySuccessRate[]
     daily_utilization: FleetDailyUtilization[]
     model_summary: FleetModelSummary[]
+    // Optional: only present on daemons that ship spool-based filament analytics
+    filament_kpis?: FleetFilamentKpis
+    filament_by_type?: FleetFilamentByType[]
+    filament_by_printer?: FleetFilamentByPrinter[]
+    filament_waste_by_status?: FleetFilamentWasteByStatus[]
+    filament_top_spools?: FleetFilamentTopSpool[]
+    filament_top_files?: FleetFilamentTopFile[]
 }
 
 export interface FleetPartAnalyticsKpis {
