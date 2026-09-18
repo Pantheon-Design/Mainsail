@@ -110,14 +110,14 @@
                     </v-card-text>
                 </v-card>
 
-                <!-- 3b. Filament Insights (spool-linked jobs, real preset density) -->
+                <!-- 3b. Filament Insights (spool preset, else Filament-tab preset by material) -->
                 <template v-if="analytics.filament_kpis">
                     <v-card flat class="mb-4">
                         <v-card-title class="subtitle-2 d-flex align-center flex-wrap">
-                            <span>Filament Insights (spool-linked jobs)</span>
+                            <span>Filament Insights</span>
                             <v-spacer />
                             <span class="caption text--secondary">
-                                Mass from the linked spool's filament preset density · jobs without a spool are excluded
+                                Mass from the scanned spool's preset, else the Filament preset matching the slicer material · {{ filamentSourceCaption }}
                             </span>
                         </v-card-title>
                         <v-card-text>
@@ -127,7 +127,7 @@
                                 text
                                 dense
                                 class="mb-0">
-                                No spool-linked jobs in this range — link spools to printers to get filament mass insights.
+                                No job in this range matches a filament preset — scan spools or add presets for the materials in use (Filament tab).
                             </v-alert>
                             <v-row v-else dense>
                                 <v-col v-for="kpi in filamentKpiCards" :key="kpi.label" cols="6" sm="4" md="2">
@@ -751,7 +751,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
         if (!k) return []
         return [
             {
-                label: 'Spool-Linked Jobs',
+                label: 'Jobs with Mass',
                 value: `${k.spool_linked_jobs.toLocaleString()} / ${k.total_jobs.toLocaleString()}`,
                 sub: `${k.coverage_pct}% coverage`,
             },
@@ -769,6 +769,14 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
             },
             { label: 'Distinct Spools', value: k.distinct_spools.toLocaleString(), sub: '' },
         ]
+    }
+
+    get filamentSourceCaption(): string {
+        const k = this.analytics?.filament_kpis
+        if (!k || k.spool_jobs === undefined) return ''
+        const parts = [`${k.spool_jobs} from spools`, `${k.preset_jobs ?? 0} from presets`]
+        if (k.unresolved_jobs) parts.push(`${k.unresolved_jobs} unmatched`)
+        return parts.join(' · ')
     }
 
     get filamentTypeDonutOptions() {

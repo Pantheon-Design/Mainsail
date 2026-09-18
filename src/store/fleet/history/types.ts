@@ -104,12 +104,20 @@ export interface FleetModelSummary {
     completion_rate: number
 }
 
-// ---- Spool-based filament insights (mass from the linked spool's filament preset
-// density/diameter; jobs without a linked spool are excluded from mass figures) ----
+// ---- Filament insights. Mass comes from the linked spool's filament preset when a
+// spool was scanned, otherwise from the Filament-tab preset whose material matches the
+// job's slicer filament_type. Jobs with neither are excluded from mass figures. ----
 
 export interface FleetFilamentKpis {
     total_jobs: number
+    /** Jobs with a resolved mass (spool preset or material preset) */
     spool_linked_jobs: number
+    /** Jobs whose mass came from a scanned spool's preset */
+    spool_jobs?: number
+    /** Jobs whose mass came from a Filament-tab preset matched by material */
+    preset_jobs?: number
+    /** Jobs with no matching preset (mass unknown) */
+    unresolved_jobs?: number
     coverage_pct: number
     mass_kg: number
     avg_g_per_job: number
