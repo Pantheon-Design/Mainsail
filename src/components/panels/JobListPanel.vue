@@ -52,6 +52,18 @@
                         {{ item.qty_done }}/{{ item.qty_total }}
                         <span v-if="item.qty_active" class="blue--text">(+{{ item.qty_active }})</span>
                         <span v-if="item.qty_failed" class="error--text">✕{{ item.qty_failed }}</span>
+                        <v-tooltip v-if="item.qty_qc_failed" bottom>
+                            <template #activator="{ on }">
+                                <span class="error--text font-weight-medium" v-on="on">
+                                    <v-icon x-small color="error">{{ mdiAlertCircle }}</v-icon>
+                                    QC {{ item.qty_qc_failed }} ({{ qcRate(item) }}%)
+                                </span>
+                            </template>
+                            <span>
+                                {{ item.qty_qc_failed }} of {{ item.qty_qc_passed + item.qty_qc_failed }} QC-checked runs failed.
+                                They still count as complete; check the parts in Fleet History.
+                            </span>
+                        </v-tooltip>
                     </span>
                 </div>
             </template>
@@ -102,13 +114,14 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiDotsVertical, mdiMagnify, mdiPlus } from '@mdi/js'
+import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPlus } from '@mdi/js'
 import JobFormDialog from '@/components/dialogs/JobFormDialog.vue'
 import JobDetailsDialog from '@/components/dialogs/JobDetailsDialog.vue'
 import { FleetJob, FleetJobDetail } from '@/store/fleet/jobs/types'
 
 @Component({ components: { JobFormDialog, JobDetailsDialog } })
 export default class JobListPanel extends Vue {
+    mdiAlertCircle = mdiAlertCircle
     mdiDotsVertical = mdiDotsVertical
     mdiMagnify = mdiMagnify
     mdiPlus = mdiPlus
@@ -211,6 +224,12 @@ export default class JobListPanel extends Vue {
         } finally {
             this.saving = false
         }
+    }
+
+    /** QC fail rate over QC-checked completed runs, in percent. */
+    qcRate(job: FleetJob): number {
+        const checked = (job.qty_qc_passed || 0) + (job.qty_qc_failed || 0)
+        return checked ? Math.round((100 * (job.qty_qc_failed || 0)) / checked) : 0
     }
 
     priorityColor(p: string) {

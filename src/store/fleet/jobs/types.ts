@@ -57,6 +57,9 @@ export interface FleetJob {
     qty_done: number
     qty_active: number
     qty_failed: number
+    /** completed runs whose linked history has a QC verdict */
+    qty_qc_passed: number
+    qty_qc_failed: number
 }
 
 export interface FleetJobItem {

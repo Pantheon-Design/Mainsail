@@ -61,12 +61,17 @@
                             {{ item.success_count }} / {{ item.total_runs }} done
                             <span v-if="item.active_count"> · {{ item.active_count }} printing</span>
                             <span v-if="stats(item).totalFailed" class="error--text"> · {{ stats(item).totalFailed }} failed</span>
+                            <span v-if="stats(item).qcFailed" class="error--text font-weight-medium">
+                                · <v-icon x-small color="error">{{ mdiAlertCircle }}</v-icon>
+                                {{ stats(item).qcFailed }} QC fail ({{ qcRatePct(item) }}% of {{ stats(item).qcPassed + stats(item).qcFailed }} checked)
+                            </span>
                             <span v-if="item.remaining"> · {{ item.remaining }} remaining</span>
                         </span>
                     </div>
                     <div class="run-bar mt-2" :title="barTitle(item)">
                         <div class="seg seg-passed" :style="{ width: stats(item).percentages.passed + '%' }" />
                         <div class="seg seg-success" :style="{ width: stats(item).percentages.success + '%' }" />
+                        <div class="seg seg-qcfail" :style="{ width: stats(item).percentages.qcFailed + '%' }" />
                         <div class="seg seg-active" :style="{ width: stats(item).percentages.active + '%' }" />
                         <div class="seg seg-remaining" :style="{ width: stats(item).percentages.remaining + '%' }" />
                     </div>
@@ -113,12 +118,13 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Prop } from 'vue-property-decorator'
-import { mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil } from '@mdi/js'
+import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil } from '@mdi/js'
 import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, ACTIVE_RUN_STATUSES } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
 
 @Component
 export default class JobDetailsDialog extends Vue {
+    mdiAlertCircle = mdiAlertCircle
     mdiChevronDown = mdiChevronDown
     mdiClose = mdiClose
     mdiFile = mdiFile
@@ -176,7 +182,12 @@ export default class JobDetailsDialog extends Vue {
 
     barTitle(item: FleetJobItem) {
         const s = this.stats(item)
-        return `${s.qcPassed} QC passed · ${s.successNoQc} done · ${s.active} printing · ${s.remaining} remaining · ${s.totalFailed} failed`
+        return `${s.qcPassed} QC passed · ${s.successNoQc} done (unchecked) · ${s.qcFailed} QC failed · ${s.active} printing · ${s.remaining} remaining · ${s.totalFailed} failed`
+    }
+
+    qcRatePct(item: FleetJobItem): number {
+        const r = this.stats(item).qcFailRate
+        return r == null ? 0 : Math.round(r * 100)
     }
 
     isActive(status: string) {
@@ -275,6 +286,9 @@ export default class JobDetailsDialog extends Vue {
 .seg-active {
     background: #64b5f6;
     animation: breathe 1.6s ease-in-out infinite;
+}
+.seg-qcfail {
+    background: repeating-linear-gradient(45deg, #e53935 0 4px, #b71c1c 4px 8px);
 }
 .seg-remaining {
     background: transparent;
