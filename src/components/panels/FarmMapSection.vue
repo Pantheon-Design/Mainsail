@@ -6,8 +6,11 @@
             <span class="section-pill">{{ printerCount }}</span>
         </div>
 
-        <!-- Controls -->
-        <div class="map-controls mb-2">
+        <!-- Controls (hidden in workers mode: the map is a toggle surface there) -->
+        <div v-if="mode === 'workers'" class="map-controls mb-2">
+            <span class="edit-hint">Click a printer to toggle it as a fleet worker.</span>
+        </div>
+        <div v-else class="map-controls mb-2">
             <v-btn small :color="isEditing ? 'success' : undefined" :class="{ 'save-pulse': isEditing }"
                    @click="toggleEditMode">
                 {{ isEditing ? 'Save' : 'Edit' }}
@@ -69,10 +72,10 @@
                 <!-- Printers -->
                 <div v-for="[hostname, printer] in activePrinterEntries" :key="hostname"
                      class="marker" :style="markerWrapStyle(hostname)"
-                     :class="{ draggable: isEditing && !isDrawing }"
+                     :class="{ draggable: isEditing && !isDrawing, highlighted: isHighlighted(hostname) }"
                      :data-printer-id="hostname"
                      @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
-                     @click="isEditing ? null : openPrinter(printer)"
+                     @click="onMarkerClick(printer, hostname)"
                      @mouseover="showTooltip(printer, hostname, $event)"
                      @mouseleave="hideTooltip">
                     <div v-if="markerStatus(printer) === 'printing'" class="marker-ring"
@@ -86,11 +89,16 @@
                             {{ markerGlyph(printer) }}
                         </span>
                     </div>
+                    <!-- Fleet worker sticker (animated hammer) -->
+                    <span v-if="isWorker(hostname)" class="worker-sticker" title="Fleet worker">
+                        <v-icon size="12" color="#fff" class="worker-hammer">{{ mdiHammer }}</v-icon>
+                    </span>
                 </div>
 
                 <!-- Tooltip -->
                 <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
                     <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
+                    <p v-if="mode === 'workers'">Fleet worker: {{ isWorker(hoveredPrinter.socket.hostname) ? 'yes' : 'no' }} (click to toggle)</p>
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
                     <p>Filament: {{ hoveredPrinter.toolhead?.filament_type || 'N/A' }}</p>
                     <p>Nozzle: {{ hoveredPrinter.toolhead?.nozzle_size || 'N/A' }}</p>
@@ -118,6 +126,7 @@ import {
     PrinterStatus,
 } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
+import { mdiHammer } from '@mdi/js'
 
 type MapLocation = 'farm' | 'ground'
 
@@ -130,6 +139,15 @@ type MapLocation = 'farm' | 'ground'
 export default class FarmMapSection extends Mixins(BaseMixin) {
     @Prop({ type: String, required: true }) readonly location!: MapLocation
     @Prop({ type: String, required: true }) readonly name!: string
+    /** 'map' (default): edit/drag, click opens the printer. 'workers': no editing,
+     *  click emits `toggle-worker`(hostname), worker printers get a hammer sticker. */
+    @Prop({ type: String, default: 'map' }) readonly mode!: 'map' | 'workers'
+    /** Hostnames currently enabled as fleet workers (workers mode). */
+    @Prop({ type: Array, default: () => [] }) readonly workerHostnames!: string[]
+    /** Printer to highlight on the map (e.g. hovered in a side list). */
+    @Prop({ type: String, default: '' }) readonly highlightHostname!: string
+
+    mdiHammer = mdiHammer
 
     // Grid geometry
     readonly GRID_COLS = 25
@@ -445,6 +463,24 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         this.$root.$emit('open-settings', 'remote-printers')
     }
 
+    isHighlighted(hostname: string): boolean {
+        return !!this.highlightHostname && this.highlightHostname.toLowerCase() === (hostname || '').toLowerCase()
+    }
+
+    isWorker(hostname: string): boolean {
+        const h = (hostname || '').toLowerCase()
+        return this.workerHostnames.some((w) => w.toLowerCase() === h)
+    }
+
+    onMarkerClick(printer: any, hostname: string) {
+        if (this.isEditing) return
+        if (this.mode === 'workers') {
+            this.$emit('toggle-worker', hostname)
+            return
+        }
+        this.openPrinter(printer)
+    }
+
     openPrinter(printer: any) {
         const socket = printer?.socket
         const hostname = socket?.hostname ?? ''
@@ -682,6 +718,49 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 }
 .marker.draggable {
     cursor: move;
+}
+/* The badge stays put; only the hammer glyph inside swings, pivoting at the
+   end of its handle (bottom-right of the mdi glyph). */
+/* Base orientation is the mdi glyph turned 90° counter-clockwise; the swing is
+   applied on top of that. */
+@keyframes hammer-swing {
+    0% { transform: rotate(-130deg); }
+    40% { transform: rotate(-75deg); }
+    55% { transform: rotate(-82deg); }
+    100% { transform: rotate(-130deg); }
+}
+@keyframes highlight-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(255, 235, 59, 0.95), 0 0 18px 6px rgba(255, 235, 59, 0.55); }
+    50% { box-shadow: 0 0 0 7px rgba(255, 235, 59, 0.6), 0 0 26px 10px rgba(255, 235, 59, 0.35); }
+}
+.marker.highlighted {
+    z-index: 5;
+}
+.marker.highlighted >>> .marker-dot {
+    animation: highlight-pulse 0.9s ease-in-out infinite;
+    transform: scale(1.12);
+}
+.worker-sticker {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #f57c00;
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 3;
+}
+.worker-sticker >>> .worker-hammer {
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    animation: hammer-swing 0.8s ease-in-out infinite;
 }
 .marker-ring {
     position: absolute;

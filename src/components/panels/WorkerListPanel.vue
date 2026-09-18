@@ -10,6 +10,10 @@
             </v-chip>
             <v-btn x-small text :loading="ticking" @click="tick">Run scheduler now</v-btn>
             <v-spacer />
+            <v-btn-toggle v-model="view" dense mandatory class="mr-3" @change="saveView">
+                <v-btn small value="list" title="List"><v-icon small>{{ mdiFormatListBulleted }}</v-icon></v-btn>
+                <v-btn small value="map" title="Map"><v-icon small>{{ mdiMapOutline }}</v-icon></v-btn>
+            </v-btn-toggle>
             <v-btn small text @click="bulk(true)">Enable all</v-btn>
             <v-btn small text @click="bulk(false)">Disable all</v-btn>
         </v-card-title>
@@ -20,7 +24,76 @@
 
         <v-alert v-if="error" type="error" dense dismissible class="mx-4" @input="error = ''">{{ error }}</v-alert>
 
-        <v-data-table :headers="headers" :items="workers" :loading="loading" dense sort-by="printer_hostname" item-key="printer_hostname">
+        <!-- Map view: the fleet map as a toggle surface + a simplified side list -->
+        <v-row v-if="view === 'map'" dense class="px-2 pb-2">
+            <v-col cols="12" lg="8">
+                <farm-map-section
+                    location="farm"
+                    name="Print Farm"
+                    mode="workers"
+                    :worker-hostnames="enabledHostnames"
+                    :highlight-hostname="hoverHost"
+                    class="mb-6"
+                    @toggle-worker="toggleByHostname" />
+                <farm-map-section
+                    location="ground"
+                    name="Ground Floor"
+                    mode="workers"
+                    :worker-hostnames="enabledHostnames"
+                    :highlight-hostname="hoverHost"
+                    @toggle-worker="toggleByHostname" />
+            </v-col>
+            <v-col cols="12" lg="4">
+                <v-simple-table dense class="worker-side-list">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px">Worker</th>
+                            <th>Printer</th>
+                            <th>Filament / nozzle / weight</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="w in workersSorted"
+                            :key="'side-' + w.printer_hostname"
+                            :class="{ 'row-hover': hoverHost === w.printer_hostname }"
+                            @mouseenter="hoverHost = w.printer_hostname"
+                            @mouseleave="hoverHost = ''">
+                            <td>
+                                <v-switch
+                                    :input-value="w.enabled"
+                                    dense
+                                    hide-details
+                                    class="mt-0 pt-0"
+                                    :loading="toggling === w.printer_hostname"
+                                    @change="toggle(w, $event)" />
+                            </td>
+                            <td>
+                                <span :class="{ 'text--secondary': !w.connected }">{{ shortName(w.printer_hostname) }}</span>
+                                <v-icon v-if="w.enabled" x-small color="orange" class="ml-1">{{ mdiHammer }}</v-icon>
+                                <div class="text-caption text--secondary">{{ w.printer_model || '' }} · {{ statusText(w) }}</div>
+                            </td>
+                            <td class="text-caption">
+                                {{ liveFilament(w) || '—' }}
+                                <span v-if="liveNozzle(w)"> · {{ liveNozzle(w) }} mm</span>
+                                <span v-if="liveRemaining(w) != null"> · {{ Math.round(liveRemaining(w)) }} g</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </v-simple-table>
+            </v-col>
+        </v-row>
+
+        <v-data-table
+            v-else
+            :headers="headers"
+            :items="workers"
+            :loading="loading"
+            :items-per-page="100"
+            :footer-props="{ 'items-per-page-options': [100, 250, 500, -1] }"
+            dense
+            sort-by="printer_hostname"
+            item-key="printer_hostname">
             <template #item.enabled="{ item }">
                 <div class="d-flex align-center">
                     <v-switch
@@ -76,14 +149,41 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiHandBackRight, mdiRobot } from '@mdi/js'
+import { mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus } from '@/components/panels/farmPrinterStatus'
+import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 
-@Component
+const VIEW_KEY = 'fleetWorkersView'
+
+@Component({ components: { FarmMapSection } })
 export default class WorkerListPanel extends Vue {
     mdiHandBackRight = mdiHandBackRight
     mdiRobot = mdiRobot
+    mdiHammer = mdiHammer
+    mdiFormatListBulleted = mdiFormatListBulleted
+    mdiMapOutline = mdiMapOutline
+
+    view: 'list' | 'map' = 'list'
+    /** Printer hovered in the side list; highlighted on the map. */
+    hoverHost = ''
+
+    created() {
+        try {
+            const v = localStorage.getItem(VIEW_KEY)
+            if (v === 'map' || v === 'list') this.view = v
+        } catch (e) {
+            // storage unavailable — keep default
+        }
+    }
+
+    saveView(v: string) {
+        try {
+            localStorage.setItem(VIEW_KEY, v)
+        } catch (e) {
+            // ignore
+        }
+    }
 
     error = ''
     toggling: string | null = null
@@ -110,6 +210,38 @@ export default class WorkerListPanel extends Vue {
 
     get scheduler(): FleetSchedulerStatus | null {
         return this.$store.getters['fleet/workers/getSchedulerStatus']
+    }
+
+    get enabledHostnames(): string[] {
+        return this.workers.filter((w) => w.enabled).map((w) => w.printer_hostname)
+    }
+
+    get workersSorted(): FleetWorker[] {
+        return [...this.workers].sort((a, b) => a.printer_hostname.localeCompare(b.printer_hostname))
+    }
+
+    shortName(hostname: string): string {
+        return hostname.replace(/\.local$/i, '')
+    }
+
+    /** Map click: flip the worker flag of that printer. */
+    async toggleByHostname(hostname: string) {
+        const h = hostname.toLowerCase()
+        const w = this.workers.find((x) => x.printer_hostname.toLowerCase() === h)
+        if (w) {
+            await this.toggle(w, !w.enabled)
+            return
+        }
+        // Printer known to the map but not yet in the workers snapshot: enable it.
+        this.toggling = h
+        try {
+            await this.$store.dispatch('fleet/workers/setWorkerEnabled', { hostname: h, enabled: true })
+            await this.$store.dispatch('fleet/workers/loadWorkers')
+        } catch (e: any) {
+            this.error = e?.message ?? String(e)
+        } finally {
+            this.toggling = null
+        }
     }
 
     /** Live state from the daemon WebSocket when available, else the /workers snapshot. */
@@ -216,6 +348,12 @@ export default class WorkerListPanel extends Vue {
 </script>
 
 <style scoped>
+.worker-side-list >>> td {
+    vertical-align: middle;
+}
+.worker-side-list >>> tr.row-hover td {
+    background: rgba(255, 235, 59, 0.12);
+}
 .job-link {
     cursor: pointer;
     text-decoration: underline;
