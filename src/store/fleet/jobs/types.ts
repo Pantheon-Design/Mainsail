@@ -236,7 +236,7 @@ export interface JobItemUpdatePayload {
     autofill_from_gcode?: boolean
 }
 
-export const NOZZLE_SIZES: number[] = [0.4, 0.6, 0.8, 1.0]
+export const NOZZLE_SIZES: number[] = [0.4, 0.5, 0.6, 0.8, 1.0]
 
 export interface JobCreatePayload {
     customer_id: number | null
