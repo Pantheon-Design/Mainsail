@@ -74,16 +74,27 @@
                                 </v-btn>
                             </div>
                             <v-row dense>
-                                <v-col cols="3">
+                                <v-col cols="6" sm="2">
                                     <v-text-field v-model.number="it.quantity" type="number" min="1" label="Qty" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="3">
+                                <v-col cols="6" sm="3">
                                     <v-select v-model="it.printer_model" :items="modelOptions" label="Printer" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="3">
+                                <v-col cols="6" sm="3">
                                     <v-combobox v-model="it.filament_type" :items="filamentSuggestions" label="Filament" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="3">
+                                <v-col cols="6" sm="2">
+                                    <v-combobox
+                                        v-model="it.nozzle_diameter"
+                                        :items="nozzleOptions"
+                                        label="Nozzle *"
+                                        suffix="mm"
+                                        dense
+                                        outlined
+                                        hide-details
+                                        :error="!nozzleValid(it)" />
+                                </v-col>
+                                <v-col cols="6" sm="2">
                                     <v-text-field v-model.number="it.filament_grams" type="number" min="0" label="Grams" dense outlined hide-details />
                                 </v-col>
                             </v-row>
@@ -94,7 +105,7 @@
             <v-card-actions>
                 <v-spacer />
                 <v-btn text @click="close">Cancel</v-btn>
-                <v-btn color="primary" :loading="saving" :disabled="!form.name" @click="save">
+                <v-btn color="primary" :loading="saving" :disabled="!form.name || !allNozzlesValid" @click="save">
                     {{ isEdit ? 'Save' : 'Create job' }}
                 </v-btn>
             </v-card-actions>
@@ -126,6 +137,7 @@ import {
     FleetJobDetail,
     FleetJobItem,
     FLEET_PRINTER_MODELS,
+    NOZZLE_SIZES,
     JobCreatePayload,
     JobItemCreatePayload,
     ItemPrinterModelChoice,
@@ -140,6 +152,8 @@ interface ItemRow {
     printer_model: ItemPrinterModelChoice
     filament_type: string | null
     filament_grams: number | null
+    /** mm; required — the worker's nozzle must match */
+    nozzle_diameter: number | string | null
     saving: boolean
     /** JSON of the payload as last persisted (edit mode); used to detect changes on Save. */
     persisted: string | null
@@ -178,6 +192,20 @@ export default class JobFormDialog extends Vue {
     ]
     modelOptions = [{ text: 'Any printer', value: 'any' }, ...FLEET_PRINTER_MODELS.map((m) => ({ text: m, value: m }))]
     filamentSuggestions = ['PETG-CF', 'PA-CF', 'PA-GF', 'PETG', 'PLA', 'ABS', 'TPU']
+    nozzleOptions = NOZZLE_SIZES.map((n) => String(n))
+
+    nozzleValue(row: ItemRow): number | null {
+        const n = parseFloat(String(row.nozzle_diameter ?? '').replace('mm', ''))
+        return isNaN(n) || n <= 0 ? null : n
+    }
+
+    nozzleValid(row: ItemRow): boolean {
+        return this.nozzleValue(row) !== null
+    }
+
+    get allNozzlesValid(): boolean {
+        return this.items.every((r) => this.nozzleValid(r))
+    }
 
     get isEdit() {
         return !!this.job
@@ -238,6 +266,7 @@ export default class JobFormDialog extends Vue {
             printer_model: i.printer_model ?? 'any',
             filament_type: i.filament_type,
             filament_grams: i.filament_grams,
+            nozzle_diameter: i.nozzle_diameter,
             saving: false,
             persisted: null,
         }
@@ -259,11 +288,12 @@ export default class JobFormDialog extends Vue {
                 printer_model: hint.printer_model ?? 'any',
                 filament_type: hint.filament_type,
                 filament_grams: hint.filament_grams,
+                nozzle_diameter: hint.nozzle_diameter,
                 saving: false,
                 persisted: null,
             }
             this.items.push(row)
-            if (this.isEdit && this.job) {
+            if (this.isEdit && this.job && this.nozzleValid(row)) {
                 // In edit mode a newly picked file is created on the job right away.
                 await this.createItemOnJob(row)
             }
@@ -277,6 +307,7 @@ export default class JobFormDialog extends Vue {
             printer_model: row.printer_model ?? 'any',
             filament_type: row.filament_type ? String(row.filament_type).trim() : null,
             filament_grams: row.filament_grams != null && row.filament_grams > 0 ? Number(row.filament_grams) : null,
+            nozzle_diameter: this.nozzleValue(row),
             // Blank fields stay blank; the daemon must not read the gcode footer.
             autofill_from_gcode: false,
         }
@@ -388,7 +419,11 @@ export default class JobFormDialog extends Vue {
                     description: this.form.description || '',
                     due_date: this.dueDateIso() ?? '',
                 })
-                // Item edits (quantity, model, filament, grams) are saved here too.
+                // Item edits (quantity, model, filament, nozzle, grams) are saved here too;
+                // rows picked in edit mode before a nozzle was entered are created now.
+                for (const row of this.items) {
+                    if (row.id === null) await this.createItemOnJob(row)
+                }
                 for (const row of this.changedRows()) {
                     await this.saveItem(row)
                 }

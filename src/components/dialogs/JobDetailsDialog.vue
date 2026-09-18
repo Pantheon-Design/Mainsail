@@ -41,6 +41,7 @@
                         <span class="font-weight-medium mr-3">{{ item.gcode_filename }}</span>
                         <v-chip x-small class="mr-1">{{ item.printer_model || 'any printer' }}</v-chip>
                         <v-chip x-small class="mr-1">{{ item.filament_type || 'any filament' }}</v-chip>
+                        <v-chip x-small class="mr-1">{{ item.nozzle_diameter ? item.nozzle_diameter + ' mm nozzle' : 'any nozzle' }}</v-chip>
                         <v-chip v-if="item.filament_grams" x-small class="mr-1">{{ item.filament_grams }} g</v-chip>
                         <v-spacer />
                         <span class="text-caption">

@@ -214,6 +214,8 @@ export interface JobItemCreatePayload {
     printer_model?: ItemPrinterModelChoice
     filament_type?: string | null
     filament_grams?: number | null
+    /** mm; must equal the worker's toolhead.nozzle_size */
+    nozzle_diameter?: number | null
     notes?: string | null
     /** false = the daemon must NOT read the gcode footer to fill blanks (UI prefills from the file name only) */
     autofill_from_gcode?: boolean
@@ -224,9 +226,12 @@ export interface JobItemUpdatePayload {
     printer_model?: ItemPrinterModelChoice
     filament_type?: string | null
     filament_grams?: number | null
+    nozzle_diameter?: number | null
     notes?: string | null
     autofill_from_gcode?: boolean
 }
+
+export const NOZZLE_SIZES: number[] = [0.4, 0.6, 0.8, 1.0]
 
 export interface JobCreatePayload {
     customer_id: number | null

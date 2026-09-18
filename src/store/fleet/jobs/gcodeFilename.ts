@@ -18,6 +18,8 @@ export interface ParsedGcodeFilename {
     printer_model: FleetPrinterModel | null
     filament_type: string | null
     filament_grams: number | null
+    /** only from an explicit token such as `0.6n`, `n0.6`, `0.6nozzle`, `nozzle0.6` */
+    nozzle_diameter: number | null
     quantity: number | null
 }
 
@@ -66,6 +68,18 @@ export function parseFilamentGrams(filename: string): number | null {
     return null
 }
 
+export function parseNozzle(filename: string): number | null {
+    const tokens = stem(filename).split(/[_\s]+/)
+    for (const t of tokens) {
+        const m = t.match(/^(?:n|nozzle)(\d(?:\.\d+)?)$/i) ?? t.match(/^(\d(?:\.\d+)?)(?:n|nozzle)$/i)
+        if (m) {
+            const n = parseFloat(m[1])
+            if (n > 0 && n <= 2) return n
+        }
+    }
+    return null
+}
+
 export function parseQuantity(filename: string): number | null {
     const lower = stem(filename).toLowerCase()
     const m =
@@ -83,6 +97,7 @@ export function parseGcodeFilename(filename: string): ParsedGcodeFilename {
         printer_model: parsePrinterModel(filename),
         filament_type: parseFilamentType(filename),
         filament_grams: parseFilamentGrams(filename),
+        nozzle_diameter: parseNozzle(filename),
         quantity: parseQuantity(filename),
     }
 }

@@ -45,6 +45,7 @@
             </template>
             <template #item.filament_type="{ item }">
                 <span>{{ liveFilament(item) || '—' }}</span>
+                <span v-if="liveNozzle(item)" class="text--secondary"> · {{ liveNozzle(item) }} mm</span>
                 <div class="text-caption text--secondary">{{ liveRemaining(item) != null ? Math.round(liveRemaining(item)) + ' g left' : '' }}</div>
             </template>
             <template #item.primed="{ item }">
@@ -93,7 +94,7 @@ export default class WorkerListPanel extends Vue {
         { text: 'Worker', value: 'enabled', width: 110, sortable: false },
         { text: 'Printer', value: 'printer_hostname' },
         { text: 'Status', value: 'print_state', width: 150 },
-        { text: 'Filament', value: 'filament_type', width: 120 },
+        { text: 'Filament / nozzle', value: 'filament_type', width: 150 },
         { text: 'Primed', value: 'primed', width: 100 },
         { text: 'Scheduler', value: 'reason' },
         { text: 'Active run', value: 'active_run', sortable: false },
@@ -132,6 +133,12 @@ export default class WorkerListPanel extends Vue {
     liveFilament(w: FleetWorker): string | null {
         const live = this.livePrinter(w)
         return live?.toolhead?.filament_type ?? w.filament_type ?? null
+    }
+
+    liveNozzle(w: FleetWorker): string | null {
+        const live = this.livePrinter(w)
+        const v = live?.toolhead?.nozzle_size ?? w.nozzle_size
+        return v != null && String(v) !== '' ? String(v) : null
     }
 
     liveRemaining(w: FleetWorker): number | null {
