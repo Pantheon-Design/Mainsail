@@ -9,6 +9,19 @@
                 <span v-if="scheduler && scheduler.pending_items != null" class="ml-1">· {{ scheduler.pending_items }} pending</span>
             </v-chip>
             <v-btn x-small text :loading="ticking" @click="tick">Run scheduler now</v-btn>
+            <v-chip small outlined class="ml-2 mr-2">
+                <v-icon x-small left color="orange">{{ mdiHammer }}</v-icon>
+                {{ enabledHostnames.length }} worker{{ enabledHostnames.length === 1 ? '' : 's' }}
+            </v-chip>
+            <v-chip
+                small
+                :outlined="attentionHostnames.length === 0"
+                :color="attentionHostnames.length ? 'error' : undefined"
+                :text-color="attentionHostnames.length ? 'white' : undefined"
+                title="Workers that could run a job but are blocked by low filament or not primed">
+                <v-icon x-small left>{{ mdiExclamationThick }}</v-icon>
+                {{ attentionHostnames.length }} need{{ attentionHostnames.length === 1 ? 's' : '' }} attention
+            </v-chip>
             <v-spacer />
             <v-btn-toggle v-model="view" dense mandatory class="mr-3" @change="saveView">
                 <v-btn small value="list" title="List"><v-icon small>{{ mdiFormatListBulleted }}</v-icon></v-btn>
@@ -55,6 +68,7 @@
                     name="Print Farm"
                     mode="workers"
                     :worker-hostnames="enabledHostnames"
+                    :attention-hostnames="attentionHostnames"
                     :highlight-hostname="hoverHost"
                     class="mb-6"
                     @toggle-worker="toggleByHostname" />
@@ -63,6 +77,7 @@
                     name="Ground Floor"
                     mode="workers"
                     :worker-hostnames="enabledHostnames"
+                    :attention-hostnames="attentionHostnames"
                     :highlight-hostname="hoverHost"
                     @toggle-worker="toggleByHostname" />
             </div>
@@ -101,7 +116,8 @@
                             </td>
                             <td>
                                 <span :class="{ 'text--secondary': !w.connected }">{{ shortName(w.printer_hostname) }}</span>
-                                <v-icon v-if="w.enabled" x-small color="orange" class="ml-1">{{ mdiHammer }}</v-icon>
+                                <v-icon v-if="needsAttention(w)" x-small color="error" class="ml-1" :title="w.reason">{{ mdiExclamationThick }}</v-icon>
+                                <v-icon v-else-if="w.enabled" x-small color="orange" class="ml-1">{{ mdiHammer }}</v-icon>
                                 <div class="text-caption text--secondary">{{ w.printer_model || '' }} · {{ statusText(w) }}</div>
                             </td>
                             <td class="text-caption">
@@ -180,7 +196,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
+import { mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
@@ -196,10 +212,11 @@ export default class WorkerListPanel extends Vue {
     mdiHandBackRight = mdiHandBackRight
     mdiRobot = mdiRobot
     mdiHammer = mdiHammer
+    mdiExclamationThick = mdiExclamationThick
     mdiFormatListBulleted = mdiFormatListBulleted
     mdiMapOutline = mdiMapOutline
 
-    view: 'list' | 'map' = 'list'
+    view: 'list' | 'map' = 'map'
     /** Printer hovered in the side list; highlighted on the map. */
     hoverHost = ''
 
@@ -331,6 +348,18 @@ export default class WorkerListPanel extends Vue {
 
     get enabledHostnames(): string[] {
         return this.workers.filter((w) => w.enabled).map((w) => w.printer_hostname)
+    }
+
+    /** Enabled worker that could take a job but is held back by something an
+     *  operator can fix on the spot: not primed, or not enough filament. */
+    needsAttention(w: FleetWorker): boolean {
+        if (!w.enabled || !w.connected) return false
+        const r = (w.reason || '').toLowerCase()
+        return r.startsWith('not primed') || (r.startsWith('filament') && r.includes('needed')) || r.startsWith('remaining_weight unknown')
+    }
+
+    get attentionHostnames(): string[] {
+        return this.workers.filter((w) => this.needsAttention(w)).map((w) => w.printer_hostname)
     }
 
     get enabledCount(): number {

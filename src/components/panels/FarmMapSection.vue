@@ -94,8 +94,11 @@
                             {{ markerGlyph(printer) }}
                         </span>
                     </div>
-                    <!-- Fleet worker sticker (animated hammer) -->
-                    <span v-if="isWorker(hostname)" class="worker-sticker" title="Fleet worker">
+                    <!-- Worker stickers: flashing "!" when the worker needs attention, else the hammer -->
+                    <span v-if="needsAttention(hostname)" class="worker-sticker attention-sticker" title="Worker needs attention">
+                        <v-icon size="13" color="#fff">{{ mdiExclamationThick }}</v-icon>
+                    </span>
+                    <span v-else-if="isWorker(hostname)" class="worker-sticker" title="Fleet worker">
                         <v-icon size="12" color="#fff" class="worker-hammer">{{ mdiHammer }}</v-icon>
                     </span>
                 </div>
@@ -131,7 +134,7 @@ import {
     PrinterStatus,
 } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
-import { mdiHammer } from '@mdi/js'
+import { mdiExclamationThick, mdiHammer } from '@mdi/js'
 
 type MapLocation = 'farm' | 'ground'
 
@@ -151,8 +154,12 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workerHostnames!: string[]
     /** Printer to highlight on the map (e.g. hovered in a side list). */
     @Prop({ type: String, default: '' }) readonly highlightHostname!: string
+    /** Workers that could run a job but are blocked by low filament / not primed:
+     *  they get a flashing red "!" sticker instead of the hammer. */
+    @Prop({ type: Array, default: () => [] }) readonly attentionHostnames!: string[]
 
     mdiHammer = mdiHammer
+    mdiExclamationThick = mdiExclamationThick
 
     // Grid geometry
     readonly GRID_COLS = 25
@@ -477,6 +484,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return !!this.highlightHostname && this.highlightHostname.toLowerCase() === (hostname || '').toLowerCase()
     }
 
+    needsAttention(hostname: string): boolean {
+        const h = (hostname || '').toLowerCase()
+        return this.attentionHostnames.some((w) => w.toLowerCase() === h)
+    }
+
     isWorker(hostname: string): boolean {
         const h = (hostname || '').toLowerCase()
         return this.workerHostnames.some((w) => w.toLowerCase() === h)
@@ -771,6 +783,13 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     overflow: visible;
     pointer-events: none;
     z-index: 3;
+}
+@keyframes attention-flash {
+    0%, 100% { background: #d32f2f; box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7), 0 1px 3px rgba(0, 0, 0, 0.5); }
+    50% { background: #ff5252; box-shadow: 0 0 0 6px rgba(211, 47, 47, 0), 0 1px 3px rgba(0, 0, 0, 0.5); }
+}
+.attention-sticker {
+    animation: attention-flash 0.8s ease-in-out infinite;
 }
 .worker-sticker >>> .worker-hammer {
     transform: rotate(-90deg);

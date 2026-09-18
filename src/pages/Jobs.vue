@@ -41,7 +41,8 @@ import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
     },
 })
 export default class Jobs extends Vue {
-    activeTab = 0
+    /** Tabs: 0 Jobs, 1 Customers, 2 Workers. Workers (map) is the landing tab. */
+    activeTab = 2
     loadError = ''
     private jobsTimer: ReturnType<typeof setTimeout> | null = null
     private workersTimer: ReturnType<typeof setTimeout> | null = null
