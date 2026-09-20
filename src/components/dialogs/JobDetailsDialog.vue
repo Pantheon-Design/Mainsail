@@ -77,7 +77,10 @@
                     </div>
                 </v-card>
 
-                <div class="text-subtitle-1 mt-3 mb-1">Runs</div>
+                <div class="text-subtitle-1 mt-3 mb-1">
+                    Runs
+                    <span class="text-caption text--secondary ml-2">click a run for its Fleet History record</span>
+                </div>
                 <v-data-table
                     :headers="runHeaders"
                     :items="detail.runs"
@@ -85,7 +88,9 @@
                     disable-pagination
                     hide-default-footer
                     sort-by="dispatched_at"
-                    sort-desc>
+                    sort-desc
+                    class="run-table"
+                    @click:row="openRun">
                     <template #item.status="{ item }">
                         <v-chip x-small :color="runColor(item.status)" text-color="white">{{ item.status }}</v-chip>
                     </template>
@@ -102,10 +107,64 @@
                         <v-chip v-if="item.qc_status" x-small :color="item.qc_status === 'pass' ? 'green' : 'red'" text-color="white">{{ item.qc_status }}</v-chip>
                         <span v-else class="text--secondary">—</span>
                     </template>
+                    <template #item.error="{ item }">
+                        <span v-if="item.error" class="error--text font-weight-medium">
+                            <v-icon x-small color="error">{{ mdiAlertCircle }}</v-icon> {{ item.error }}
+                        </span>
+                        <span v-else-if="item.status === 'success' && !item.history_id" class="orange--text">no history record</span>
+                        <span v-else class="text--secondary">—</span>
+                    </template>
                     <template #item.actions="{ item }">
-                        <v-btn v-if="isActive(item.status)" x-small outlined color="error" :loading="cancelling === item.id" @click="cancelRun(item)">Cancel</v-btn>
+                        <v-btn v-if="isActive(item.status)" x-small outlined color="error" :loading="cancelling === item.id" @click.stop="cancelRun(item)">Cancel</v-btn>
                     </template>
                 </v-data-table>
+
+                <!-- Run -> Fleet History record (same view as Fleet History > Jobs) -->
+                <fleet-history-record-dialog v-model="recordDialog" :record="recordForRun" title="Run · Fleet History record">
+                    <template #top>
+                        <v-alert v-if="selectedRun" dense text :type="selectedRun.status === 'success' ? 'success' : selectedRun.status === 'failed' ? 'error' : 'info'" class="mb-3">
+                            Run #{{ selectedRun.id }} · {{ selectedRun.status }} · {{ selectedRun.source }} ·
+                            dispatched {{ formatDateTime(selectedRun.dispatched_at) }}
+                            <span v-if="selectedRun.error"> · {{ selectedRun.error }}</span>
+                            <span v-if="selectedRun.notes"> · {{ selectedRun.notes }}</span>
+                        </v-alert>
+                    </template>
+                </fleet-history-record-dialog>
+
+                <!-- Run without a matching record -->
+                <v-dialog v-model="noRecordDialog" max-width="520">
+                    <v-card v-if="selectedRun">
+                        <v-card-title class="d-flex align-center">
+                            <v-icon color="error" class="mr-2">{{ mdiAlertCircle }}</v-icon>
+                            No record matches this run
+                            <v-spacer />
+                            <v-btn icon small @click="noRecordDialog = false"><v-icon small>{{ mdiClose }}</v-icon></v-btn>
+                        </v-card-title>
+                        <v-divider />
+                        <v-card-text class="pt-3">
+                            <p>
+                                No Fleet History record was found for this run on <strong>{{ selectedRun.printer_hostname }}</strong>.
+                                The printer never reported a print for it, so nothing was made.
+                            </p>
+                            <v-simple-table dense>
+                                <tbody>
+                                    <tr><td class="font-weight-bold" width="140">Status</td><td>
+                                        <v-chip x-small :color="runColor(selectedRun.status)" text-color="white">{{ selectedRun.status }}</v-chip>
+                                        <v-chip x-small outlined class="ml-1">{{ selectedRun.source }}</v-chip>
+                                    </td></tr>
+                                    <tr><td class="font-weight-bold">Reason</td><td class="error--text font-weight-medium">{{ selectedRun.error || 'no reason recorded' }}</td></tr>
+                                    <tr><td class="font-weight-bold">File</td><td>{{ selectedRun.printer_filename }}</td></tr>
+                                    <tr><td class="font-weight-bold">Dispatched</td><td>{{ formatDateTime(selectedRun.dispatched_at) }}</td></tr>
+                                    <tr><td class="font-weight-bold">Started</td><td>{{ formatDateTime(selectedRun.started_at) }}</td></tr>
+                                    <tr><td class="font-weight-bold">Closed</td><td>{{ formatDateTime(selectedRun.completed_at) }}</td></tr>
+                                    <tr><td class="font-weight-bold">Moonraker job</td><td>{{ selectedRun.moonraker_job_id || '— (none)' }}</td></tr>
+                                    <tr v-if="selectedRun.notes"><td class="font-weight-bold">Notes</td><td>{{ selectedRun.notes }}</td></tr>
+                                </tbody>
+                            </v-simple-table>
+                            <p v-if="recordLookupError" class="caption error--text mt-2">Lookup failed: {{ recordLookupError }}</p>
+                        </v-card-text>
+                    </v-card>
+                </v-dialog>
             </v-card-text>
         </v-card>
         <v-card v-else>
@@ -121,8 +180,10 @@ import { Prop } from 'vue-property-decorator'
 import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil } from '@mdi/js'
 import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, ACTIVE_RUN_STATUSES } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
+import { FleetHistoryRecord } from '@/store/fleet/history/types'
+import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
 
-@Component
+@Component({ components: { FleetHistoryRecordDialog } })
 export default class JobDetailsDialog extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiChevronDown = mdiChevronDown
@@ -135,6 +196,13 @@ export default class JobDetailsDialog extends Vue {
 
     error = ''
     cancelling: number | null = null
+
+    // Run -> record lookup
+    selectedRun: FleetJobRun | null = null
+    recordForRun: FleetHistoryRecord | null = null
+    recordDialog = false
+    noRecordDialog = false
+    recordLookupError = ''
 
     runHeaders = [
         { text: 'Printer', value: 'printer_hostname' },
@@ -238,6 +306,32 @@ export default class JobDetailsDialog extends Vue {
         return h ? `${h}h ${m}m` : `${m}m`
     }
 
+    /** Row click: show the matching Fleet History record, or say that none exists. */
+    async openRun(run: FleetJobRun) {
+        this.selectedRun = run
+        this.recordForRun = null
+        this.recordLookupError = ''
+        if (!run.moonraker_job_id) {
+            this.noRecordDialog = true
+            return
+        }
+        try {
+            const rec: FleetHistoryRecord | null = await this.$store.dispatch('fleet/history/fetchRecord', {
+                printer_hostname: run.printer_hostname,
+                moonraker_job_id: run.moonraker_job_id,
+            })
+            if (rec) {
+                this.recordForRun = rec
+                this.recordDialog = true
+            } else {
+                this.noRecordDialog = true
+            }
+        } catch (e: any) {
+            this.recordLookupError = e?.message ?? String(e)
+            this.noRecordDialog = true
+        }
+    }
+
     async setStatus(status: string) {
         if (!this.detail) return
         this.error = ''
@@ -266,6 +360,9 @@ export default class JobDetailsDialog extends Vue {
 </script>
 
 <style scoped>
+.run-table >>> tbody tr {
+    cursor: pointer;
+}
 .run-bar {
     display: flex;
     height: 10px;

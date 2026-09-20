@@ -207,146 +207,8 @@
             {{ snackbarText }}
         </v-snackbar>
 
-        <!-- Job Detail Dialog -->
-        <v-dialog v-model="detailDialog" max-width="700">
-            <v-card v-if="detailJob">
-                <v-card-title class="d-flex align-center">
-                    Job Detail
-                    <v-spacer />
-                    <v-btn icon small @click="detailDialog = false">
-                        <v-icon small>{{ mdiClose }}</v-icon>
-                    </v-btn>
-                </v-card-title>
-                <v-divider />
-                <v-card-text class="pt-3">
-                    <!-- Job info -->
-                    <span class="text-subtitle-2 font-weight-bold">Job</span>
-                    <v-simple-table dense class="mb-4">
-                        <tbody>
-                            <tr><td class="font-weight-bold" width="160">Printer</td><td>{{ detailJob.printer_hostname }}</td></tr>
-                            <tr><td class="font-weight-bold">Model</td><td>{{ detailJob.printer_model || '—' }}</td></tr>
-                            <tr><td class="font-weight-bold">Filename</td><td>
-                                {{ detailJob.filename || '—' }}
-                                <v-btn
-                                    v-if="detailJob.gcode_archive_hash && !detailJob.gcode_archive_hash.startsWith('deleted:')"
-                                    x-small
-                                    icon
-                                    class="ml-1"
-                                    title="Download archived gcode"
-                                    @click="downloadArchivedGcode(detailJob)"
-                                >
-                                    <v-icon x-small>{{ mdiDownload }}</v-icon>
-                                </v-btn>
-                                <v-chip
-                                    v-if="detailJob.gcode_archive_hash && detailJob.gcode_archive_hash.startsWith('deleted:')"
-                                    x-small
-                                    color="error"
-                                    dark
-                                    class="ml-1"
-                                >
-                                    file deleted
-                                </v-chip>
-                            </td></tr>
-                            <tr><td class="font-weight-bold">Telemetry</td><td>
-                                <v-btn
-                                    v-if="detailJob.telemetry_archive_status === 'archived'"
-                                    x-small
-                                    icon
-                                    title="Download per-print telemetry (.jsonl.gz)"
-                                    @click="downloadTelemetry(detailJob)"
-                                >
-                                    <v-icon x-small>{{ mdiDownload }}</v-icon>
-                                </v-btn>
-                                <v-chip
-                                    v-else-if="detailJob.telemetry_archive_status === 'unavailable'"
-                                    x-small
-                                    color="grey"
-                                    dark
-                                >
-                                    not available
-                                </v-chip>
-                                <v-chip
-                                    v-else-if="detailJob.telemetry_archive_status === 'corrupt'"
-                                    x-small
-                                    color="error"
-                                    dark
-                                >
-                                    corrupt
-                                </v-chip>
-                                <span v-else class="text--disabled">pending</span>
-                            </td></tr>
-                            <tr><td class="font-weight-bold">Filament</td><td>{{ detailJob.filament_type || '—' }}</td></tr>
-                            <tr><td class="font-weight-bold">Status</td><td>
-                                <v-chip x-small :color="statusColor(detailJob.status)" dark>{{ detailJob.status || 'unknown' }}</v-chip>
-                            </td></tr>
-                            <tr><td class="font-weight-bold">Start</td><td>{{ formatDate(detailJob.start_time) }}</td></tr>
-                            <tr><td class="font-weight-bold">End</td><td>{{ detailJob.status === 'in_progress' ? 'In Progress' : formatDate(detailJob.end_time) }}</td></tr>
-                            <tr><td class="font-weight-bold">Duration</td><td>{{ formatDuration(detailJob.print_duration_secs) }}</td></tr>
-                            <tr><td class="font-weight-bold">Filament Used</td><td>{{ formatFilament(detailJob.filament_used_mm) }}</td></tr>
-                            <tr><td class="font-weight-bold">Spool QR</td><td>{{ detailJob.spool_qr_code || '—' }}</td></tr>
-                        </tbody>
-                    </v-simple-table>
-
-                    <!-- Spool info (if spool_qr_code is linked) -->
-                    <div v-if="detailSpool" class="mb-4">
-                        <span class="text-subtitle-2 font-weight-bold">Spool</span>
-                        <v-simple-table dense>
-                            <tbody>
-                                <tr><td class="font-weight-bold" width="160">Spool ID</td><td>#{{ detailSpool.id }}</td></tr>
-                                <tr><td class="font-weight-bold">Vendor</td><td>{{ (detailSpool.filament && detailSpool.filament.vendor && detailSpool.filament.vendor.name) || '—' }}</td></tr>
-                                <tr><td class="font-weight-bold">Filament</td><td>{{ (detailSpool.filament && detailSpool.filament.name) || '—' }}</td></tr>
-                                <tr><td class="font-weight-bold">Material</td><td>{{ (detailSpool.filament && detailSpool.filament.material) || '—' }}</td></tr>
-                                <tr v-if="detailSpool.filament && detailSpool.filament.color_hex"><td class="font-weight-bold">Color</td><td>
-                                    <div :style="{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#' + detailSpool.filament.color_hex, border: '1px solid rgba(255,255,255,0.3)', display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }" />
-                                    #{{ detailSpool.filament.color_hex }}
-                                </td></tr>
-                                <tr><td class="font-weight-bold">Initial Weight</td><td>{{ detailSpool.initial_weight != null ? detailSpool.initial_weight.toFixed(0) + ' g' : '—' }}</td></tr>
-                                <tr><td class="font-weight-bold">Remaining</td><td>{{ detailSpool.remaining_weight != null ? detailSpool.remaining_weight.toFixed(0) + ' g' : '—' }}</td></tr>
-                                <tr><td class="font-weight-bold">Loaded On</td><td>
-                                    <v-chip v-if="detailSpool.loaded_on_printer" x-small color="success" dark>{{ detailSpool.loaded_on_printer }}</v-chip>
-                                    <span v-else>Not loaded</span>
-                                </td></tr>
-                                <tr><td class="font-weight-bold">Location</td><td>{{ detailSpool.location || '—' }}</td></tr>
-                            </tbody>
-                        </v-simple-table>
-                    </div>
-
-                    <!-- Parts list -->
-                    <div class="d-flex align-center mb-1">
-                        <span class="text-subtitle-2 font-weight-bold">Parts ({{ detailParts.length }})</span>
-                    </div>
-                    <v-progress-linear v-if="detailPartsLoading" indeterminate color="primary" class="mb-2" />
-                    <v-simple-table v-else-if="detailParts.length" dense>
-                        <thead>
-                            <tr>
-                                <th>QR Code</th>
-                                <th>Linked At</th>
-                                <th>QC Status</th>
-                                <th>QC Inspector</th>
-                                <th>QC Date</th>
-                                <th>QC Note</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="part in detailParts" :key="part.id">
-                                <td>{{ part.qr_code }}</td>
-                                <td>{{ part.qr_linked_at ? new Date(part.qr_linked_at).toLocaleString() : '—' }}</td>
-                                <td>
-                                    <v-chip v-if="part.qc_status" x-small :color="part.qc_status === 'pass' ? 'success' : part.qc_status === 'fail' ? 'error' : 'warning'" dark>
-                                        {{ part.qc_status }}
-                                    </v-chip>
-                                    <span v-else>—</span>
-                                </td>
-                                <td>{{ part.qc_inspector || '—' }}</td>
-                                <td>{{ part.qc_date ? new Date(part.qc_date).toLocaleString() : '—' }}</td>
-                                <td>{{ part.qc_note || '—' }}</td>
-                            </tr>
-                        </tbody>
-                    </v-simple-table>
-                    <p v-else class="caption grey--text">No parts linked to this job.</p>
-                </v-card-text>
-            </v-card>
-        </v-dialog>
+        <!-- Job Detail Dialog (shared with the Jobs run view) -->
+        <fleet-history-record-dialog v-model="detailDialog" :record="detailJob" />
 
         <!-- Add Part Dialog -->
         <v-dialog v-model="addPartDialog" max-width="420" persistent>
@@ -384,8 +246,9 @@ import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiBug, mdiPlus, mdiClose, mdiDownload } from '@mdi/js'
 import axios from 'axios'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
+import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
 
-@Component
+@Component({ components: { FleetHistoryRecordDialog } })
 export default class FleetHistoryListPanel extends Vue {
     mdiCog = mdiCog
     mdiBug = mdiBug
@@ -407,9 +270,6 @@ export default class FleetHistoryListPanel extends Vue {
     // Job Detail dialog
     detailDialog = false
     detailJob: FleetHistoryRecord | null = null
-    detailParts: FleetHistoryRecord[] = []
-    detailPartsLoading = false
-    detailSpool: any = null
 
     // Add Part dialog
     addPartDialog = false
@@ -655,28 +515,7 @@ export default class FleetHistoryListPanel extends Vue {
 
     async openDetail(item: FleetHistoryRecord) {
         this.detailJob = item
-        this.detailParts = []
-        this.detailPartsLoading = true
-        this.detailSpool = null
         this.detailDialog = true
-        try {
-            const [parts] = await Promise.all([
-                this.$store.dispatch('fleet/history/fetchPartsForJob', {
-                    printer_hostname: item.printer_hostname,
-                    moonraker_job_id: item.moonraker_job_id,
-                }),
-                item.spool_qr_code
-                    ? this.$store.dispatch('fleet/spools/lookupByQr', item.spool_qr_code)
-                        .then((spool: any) => { this.detailSpool = spool })
-                        .catch(() => { this.detailSpool = null })
-                    : Promise.resolve(),
-            ])
-            this.detailParts = parts
-        } catch {
-            this.detailParts = []
-        } finally {
-            this.detailPartsLoading = false
-        }
     }
 
     // ---- Add Part (dev mode) ----

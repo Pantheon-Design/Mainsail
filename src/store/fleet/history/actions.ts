@@ -94,6 +94,19 @@ export const actions: ActionTree<FleetHistoryState, RootState> = {
         return records.length > 0 ? records[0] : null
     },
 
+    /** The base (qr_code IS NULL) fleet_print_history record of one Moonraker job, or null. */
+    async fetchRecord({ rootGetters }, payload: { printer_hostname: string; moonraker_job_id: string }): Promise<any | null> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const params = new URLSearchParams()
+        params.set('printer', payload.printer_hostname)
+        params.set('moonraker_job_id', payload.moonraker_job_id)
+        params.set('has_qr_code', 'false')
+        params.set('limit', '5')
+        const response = await axios.get(`${baseUrl}/history?${params}`)
+        const records = response.data.records ?? response.data
+        return records.length ? records[0] : null
+    },
+
     async fetchPartsForJob({ rootGetters }, payload: { printer_hostname: string; moonraker_job_id: string }): Promise<any[]> {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         const params = new URLSearchParams()
