@@ -57,13 +57,15 @@
 
         <!-- Map view: the fleet map as a toggle surface + a simplified side list.
              The divider between them is draggable; the chosen list width is remembered.
-             The side list is sticky under the top bar and scrolls on its own, so hovering a
-             printer far down the list never scrolls the map out of view. -->
+             Side by side, the layout is sized to the viewport and the map column and the list
+             each scroll on their own (the tab window above is overflow:hidden, so sticky can't
+             be used here). Scrolling down to the second floor never moves the list off screen. -->
         <div
             v-if="view === 'map'"
             ref="mapLayout"
             class="worker-map-layout px-2 pb-2"
-            :class="{ 'worker-map-layout--stacked': stacked, 'worker-map-layout--resizing': resizingSide }">
+            :class="{ 'worker-map-layout--stacked': stacked, 'worker-map-layout--resizing': resizingSide }"
+            :style="mapLayoutStyle">
             <div class="worker-map-main">
                 <!-- TOTAL fleet status across both floors (same legend as the Fleet Map page) -->
                 <div class="fleet-title-row mb-4">
@@ -217,6 +219,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
+import { Watch } from 'vue-property-decorator'
 import { mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus, PrinterStatus } from '@/components/panels/farmPrinterStatus'
@@ -249,6 +252,10 @@ export default class WorkerListPanel extends Vue {
     private onSidePointerMove: ((e: PointerEvent) => void) | null = null
     private onSidePointerUp: ((e: PointerEvent) => void) | null = null
 
+    /** Document-relative top of the map layout; the layout fills the viewport below it. */
+    layoutTop = 0
+    private layoutObserver: ResizeObserver | null = null
+
     created() {
         try {
             const v = localStorage.getItem(VIEW_KEY)
@@ -260,8 +267,40 @@ export default class WorkerListPanel extends Vue {
         }
     }
 
+    mounted() {
+        window.addEventListener('resize', this.measureLayout)
+        if (typeof ResizeObserver !== 'undefined') {
+            // Anything above the layout changing height (title wrapping, an alert) moves it.
+            this.layoutObserver = new ResizeObserver(() => this.measureLayout())
+            this.layoutObserver.observe(this.$el as HTMLElement)
+        }
+        this.$nextTick(this.measureLayout)
+    }
+
     beforeDestroy() {
         this.stopSideResize()
+        window.removeEventListener('resize', this.measureLayout)
+        this.layoutObserver?.disconnect()
+        this.layoutObserver = null
+    }
+
+    @Watch('view')
+    onViewChange() {
+        this.$nextTick(this.measureLayout)
+    }
+
+    measureLayout() {
+        const el = this.$refs.mapLayout as HTMLElement | undefined
+        if (!el) return
+        const top = Math.round(el.getBoundingClientRect().top + window.scrollY)
+        if (top !== this.layoutTop) this.layoutTop = top
+    }
+
+    /** Side by side: fill the viewport below the layout's top so each column scrolls on its own. */
+    get mapLayoutStyle(): Record<string, string> {
+        if (this.stacked) return {}
+        // 16px keeps the card's bottom padding visible; min-height keeps short windows usable.
+        return { height: `max(420px, calc(100vh - ${this.layoutTop}px - 16px))` }
     }
 
     /** Below the lg breakpoint the map and list stack, so there is nothing to resize. */
@@ -582,29 +621,45 @@ export default class WorkerListPanel extends Vue {
 .worker-map-main {
     flex: 1 1 0;
     min-width: 0;
+    /* Side by side: the maps scroll inside this column, not the page */
+    align-self: stretch;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 .worker-map-layout--stacked .worker-map-main {
     width: 100%;
+    align-self: auto;
+    overflow: visible;
 }
 .worker-side-col {
     flex: 0 0 auto;
     min-width: 0;
     max-width: 100%;
-    /* Stay pinned under the 48px top bar while the page (and the map) scrolls */
-    position: sticky;
-    top: calc(var(--topbar-icon-btn-width, 48px) + 8px);
-    align-self: flex-start;
+    /* Side by side: the list scrolls inside this column, independent of the map */
+    align-self: stretch;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
-/* The list scrolls inside its own viewport-bound box instead of stretching the page */
+.worker-side-col > .worker-side-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
 .worker-side-list >>> .v-data-table__wrapper {
-    max-height: calc(100vh - var(--topbar-icon-btn-width, 48px) - 24px);
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
 }
 .worker-map-layout--stacked .worker-side-col {
-    position: static;
+    align-self: auto;
+    display: block;
+}
+.worker-map-layout--stacked .worker-side-col > .worker-side-list {
+    display: block;
 }
 .worker-map-layout--stacked .worker-side-list >>> .v-data-table__wrapper {
-    max-height: none;
     overflow-y: visible;
 }
 .worker-side-resizer {
