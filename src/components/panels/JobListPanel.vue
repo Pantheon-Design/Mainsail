@@ -20,6 +20,25 @@
             </v-btn>
         </v-card-title>
 
+        <!-- Jobs the scheduler paused on its own: the operator has to fix something and resume. -->
+        <v-alert
+            v-for="job in autoHeldJobs"
+            :key="'held-' + job.id"
+            type="error"
+            dense
+            text
+            class="mx-4 mb-2">
+            <div class="d-flex align-center flex-wrap">
+                <div class="flex-grow-1 mr-2">
+                    <strong>{{ job.name }}</strong> is paused — {{ job.hold_reason }}
+                </div>
+                <v-btn small text @click="openDetails(job.id)">Details</v-btn>
+                <v-btn small outlined color="error" @click="setStatus(job, 'pending')">
+                    <v-icon small left>{{ mdiPlay }}</v-icon> Resume
+                </v-btn>
+            </div>
+        </v-alert>
+
         <v-data-table
             :headers="headers"
             :items="jobs"
@@ -33,7 +52,16 @@
                 <v-chip x-small outlined :color="priorityColor(item.priority)">{{ item.priority }}</v-chip>
             </template>
             <template #item.status="{ item }">
-                <v-chip x-small :color="statusColor(item.status)" text-color="white">{{ item.status.replace('_', ' ') }}</v-chip>
+                <v-tooltip v-if="item.hold_reason" bottom max-width="420">
+                    <template #activator="{ on }">
+                        <v-chip x-small color="error" text-color="white" v-on="on">
+                            <v-icon x-small left>{{ mdiAlertCircle }}</v-icon>
+                            paused
+                        </v-chip>
+                    </template>
+                    <span>Paused by the scheduler: {{ item.hold_reason }}</span>
+                </v-tooltip>
+                <v-chip v-else x-small :color="statusColor(item.status)" text-color="white">{{ item.status.replace('_', ' ') }}</v-chip>
             </template>
             <template #item.due_date="{ item }">
                 <span :class="dueClass(item)">{{ formatDate(item.due_date) }}</span>
@@ -81,7 +109,7 @@
                             <v-list-item-title>Hold</v-list-item-title>
                         </v-list-item>
                         <v-list-item v-if="item.status === 'on_hold' || item.status === 'cancelled' || item.status === 'complete'" @click="setStatus(item, 'pending')">
-                            <v-list-item-title>Resume / reopen</v-list-item-title>
+                            <v-list-item-title>{{ item.status === 'on_hold' ? 'Resume' : 'Reopen' }}</v-list-item-title>
                         </v-list-item>
                         <v-list-item v-if="item.status !== 'cancelled' && item.status !== 'complete'" @click="setStatus(item, 'cancelled')">
                             <v-list-item-title>Cancel job</v-list-item-title>
@@ -114,7 +142,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPlus } from '@mdi/js'
+import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPlay, mdiPlus } from '@mdi/js'
 import JobFormDialog from '@/components/dialogs/JobFormDialog.vue'
 import JobDetailsDialog from '@/components/dialogs/JobDetailsDialog.vue'
 import { FleetJob, FleetJobDetail } from '@/store/fleet/jobs/types'
@@ -124,6 +152,7 @@ export default class JobListPanel extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiDotsVertical = mdiDotsVertical
     mdiMagnify = mdiMagnify
+    mdiPlay = mdiPlay
     mdiPlus = mdiPlus
 
     search = ''
@@ -155,6 +184,11 @@ export default class JobListPanel extends Vue {
 
     get loading(): boolean {
         return this.$store.getters['fleet/jobs/isLoading']
+    }
+
+    /** on_hold with a scheduler reason (file missing, repeated dispatch failures). */
+    get autoHeldJobs(): FleetJob[] {
+        return this.jobs.filter((j) => j.status === 'on_hold' && !!j.hold_reason)
     }
 
     reload() {

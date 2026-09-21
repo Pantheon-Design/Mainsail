@@ -8,6 +8,15 @@
                 <span v-if="scheduler && scheduler.last_tick_at" class="ml-1">· tick {{ relative(scheduler.last_tick_at) }}</span>
                 <span v-if="scheduler && scheduler.pending_items != null" class="ml-1">· {{ scheduler.pending_items }} pending</span>
             </v-chip>
+            <v-tooltip v-if="scheduler && scheduler.dispatch_paused" bottom max-width="420">
+                <template #activator="{ on }">
+                    <v-chip small color="error" text-color="white" class="mr-2" v-on="on">
+                        <v-icon x-small left>{{ mdiAlertCircle }}</v-icon>
+                        dispatch paused
+                    </v-chip>
+                </template>
+                <span>{{ scheduler.dispatch_paused }} — no jobs are sent to any printer until fleet gcode storage is back; dispatch resumes automatically.</span>
+            </v-tooltip>
             <v-btn x-small text :loading="ticking" @click="tick">Run scheduler now</v-btn>
             <v-chip small outlined class="ml-2 mr-2">
                 <v-icon x-small left color="orange">{{ mdiHammer }}</v-icon>
@@ -220,7 +229,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Watch } from 'vue-property-decorator'
-import { mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
+import { mdiAlertCircle, mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus, PrinterStatus } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
@@ -239,6 +248,7 @@ const MAP_MIN_WIDTH = 360
 
 @Component({ components: { FarmMapSection } })
 export default class WorkerListPanel extends Vue {
+    mdiAlertCircle = mdiAlertCircle
     mdiHandBackRight = mdiHandBackRight
     mdiRobot = mdiRobot
     mdiHammer = mdiHammer

@@ -3,8 +3,9 @@
         <v-card v-if="detail">
             <v-card-title class="d-flex align-center">
                 <span class="mr-3">{{ detail.job.name }}</span>
-                <v-chip small :color="statusColor(detail.job.status)" text-color="white" class="mr-2">
-                    {{ statusLabel(detail.job.status) }}
+                <v-chip small :color="detail.job.hold_reason ? 'error' : statusColor(detail.job.status)" text-color="white" class="mr-2">
+                    <v-icon v-if="detail.job.hold_reason" x-small left>{{ mdiAlertCircle }}</v-icon>
+                    {{ detail.job.hold_reason ? 'paused' : statusLabel(detail.job.status) }}
                 </v-chip>
                 <v-chip small outlined :color="priorityColor(detail.job.priority)">{{ detail.job.priority }}</v-chip>
                 <v-spacer />
@@ -24,6 +25,22 @@
 
             <v-card-text>
                 <v-alert v-if="error" type="error" dense dismissible class="mb-3" @input="error = ''">{{ error }}</v-alert>
+
+                <!-- Scheduler-initiated hold: nothing is dispatched until an operator resumes. -->
+                <v-alert v-if="detail.job.hold_reason" type="error" text class="mb-3">
+                    <div class="font-weight-medium mb-1">
+                        Paused by the scheduler{{ detail.job.auto_held_at ? ' on ' + formatDateTime(detail.job.auto_held_at) : '' }}
+                    </div>
+                    <div class="mb-2">{{ detail.job.hold_reason }}</div>
+                    <div class="text-caption mb-2">
+                        No new runs are sent for this job. Fix the gcode file / fleet storage or the printer
+                        (or disable that worker on the Workers tab), then resume. Runs that failed before the
+                        hold are listed below.
+                    </div>
+                    <v-btn small outlined color="error" :loading="resuming" @click="resume">
+                        <v-icon small left>{{ mdiPlay }}</v-icon> Resume job
+                    </v-btn>
+                </v-alert>
 
                 <v-row dense class="mb-2">
                     <v-col cols="6" md="3"><div class="text-caption text--secondary">Customer</div>{{ detail.job.customer_name || '—' }}</v-col>
@@ -174,7 +191,7 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Prop } from 'vue-property-decorator'
-import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil } from '@mdi/js'
+import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil, mdiPlay } from '@mdi/js'
 import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
@@ -188,10 +205,12 @@ export default class JobDetailsDialog extends Vue {
     mdiFile = mdiFile
     mdiHandBackRight = mdiHandBackRight
     mdiPencil = mdiPencil
+    mdiPlay = mdiPlay
 
     @Prop({ type: Boolean, default: false }) value!: boolean
 
     error = ''
+    resuming = false
 
     // Run -> record lookup
     selectedRun: FleetJobRun | null = null
@@ -220,7 +239,8 @@ export default class JobDetailsDialog extends Vue {
         const s = this.detail?.job.status
         const t: Array<{ text: string; value: string }> = []
         if (s === 'pending' || s === 'in_progress') t.push({ text: 'Put on hold', value: 'on_hold' })
-        if (s === 'on_hold' || s === 'cancelled' || s === 'complete') t.push({ text: 'Reopen (pending)', value: 'pending' })
+        if (s === 'on_hold') t.push({ text: 'Resume', value: 'pending' })
+        if (s === 'cancelled' || s === 'complete') t.push({ text: 'Reopen (pending)', value: 'pending' })
         if (s !== 'cancelled' && s !== 'complete') t.push({ text: 'Cancel job', value: 'cancelled' })
         if (s === 'in_progress' || s === 'pending') t.push({ text: 'Mark complete', value: 'complete' })
         return t
@@ -330,6 +350,16 @@ export default class JobDetailsDialog extends Vue {
             await this.$store.dispatch('fleet/jobs/setJobStatus', { id: this.detail.job.id, status })
         } catch (e: any) {
             this.error = e?.message ?? String(e)
+        }
+    }
+
+    /** Clears the scheduler hold (hold_reason) and lets dispatch pick the job up again. */
+    async resume() {
+        this.resuming = true
+        try {
+            await this.setStatus('pending')
+        } finally {
+            this.resuming = false
         }
     }
 }

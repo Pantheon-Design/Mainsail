@@ -49,6 +49,11 @@ export interface FleetJob {
     finished_at: string | null
     ready_to_ship: boolean
     shipped: boolean
+    /** Set when the scheduler itself paused the job (gcode file missing, repeated
+     *  dispatch failures); null for an operator hold. Cleared on resume. */
+    hold_reason: string | null
+    /** Last scheduler-initiated hold; persists after resume */
+    auto_held_at: string | null
     created_at: string
     updated_at: string
     // Aggregates from the list query
@@ -194,6 +199,9 @@ export interface FleetSchedulerStatus {
     last_tick_at: string | null
     last_tick_ms: number | null
     last_error: string | null
+    /** Fleet-wide: why nothing is dispatched right now (gcode storage down); null = dispatching */
+    dispatch_paused?: string | null
+    max_dispatch_failures?: number
     in_flight: Record<string, string>
     eval: Record<string, FleetSchedulerEval>
     pending_items?: number
