@@ -56,7 +56,9 @@
         <v-alert v-if="error" type="error" dense dismissible class="mx-4" @input="error = ''">{{ error }}</v-alert>
 
         <!-- Map view: the fleet map as a toggle surface + a simplified side list.
-             The divider between them is draggable; the chosen list width is remembered. -->
+             The divider between them is draggable; the chosen list width is remembered.
+             The side list is sticky under the top bar and scrolls on its own, so hovering a
+             printer far down the list never scrolls the map out of view. -->
         <div
             v-if="view === 'map'"
             ref="mapLayout"
@@ -109,7 +111,7 @@
                 <div class="worker-side-resizer__grip" />
             </div>
             <div class="worker-side-col" :style="sideColStyle">
-                <v-simple-table dense class="worker-side-list">
+                <v-simple-table dense fixed-header class="worker-side-list">
                     <thead>
                         <tr>
                             <th style="width: 60px">Worker</th>
@@ -588,6 +590,22 @@ export default class WorkerListPanel extends Vue {
     flex: 0 0 auto;
     min-width: 0;
     max-width: 100%;
+    /* Stay pinned under the 48px top bar while the page (and the map) scrolls */
+    position: sticky;
+    top: calc(var(--topbar-icon-btn-width, 48px) + 8px);
+    align-self: flex-start;
+}
+/* The list scrolls inside its own viewport-bound box instead of stretching the page */
+.worker-side-list >>> .v-data-table__wrapper {
+    max-height: calc(100vh - var(--topbar-icon-btn-width, 48px) - 24px);
+    overflow-y: auto;
+}
+.worker-map-layout--stacked .worker-side-col {
+    position: static;
+}
+.worker-map-layout--stacked .worker-side-list >>> .v-data-table__wrapper {
+    max-height: none;
+    overflow-y: visible;
 }
 .worker-side-resizer {
     flex: 0 0 10px;
