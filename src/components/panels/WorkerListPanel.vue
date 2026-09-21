@@ -86,6 +86,7 @@
                     mode="workers"
                     :worker-hostnames="enabledHostnames"
                     :attention-hostnames="attentionHostnames"
+                    :attention-reasons="attentionReasons"
                     :highlight-hostname="hoverHost"
                     class="mb-6"
                     @toggle-worker="toggleByHostname" />
@@ -95,6 +96,7 @@
                     mode="workers"
                     :worker-hostnames="enabledHostnames"
                     :attention-hostnames="attentionHostnames"
+                    :attention-reasons="attentionReasons"
                     :highlight-hostname="hoverHost"
                     @toggle-worker="toggleByHostname" />
             </div>
@@ -377,6 +379,15 @@ export default class WorkerListPanel extends Vue {
 
     get attentionHostnames(): string[] {
         return this.workers.filter((w) => this.needsAttention(w)).map((w) => w.printer_hostname)
+    }
+
+    /** hostname -> scheduler reason, for the map tooltip. */
+    get attentionReasons(): Record<string, string> {
+        const out: Record<string, string> = {}
+        for (const w of this.workers) {
+            if (this.needsAttention(w) && w.reason) out[w.printer_hostname] = w.reason
+        }
+        return out
     }
 
     get enabledCount(): number {

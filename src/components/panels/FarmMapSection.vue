@@ -95,7 +95,8 @@
                         </span>
                     </div>
                     <!-- Worker stickers: flashing "!" when the worker needs attention, else the hammer -->
-                    <span v-if="needsAttention(hostname)" class="worker-sticker attention-sticker" title="Worker needs attention">
+                    <span v-if="needsAttention(hostname)" class="worker-sticker attention-sticker"
+                          :title="attentionReason(hostname) || 'Worker needs attention'">
                         <v-icon size="13" color="#fff">{{ mdiExclamationThick }}</v-icon>
                     </span>
                     <span v-else-if="isWorker(hostname)" class="worker-sticker" title="Fleet worker">
@@ -107,6 +108,9 @@
                 <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
                     <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
                     <p v-if="mode === 'workers'">Fleet worker: {{ isWorker(hoveredPrinter.socket.hostname) ? 'yes' : 'no' }} (click to toggle)</p>
+                    <p v-if="mode === 'workers' && needsAttention(hoveredPrinter.socket.hostname)" class="attention-reason">
+                        <strong>Needs attention:</strong> {{ attentionReason(hoveredPrinter.socket.hostname) || 'see the Workers list' }}
+                    </p>
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
                     <p>Filament: {{ hoveredPrinter.toolhead?.filament_type || 'N/A' }}</p>
                     <p>Nozzle: {{ hoveredPrinter.toolhead?.nozzle_size || 'N/A' }}</p>
@@ -157,6 +161,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     /** Workers that could run a job but are blocked by low filament / not primed:
      *  they get a flashing red "!" sticker instead of the hammer. */
     @Prop({ type: Array, default: () => [] }) readonly attentionHostnames!: string[]
+    /** Scheduler reason per attention hostname (e.g. "filament 350g < 400g needed …"),
+     *  shown in the hover tooltip and the sticker title. */
+    @Prop({ type: Object, default: () => ({}) }) readonly attentionReasons!: Record<string, string>
 
     mdiHammer = mdiHammer
     mdiExclamationThick = mdiExclamationThick
@@ -487,6 +494,12 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     needsAttention(hostname: string): boolean {
         const h = (hostname || '').toLowerCase()
         return this.attentionHostnames.some((w) => w.toLowerCase() === h)
+    }
+
+    attentionReason(hostname: string): string | null {
+        const h = (hostname || '').toLowerCase()
+        const key = Object.keys(this.attentionReasons).find((k) => k.toLowerCase() === h)
+        return key ? this.attentionReasons[key] || null : null
     }
 
     isWorker(hostname: string): boolean {
@@ -835,5 +848,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 }
 .tooltip p {
     margin: 0;
+}
+.tooltip .attention-reason {
+    color: #ff8a80;
+    white-space: normal;
+    max-width: 300px;
 }
 </style>
