@@ -6,6 +6,12 @@
                 <h2 class="fleet-title">Fleet Map</h2>
                 <span class="fleet-total">{{ totalPrinterCount }} total</span>
                 <div class="status-counters">
+                    <span
+                        class="status-counter status-counter--total"
+                        :title="`${totalWorkerCount} of ${totalPrinterCount} printers are enabled as fleet workers`">
+                        <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
+                        Workers {{ totalWorkerCount }}
+                    </span>
                     <span v-for="s in totalStatusList" :key="'total-' + s.key" class="status-counter">
                         <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
                               :style="{ backgroundColor: s.color }"></span>
@@ -15,18 +21,39 @@
             </div>
         </div>
 
-        <!-- Print Farm map -->
-        <farm-map-section location="farm" name="Print Farm" class="mb-8" />
+        <!-- Print Farm map (worker stickers + count mirror the Jobs → Workers map) -->
+        <farm-map-section
+            location="farm"
+            name="Print Farm"
+            show-workers
+            :worker-hostnames="enabledHostnames"
+            :attention-hostnames="attentionHostnames"
+            :attention-reasons="attentionReasons"
+            class="mb-8" />
 
         <!-- Ground Floor map -->
-        <farm-map-section location="ground" name="Ground Floor" />
+        <farm-map-section
+            location="ground"
+            name="Ground Floor"
+            show-workers
+            :worker-hostnames="enabledHostnames"
+            :attention-hostnames="attentionHostnames"
+            :attention-reasons="attentionReasons" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Mixins } from 'vue-property-decorator'
+import { mdiHammer } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import { FleetWorker } from '@/store/fleet/jobs/types'
+import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
+import {
+    enabledWorkerHostnames,
+    attentionWorkerHostnames,
+    attentionWorkerReasons,
+} from '@/components/panels/fleetWorkerAttention'
 import {
     getPrinterStatus as getPrinterStatusUtil,
     PrinterStatus,
@@ -38,6 +65,70 @@ import {
     },
 })
 export default class PageFarm extends Mixins(BaseMixin) {
+    mdiHammer = mdiHammer
+
+    private workersTimer: ReturnType<typeof setTimeout> | null = null
+    private pollTimer: ReturnType<typeof setInterval> | null = null
+
+    /** Fallback poll period (ms); WS events refresh immediately, this covers missed events. */
+    static readonly POLL_MS = 10000
+
+    mounted() {
+        this.loadWorkers()
+        fleetDaemonEvents.$on('workers_updated', this.onWorkersUpdated)
+        fleetDaemonEvents.$on('jobs_updated', this.onWorkersUpdated)
+        document.addEventListener('visibilitychange', this.onVisibility)
+        this.pollTimer = setInterval(this.onVisibility, PageFarm.POLL_MS)
+    }
+
+    beforeDestroy() {
+        fleetDaemonEvents.$off('workers_updated', this.onWorkersUpdated)
+        fleetDaemonEvents.$off('jobs_updated', this.onWorkersUpdated)
+        document.removeEventListener('visibilitychange', this.onVisibility)
+        if (this.workersTimer) clearTimeout(this.workersTimer)
+        if (this.pollTimer) clearInterval(this.pollTimer)
+    }
+
+    /** Worker state is informational here, so a failed load just leaves the stickers off. */
+    loadWorkers() {
+        this.$store.dispatch('fleet/workers/loadWorkers').catch(() => {})
+    }
+
+    onVisibility() {
+        if (document.visibilityState === 'visible') this.loadWorkers()
+    }
+
+    /** Debounced: the daemon broadcasts several events per scheduler step. */
+    onWorkersUpdated() {
+        if (this.workersTimer) clearTimeout(this.workersTimer)
+        this.workersTimer = setTimeout(() => {
+            this.workersTimer = null
+            this.loadWorkers()
+        }, 500)
+    }
+
+    get workers(): FleetWorker[] {
+        return this.$store.getters['fleet/workers/getWorkers']
+    }
+
+    get enabledHostnames(): string[] {
+        return enabledWorkerHostnames(this.workers)
+    }
+
+    get attentionHostnames(): string[] {
+        return attentionWorkerHostnames(this.workers)
+    }
+
+    get attentionReasons(): Record<string, string> {
+        return attentionWorkerReasons(this.workers)
+    }
+
+    /** Daemon printers currently enabled as workers (same figure as the Workers map header). */
+    get totalWorkerCount(): number {
+        const enabled = new Set(this.enabledHostnames.map((h) => h.toLowerCase()))
+        return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(h.toLowerCase())).length
+    }
+
     // Status color/label vocabulary (matches farmPrinterStatus + FarmPrinterGridPanel)
     readonly STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
         printing: { color: '#2196f3', label: 'Printing' },
@@ -104,6 +195,11 @@ export default class PageFarm extends Mixins(BaseMixin) {
     gap: 5px;
     font-size: 12px;
     font-weight: 500;
+}
+.status-counter--total {
+    font-weight: 700;
+    padding-right: 12px;
+    border-right: 1px solid rgba(128, 128, 128, 0.4);
 }
 .status-dot {
     width: 9px;

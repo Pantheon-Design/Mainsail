@@ -224,6 +224,12 @@ import { mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus, PrinterStatus } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import {
+    workerNeedsAttention,
+    enabledWorkerHostnames,
+    attentionWorkerHostnames,
+    attentionWorkerReasons,
+} from '@/components/panels/fleetWorkerAttention'
 
 const VIEW_KEY = 'fleetWorkersView'
 const SIDE_WIDTH_KEY = 'fleetWorkersSideWidth'
@@ -407,28 +413,21 @@ export default class WorkerListPanel extends Vue {
     }
 
     get enabledHostnames(): string[] {
-        return this.workers.filter((w) => w.enabled).map((w) => w.printer_hostname)
+        return enabledWorkerHostnames(this.workers)
     }
 
-    /** Enabled worker that could take a job but is held back by something an
-     *  operator can fix on the spot: not primed, or not enough filament. */
+    /** See fleetWorkerAttention.ts (shared with the Fleet Map page). */
     needsAttention(w: FleetWorker): boolean {
-        if (!w.enabled || !w.connected) return false
-        const r = (w.reason || '').toLowerCase()
-        return r.startsWith('not primed') || (r.startsWith('filament') && r.includes('needed')) || r.startsWith('remaining_weight unknown')
+        return workerNeedsAttention(w)
     }
 
     get attentionHostnames(): string[] {
-        return this.workers.filter((w) => this.needsAttention(w)).map((w) => w.printer_hostname)
+        return attentionWorkerHostnames(this.workers)
     }
 
     /** hostname -> scheduler reason, for the map tooltip. */
     get attentionReasons(): Record<string, string> {
-        const out: Record<string, string> = {}
-        for (const w of this.workers) {
-            if (this.needsAttention(w) && w.reason) out[w.printer_hostname] = w.reason
-        }
-        return out
+        return attentionWorkerReasons(this.workers)
     }
 
     get enabledCount(): number {

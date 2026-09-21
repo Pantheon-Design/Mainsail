@@ -29,9 +29,9 @@
             <span class="edit-hint">{{ editHint }}</span>
         </div>
 
-        <!-- Per-section status legend (workers mode leads with the worker total) -->
+        <!-- Per-section status legend (leads with the worker total when workers are shown) -->
         <div class="status-counters mb-3">
-            <span v-if="mode === 'workers'" class="status-counter status-counter--total"
+            <span v-if="workersVisible" class="status-counter status-counter--total"
                   :title="`${workerCount} of ${printerCount} printers in this section are enabled as fleet workers`">
                 <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
                 Workers {{ workerCount }}
@@ -95,11 +95,11 @@
                         </span>
                     </div>
                     <!-- Worker stickers: flashing "!" when the worker needs attention, else the hammer -->
-                    <span v-if="needsAttention(hostname)" class="worker-sticker attention-sticker"
+                    <span v-if="workersVisible && needsAttention(hostname)" class="worker-sticker attention-sticker"
                           :title="attentionReason(hostname) || 'Worker needs attention'">
                         <v-icon size="13" color="#fff">{{ mdiExclamationThick }}</v-icon>
                     </span>
-                    <span v-else-if="isWorker(hostname)" class="worker-sticker" title="Fleet worker">
+                    <span v-else-if="workersVisible && isWorker(hostname)" class="worker-sticker" title="Fleet worker">
                         <v-icon size="12" color="#fff" class="worker-hammer">{{ mdiHammer }}</v-icon>
                     </span>
                 </div>
@@ -107,8 +107,10 @@
                 <!-- Tooltip -->
                 <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
                     <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
-                    <p v-if="mode === 'workers'">Fleet worker: {{ isWorker(hoveredPrinter.socket.hostname) ? 'yes' : 'no' }} (click to toggle)</p>
-                    <p v-if="mode === 'workers' && needsAttention(hoveredPrinter.socket.hostname)" class="attention-reason">
+                    <p v-if="workersVisible">
+                        Fleet worker: {{ isWorker(hoveredPrinter.socket.hostname) ? 'yes' : 'no' }}<span v-if="mode === 'workers'"> (click to toggle)</span>
+                    </p>
+                    <p v-if="workersVisible && needsAttention(hoveredPrinter.socket.hostname)" class="attention-reason">
                         <strong>Needs attention:</strong> {{ attentionReason(hoveredPrinter.socket.hostname) || 'see the Workers list' }}
                     </p>
                     <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
@@ -154,6 +156,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     /** 'map' (default): edit/drag, click opens the printer. 'workers': no editing,
      *  click emits `toggle-worker`(hostname), worker printers get a hammer sticker. */
     @Prop({ type: String, default: 'map' }) readonly mode!: 'map' | 'workers'
+    /** Map mode only: also show the per-section worker count, stickers and tooltip lines
+     *  (the Fleet Map page passes this so it mirrors the Workers map without toggling). */
+    @Prop({ type: Boolean, default: false }) readonly showWorkers!: boolean
     /** Hostnames currently enabled as fleet workers (workers mode). */
     @Prop({ type: Array, default: () => [] }) readonly workerHostnames!: string[]
     /** Printer to highlight on the map (e.g. hovered in a side list). */
@@ -276,7 +281,12 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return this.activePrinterEntries.length
     }
 
-    /** Printers in this section currently enabled as fleet workers (workers mode). */
+    /** Worker count, stickers and tooltip lines are shown in workers mode or on request. */
+    get workersVisible(): boolean {
+        return this.mode === 'workers' || this.showWorkers
+    }
+
+    /** Printers in this section currently enabled as fleet workers. */
     get workerCount(): number {
         return this.activePrinterEntries.filter(([hostname]) => this.isWorker(hostname)).length
     }
