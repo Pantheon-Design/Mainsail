@@ -114,9 +114,6 @@
                         <span v-else-if="item.status === 'success' && !item.history_id" class="orange--text">no history record</span>
                         <span v-else class="text--secondary">—</span>
                     </template>
-                    <template #item.actions="{ item }">
-                        <v-btn v-if="isActive(item.status)" x-small outlined color="error" :loading="cancelling === item.id" @click.stop="cancelRun(item)">Cancel</v-btn>
-                    </template>
                 </v-data-table>
 
                 <!-- Run -> Fleet History record (same view as Fleet History > Jobs) -->
@@ -178,7 +175,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Prop } from 'vue-property-decorator'
 import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil } from '@mdi/js'
-import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, ACTIVE_RUN_STATUSES } from '@/store/fleet/jobs/types'
+import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
@@ -195,7 +192,6 @@ export default class JobDetailsDialog extends Vue {
     @Prop({ type: Boolean, default: false }) value!: boolean
 
     error = ''
-    cancelling: number | null = null
 
     // Run -> record lookup
     selectedRun: FleetJobRun | null = null
@@ -214,7 +210,6 @@ export default class JobDetailsDialog extends Vue {
         { text: 'Duration', value: 'print_duration_secs', width: 90 },
         { text: 'QC', value: 'qc_status', width: 70 },
         { text: 'Error', value: 'error' },
-        { text: '', value: 'actions', sortable: false, width: 90 },
     ]
 
     get detail(): FleetJobDetail | null {
@@ -256,10 +251,6 @@ export default class JobDetailsDialog extends Vue {
     qcRatePct(item: FleetJobItem): number {
         const r = this.stats(item).qcFailRate
         return r == null ? 0 : Math.round(r * 100)
-    }
-
-    isActive(status: string) {
-        return (ACTIVE_RUN_STATUSES as string[]).includes(status)
     }
 
     statusColor(s: string) {
@@ -339,21 +330,6 @@ export default class JobDetailsDialog extends Vue {
             await this.$store.dispatch('fleet/jobs/setJobStatus', { id: this.detail.job.id, status })
         } catch (e: any) {
             this.error = e?.message ?? String(e)
-        }
-    }
-
-    async cancelRun(run: FleetJobRun) {
-        if (!this.detail) return
-        if (run.status === 'printing' && !confirm(`Abort the print on ${run.printer_hostname}?`)) return
-        this.cancelling = run.id
-        this.error = ''
-        try {
-            await this.$store.dispatch('fleet/jobs/cancelRun', { runId: run.id, cancel_print: true })
-            await this.$store.dispatch('fleet/jobs/loadJob', this.detail.job.id)
-        } catch (e: any) {
-            this.error = e?.message ?? String(e)
-        } finally {
-            this.cancelling = null
         }
     }
 }
