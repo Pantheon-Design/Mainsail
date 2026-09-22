@@ -40,7 +40,7 @@ const PWAConfig: Partial<VitePWAOptions> = {
     },
     workbox: {
         globPatterns: ['**/*.{js,css,html,woff,woff2,png,svg}'],
-        navigateFallbackDenylist: [/^\/(access|api|printer|server|websocket)/, /^\/webcam[2-4]?/],
+        navigateFallbackDenylist: [/^\/(access|api|printer|server|websocket)/, /^\/webcam[2-4]?/, /^\/scan(\.html)?(\?|$)/],
         runtimeCaching: [
             {
                 urlPattern: (options) => options.url.pathname.startsWith('/config.json'),
@@ -84,6 +84,11 @@ export default defineConfig({
     build: {
         target: 'safari12',
         rollupOptions: {
+            // Two entries: the full Mainsail app and Scanner Lite (scan.html)
+            input: {
+                main: path.resolve(__dirname, 'index.html'),
+                scan: path.resolve(__dirname, 'scan.html'),
+            },
             output: {
                 manualChunks: (id: string) => {
                     if (id.includes('node_modules')) {

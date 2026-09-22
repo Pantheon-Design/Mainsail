@@ -353,6 +353,7 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     }
 
     openAddPartMode() {
+        warmScanKeyboard() // open the mobile keyboard inside the tap; the parts page moves focus to its scan input
         this.$router.push({ path: '/fleet-history', query: { addPartMode: '1' } }).catch(() => {})
     }
 }
