@@ -71,6 +71,11 @@ export class ScanBurstDetector {
 
     private lastLen = 0
     private lastValue = ''
+    private pollTimer: ReturnType<typeof setInterval> | null = null
+    private pollGetValue: (() => string) | null = null
+    private pollSeen = ''
+    /** Human-readable state of the last observation, for on-screen debugging. */
+    trace = 'idle'
 
     private arrivals: Array<{ t: number; n: number }> = []
     private armed = false
@@ -83,20 +88,54 @@ export class ScanBurstDetector {
         this.settleMs = opts.settleMs ?? 300
     }
 
+    /**
+     * Watchdog: poll the field's value so detection does not depend on the
+     * browser/IME firing `input` events at all (some scanner wedges and
+     * accessibility-based injectors update the value silently).
+     */
+    watch(getValue: () => string, intervalMs = 100): void {
+        this.unwatch()
+        this.pollGetValue = getValue
+        this.pollSeen = ''
+        this.pollTimer = setInterval(() => {
+            let v = ''
+            try {
+                v = this.pollGetValue ? this.pollGetValue() || '' : ''
+            } catch {
+                v = ''
+            }
+            if (v !== this.pollSeen) {
+                this.pollSeen = v
+                if (v !== this.lastValue) this.onInput(v, 'poll')
+            }
+        }, intervalMs)
+    }
+
+    unwatch(): void {
+        if (this.pollTimer) {
+            clearInterval(this.pollTimer)
+            this.pollTimer = null
+        }
+        this.pollGetValue = null
+        this.pollSeen = ''
+    }
+
     /** Call on every input event with the current full value of the field. */
-    onInput(value: string | null | undefined): void {
+    onInput(value: string | null | undefined, source: 'event' | 'poll' = 'event'): void {
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
         const text = value ?? ''
         const len = text.length
         const added = len - this.lastLen
         this.lastLen = len
         this.lastValue = text
+        this.pollSeen = text
         this.clearTimer()
 
         if (added <= 0) {
             // Deletion or clear: the user is editing by hand, disarm
             this.arrivals = []
             this.armed = false
+            this.trace = `${source}: len=${len} (cleared/deleted) disarmed`
             return
         }
 
@@ -105,12 +144,15 @@ export class ScanBurstDetector {
         this.arrivals = this.arrivals.filter((a) => a.t >= cutoff)
         const inWindow = this.arrivals.reduce((sum, a) => sum + a.n, 0)
         if (inWindow >= this.minChars) this.armed = true
+        this.trace = `${source}: len=${len} +${added} inWindow=${inWindow} armed=${this.armed}`
 
         if (this.armed && len >= this.minChars) {
+            this.trace += ` → submit in ${this.settleMs}ms`
             this.timer = setTimeout(() => {
                 this.timer = null
                 const submitted = this.lastValue
                 this.reset()
+                this.trace = `submitted "${submitted}"`
                 this.submit(submitted)
             }, this.settleMs)
         }
@@ -121,6 +163,7 @@ export class ScanBurstDetector {
         this.clearTimer()
         this.lastLen = 0
         this.lastValue = ''
+        this.pollSeen = ''
         this.arrivals = []
         this.armed = false
     }

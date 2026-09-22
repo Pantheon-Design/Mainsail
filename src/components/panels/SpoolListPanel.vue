@@ -410,6 +410,9 @@
                     >
                         {{ addSpoolStatusMessage }}
                     </v-alert>
+                    <p v-if="devMode" class="caption orange--text mb-2" style="font-family: monospace">
+                        scan: {{ addSpoolBurst ? addSpoolBurst.trace : 'no detector' }} | focused={{ addSpoolScanFocused }} | buffer="{{ addSpoolScanBuffer }}"
+                    </p>
 
                     <!-- Top: Preset form -->
                     <v-card outlined class="mb-4">
@@ -499,7 +502,7 @@ import Component from 'vue-class-component'
 import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, mdiQrcodeScan } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
-import { ScanBurstDetector, takeScanInput } from '@/plugins/scanBurstDetector'
+import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 
 @Component
@@ -643,6 +646,7 @@ export default class SpoolListPanel extends Vue {
     beforeDestroy() {
         fleetDaemonEvents.$off('spool_updated', this.onSpoolUpdated)
         this.cleanupResizeListeners()
+        this.addSpoolBurst?.unwatch()
         this.addSpoolBurst?.reset()
     }
 
@@ -1052,9 +1056,12 @@ export default class SpoolListPanel extends Vue {
         this.addSpoolForm = this.emptyAddSpoolForm()
         this.resetAddSpoolScanState()
         this.focusAddSpoolScanInput()
+        // Poll the field so detection works even if no input events reach us
+        this.addSpoolBurst?.watch(() => resolveScanInputEl(this.$refs.addSpoolScanInput)?.value ?? '')
     }
 
     exitAddSpoolMode() {
+        this.addSpoolBurst?.unwatch()
         this.addSpoolMode = false
         this.resetAddSpoolScanState()
         this.reloadSpools()

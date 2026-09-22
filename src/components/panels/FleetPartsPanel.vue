@@ -422,6 +422,9 @@
                     <v-icon color="white" class="mr-3">{{ addPartBanner.kind === 'success' ? mdiCheckCircle : mdiAlertCircle }}</v-icon>
                     <span class="subtitle-1 font-weight-bold">{{ addPartBanner.text }}</span>
                 </div>
+                <p v-if="devMode" class="caption orange--text px-4 my-1" style="font-family: monospace">
+                    scan: {{ addPartBurst ? addPartBurst.trace : 'no detector' }} | focused={{ addPartScanFocused }} | buffer="{{ addPartScanBuffer }}"
+                </p>
 
                 <!-- Printer banner -->
                 <div v-if="addPartSelectedPrinter" class="add-part-printer-banner d-flex align-center px-4 py-2" style="background: var(--v-primary-base); color: white;">
@@ -835,6 +838,9 @@
                         autofocus
                         @blur="refocusScanInput"
                     />
+                    <p v-if="devMode" class="caption orange--text mb-2" style="font-family: monospace">
+                        scan: {{ qcBurst ? qcBurst.trace : 'no detector' }} | buffer="{{ qcScanBuffer }}"
+                    </p>
 
                     <v-alert
                         v-if="qcStatusMessage"
@@ -998,7 +1004,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle, mdiMagnify, mdiArrowLeft } from '@mdi/js'
-import { ScanBurstDetector, takeScanInput } from '@/plugins/scanBurstDetector'
+import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 import axios from 'axios'
 
@@ -1204,7 +1210,9 @@ export default class FleetPartsPanel extends Vue {
 
     beforeDestroy() {
         this.cleanupResizeListeners()
+        this.qcBurst?.unwatch()
         this.qcBurst?.reset()
+        this.addPartBurst?.unwatch()
         this.addPartBurst?.reset()
     }
 
@@ -1450,6 +1458,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     exitQcMode() {
+        this.qcBurst?.unwatch()
         this.qcBurst?.reset()
         this.qcMode = false
         this.qcStep = 'inspector'
@@ -1464,6 +1473,8 @@ export default class FleetPartsPanel extends Vue {
         warmScanKeyboard() // synchronous, inside the tap gesture
         this.qcStep = 'scanning'
         this.$nextTick(() => this.refocusScanInput())
+        // Poll the field so detection works even if no input events reach us
+        this.qcBurst?.watch(() => resolveScanInputEl(this.$refs.qcScanInput)?.value ?? '')
     }
 
     onQcCardClick(e: MouseEvent) {
@@ -1605,6 +1616,8 @@ export default class FleetPartsPanel extends Vue {
         warmScanKeyboard() // must be first: synchronous, inside the tap gesture
         this.addPartBurst?.reset()
         this.addPartMode = true
+        // Poll the field so detection works even if no input events reach us
+        this.addPartBurst?.watch(() => resolveScanInputEl(this.$refs.addPartScanInput)?.value ?? '')
         this.addPartScanBuffer = ''
         this.addPartSelectedPrinter = ''
         this.addPartRecentJobs = []
@@ -1620,6 +1633,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     exitAddPartMode() {
+        this.addPartBurst?.unwatch()
         this.addPartBurst?.reset()
         this.addPartMode = false
         this.addPartSelectedPrinter = ''
