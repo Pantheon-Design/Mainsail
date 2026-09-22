@@ -769,15 +769,17 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 .marker.draggable {
     cursor: move;
 }
-/* The badge stays put; only the hammer glyph inside swings, pivoting at the
-   end of its handle (bottom-right of the mdi glyph). */
-/* Base orientation is the mdi glyph turned 90° counter-clockwise; the swing is
-   applied on top of that. */
+/* The badge stays put; only the hammer glyph inside swings. Base orientation
+   is the mdi glyph turned 90° counter-clockwise (head up-left, handle down-right).
+   -75° is the head raised, -130° is the head down on the printer: the raise is
+   the slow half, the strike is the fast half, then a short rebound off the hit. */
 @keyframes hammer-swing {
-    0% { transform: rotate(-130deg); }
-    40% { transform: rotate(-75deg); }
-    55% { transform: rotate(-82deg); }
-    100% { transform: rotate(-130deg); }
+    0% { transform: rotate(-125deg); }
+    55% { transform: rotate(-75deg); }
+    62% { transform: rotate(-78deg); }
+    74% { transform: rotate(-130deg); }
+    82% { transform: rotate(-118deg); }
+    100% { transform: rotate(-125deg); }
 }
 @keyframes highlight-pulse {
     0%, 100% { box-shadow: 0 0 0 4px rgba(255, 235, 59, 0.95), 0 0 18px 6px rgba(255, 235, 59, 0.55); }
@@ -817,7 +819,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 .worker-sticker >>> .worker-hammer {
     transform: rotate(-90deg);
     transform-origin: 50% 50%;
-    animation: hammer-swing 0.8s ease-in-out infinite;
+    animation: hammer-swing 1s ease-in-out infinite;
 }
 .marker-ring {
     position: absolute;
