@@ -440,8 +440,8 @@
                 </div>
                 <v-divider />
 
-                <!-- Desktop: Visible scan input -->
-                <div v-if="!isMobile" class="d-flex align-center px-4 py-2" style="background: rgba(255,255,255,0.03);">
+                <!-- Visible scan input (all layouts) -->
+                <div class="d-flex align-center px-4 py-2" style="background: rgba(255,255,255,0.03);">
                     <v-text-field
                         ref="addPartScanInput"
                         v-model="addPartScanBuffer"
@@ -462,22 +462,6 @@
                         class="flex-grow-1"
                     />
                 </div>
-                <!-- Mobile: hidden input so a keyboard-wedge scanner has somewhere to type -->
-                <input
-                    v-else
-                    ref="addPartScanInput"
-                    v-model="addPartScanBuffer"
-                    class="qc-hidden-input"
-                    autocomplete="off"
-                    autocorrect="off"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    autofocus
-                    @input="onAddPartScanNativeInput"
-                    @keydown.enter="processAddPartScan"
-                    @focus="addPartScanFocused = true"
-                    @blur="addPartScanFocused = false"
-                />
 
                 <!-- ==================== MOBILE FLOW ==================== -->
                 <template v-if="isMobile">
@@ -536,14 +520,20 @@
                                     @change="onAddPartPrinterSelected"
                                 />
                                 <v-text-field
+                                    ref="addPartManualInput"
                                     v-model="addPartManualCode"
                                     label="Or type printer hostname"
+                                    autocomplete="off"
+                                    autocorrect="off"
+                                    autocapitalize="off"
+                                    spellcheck="false"
                                     dense
                                     outlined
                                     hide-details
                                     placeholder="e.g. printer1.local"
                                     style="max-width: 320px; width: 100%"
                                     class="mb-3"
+                                    @input="onAddPartManualInput"
                                     @keydown.enter="submitAddPartManualPrinter"
                                 >
                                     <template #append>
@@ -625,13 +615,19 @@
                                 </v-btn>
 
                                 <v-text-field
+                                    ref="addPartManualInput"
                                     v-model="addPartManualCode"
                                     label="Or type part code manually"
+                                    autocomplete="off"
+                                    autocorrect="off"
+                                    autocapitalize="off"
+                                    spellcheck="false"
                                     dense
                                     outlined
                                     hide-details
                                     style="max-width: 300px; width: 100%"
                                     class="mb-4"
+                                    @input="onAddPartManualInput"
                                     @keydown.enter="submitAddPartManualPart"
                                 >
                                     <template #append>
@@ -836,7 +832,7 @@
                         @input="onQcScanInput"
                         @keydown.enter="processScan"
                         autofocus
-                        @blur="refocusScanInput"
+                        @blur="onQcScanBlur"
                     />
                     <p v-if="devMode" class="caption orange--text mb-2" style="font-family: monospace">
                         scan: {{ qcBurst ? qcBurst.trace : 'no detector' }} | buffer="{{ qcScanBuffer }}"
@@ -873,12 +869,18 @@
                             Scan with Camera
                         </v-btn>
                         <v-text-field
+                            ref="qcManualInput"
                             v-model="qcManualCode"
                             label="Or type code manually"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
                             dense
                             outlined
                             hide-details
                             style="max-width: 300px; width: 100%"
+                            @input="onQcManualInput"
                             @keydown.enter="submitManualCode"
                         >
                             <template #append>
@@ -1111,7 +1113,9 @@ export default class FleetPartsPanel extends Vue {
     addPartBanner: { kind: 'success' | 'error'; text: string } | null = null
     /** Auto-submit scanner bursts that arrive without a trailing Enter (set in created). */
     addPartBurst: ScanBurstDetector | null = null
+    addPartManualBurst: ScanBurstDetector | null = null
     qcBurst: ScanBurstDetector | null = null
+    qcManualBurst: ScanBurstDetector | null = null
 
     // Add Part Mode — mobile camera scanning
     addPartCameraProcessing = false
@@ -1181,6 +1185,15 @@ export default class FleetPartsPanel extends Vue {
             this.addPartScanBuffer = value
             this.processAddPartScan()
         })
+        this.addPartManualBurst = new ScanBurstDetector((value) => {
+            this.addPartManualCode = value
+            if (this.addPartStep === 'parts') this.submitAddPartManualPart()
+            else this.submitAddPartManualPrinter()
+        })
+        this.qcManualBurst = new ScanBurstDetector((value) => {
+            this.qcManualCode = value
+            this.submitManualCode()
+        })
         try {
             const saved = localStorage.getItem(this.STORAGE_KEY)
             if (saved) {
@@ -1212,8 +1225,12 @@ export default class FleetPartsPanel extends Vue {
         this.cleanupResizeListeners()
         this.qcBurst?.unwatch()
         this.qcBurst?.reset()
+        this.qcManualBurst?.unwatch()
+        this.qcManualBurst?.reset()
         this.addPartBurst?.unwatch()
         this.addPartBurst?.reset()
+        this.addPartManualBurst?.unwatch()
+        this.addPartManualBurst?.reset()
     }
 
     onQcScanInput(event: Event) {
@@ -1224,9 +1241,14 @@ export default class FleetPartsPanel extends Vue {
         this.addPartBurst?.onInput(value)
     }
 
-    onAddPartScanNativeInput(event: Event) {
-        this.addPartBurst?.onInput((event.target as HTMLInputElement).value)
+    onAddPartManualInput(value: string) {
+        this.addPartManualBurst?.onInput(value)
     }
+
+    onQcManualInput(value: string) {
+        this.qcManualBurst?.onInput(value)
+    }
+
 
     get isMobile(): boolean {
         return 'ontouchstart' in window && window.innerWidth < 768
@@ -1460,6 +1482,8 @@ export default class FleetPartsPanel extends Vue {
     exitQcMode() {
         this.qcBurst?.unwatch()
         this.qcBurst?.reset()
+        this.qcManualBurst?.unwatch()
+        this.qcManualBurst?.reset()
         this.qcMode = false
         this.qcStep = 'inspector'
         this.qcSelectedRecord = null
@@ -1475,6 +1499,7 @@ export default class FleetPartsPanel extends Vue {
         this.$nextTick(() => this.refocusScanInput())
         // Poll the field so detection works even if no input events reach us
         this.qcBurst?.watch(() => resolveScanInputEl(this.$refs.qcScanInput)?.value ?? '')
+        this.qcManualBurst?.watch(() => resolveScanInputEl(this.$refs.qcManualInput)?.value ?? '')
     }
 
     onQcCardClick(e: MouseEvent) {
@@ -1482,6 +1507,13 @@ export default class FleetPartsPanel extends Vue {
         const el = e.target as HTMLElement
         if (el.closest('input, textarea, button, .v-input, .v-btn, .v-list-item, .v-menu')) return
         if (this.qcNoteVisible) return
+        this.refocusScanInput()
+    }
+
+    onQcScanBlur(e: FocusEvent) {
+        // Focus moved to another control (e.g. the manual field on mobile) — leave it alone
+        const t = e.relatedTarget as HTMLElement | null
+        if (t && t.closest('input, textarea, select, button, .v-input, .v-btn')) return
         this.refocusScanInput()
     }
 
@@ -1618,6 +1650,7 @@ export default class FleetPartsPanel extends Vue {
         this.addPartMode = true
         // Poll the field so detection works even if no input events reach us
         this.addPartBurst?.watch(() => resolveScanInputEl(this.$refs.addPartScanInput)?.value ?? '')
+        this.addPartManualBurst?.watch(() => resolveScanInputEl(this.$refs.addPartManualInput)?.value ?? '')
         this.addPartScanBuffer = ''
         this.addPartSelectedPrinter = ''
         this.addPartRecentJobs = []
@@ -1635,6 +1668,8 @@ export default class FleetPartsPanel extends Vue {
     exitAddPartMode() {
         this.addPartBurst?.unwatch()
         this.addPartBurst?.reset()
+        this.addPartManualBurst?.unwatch()
+        this.addPartManualBurst?.reset()
         this.addPartMode = false
         this.addPartSelectedPrinter = ''
         this.addPartRecentJobs = []
@@ -1789,17 +1824,19 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async submitAddPartManualPrinter() {
-        const code = this.addPartManualCode.trim()
-        if (!code) return
+        this.addPartManualBurst?.reset()
+        const code = takeScanInput(this.$refs.addPartManualInput, this.addPartManualCode)
         this.addPartManualCode = ''
+        if (!code) return
         const hostname = code.endsWith('.local') ? code : `${code}.local`
         await this.addPartSelectPrinter(hostname)
     }
 
     async submitAddPartManualPart() {
-        const code = this.addPartManualCode.trim()
-        if (!code) return
+        this.addPartManualBurst?.reset()
+        const code = takeScanInput(this.$refs.addPartManualInput, this.addPartManualCode)
         this.addPartManualCode = ''
+        if (!code) return
         await this.addPartRegisterPart(code)
     }
 
@@ -1900,9 +1937,10 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async submitManualCode() {
-        const code = this.qcManualCode.trim()
-        if (!code) return
+        this.qcManualBurst?.reset()
+        const code = takeScanInput(this.$refs.qcManualInput, this.qcManualCode)
         this.qcManualCode = ''
+        if (!code) return
         this.qcScanBuffer = code
         await this.processScan()
     }

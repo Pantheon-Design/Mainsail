@@ -383,8 +383,29 @@
                 <v-divider />
 
                 <v-card-text class="d-flex flex-column flex-grow-1 pa-4" style="overflow-y: auto">
-                    <!-- Hidden scan input -->
+                    <!-- Touch devices: visible scan box the user can tap to wake the keyboard -->
+                    <v-text-field
+                        v-if="isTouch"
+                        ref="addSpoolScanInput"
+                        v-model="addSpoolScanBuffer"
+                        label="Scan here"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        dense
+                        outlined
+                        hide-details
+                        class="mb-4"
+                        :prepend-inner-icon="mdiQrcodeScan"
+                        @input="onAddSpoolScanFieldInput"
+                        @keydown.enter="processAddSpoolScan"
+                        @focus="addSpoolScanFocused = true"
+                        @blur="addSpoolScanFocused = false"
+                    />
+                    <!-- Desktop: hidden scan input -->
                     <input
+                        v-else
                         ref="addSpoolScanInput"
                         v-model="addSpoolScanBuffer"
                         class="qc-hidden-input"
@@ -503,7 +524,7 @@ import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, md
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
-import { warmScanKeyboard } from '@/plugins/scanFocus'
+import { warmScanKeyboard, isTouchDevice } from '@/plugins/scanFocus'
 
 @Component
 export default class SpoolListPanel extends Vue {
@@ -1036,6 +1057,14 @@ export default class SpoolListPanel extends Vue {
 
     onAddSpoolScanInput(event: Event) {
         this.addSpoolBurst?.onInput((event.target as HTMLInputElement).value)
+    }
+
+    onAddSpoolScanFieldInput(value: string) {
+        this.addSpoolBurst?.onInput(value)
+    }
+
+    get isTouch(): boolean {
+        return isTouchDevice()
     }
 
     resetAddSpoolScanState() {
