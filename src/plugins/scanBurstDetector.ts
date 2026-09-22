@@ -2,15 +2,16 @@
  * Detects keyboard-wedge barcode/QR scanner input that does NOT send a trailing
  * Enter, and auto-submits it.
  *
- * A scanner "types" its payload as a burst of characters only a few
- * milliseconds apart. A human typist leaves far larger gaps between keys.
- * We count characters that arrive with less than `maxGapMs` between them; once
- * that burst is at least `minChars` long and the input has been quiet for
- * `settleMs`, `submit()` is called. Manual typing never builds a long enough
- * burst, so it is never auto-submitted (the user still presses Enter).
+ * A scanner "types" its payload as a burst. We count characters appended
+ * within a sliding window of `windowMs` (default 1 s). Once more than
+ * `minChars` characters (default 5) have arrived inside that window, the
+ * detector is armed and submits the whole buffer as soon as the input has
+ * been quiet for `settleMs`. Deleting or clearing the field disarms it.
+ * A person typing slowly never gets more than 5 characters into one second,
+ * so they still press Enter themselves.
  *
  * Scanners that DO send Enter still work: the Enter handler fires first, clears
- * the buffer, and the pending burst timer becomes a harmless no-op.
+ * the buffer and calls `reset()`, so the pending timer never submits.
  *
  * Usage (Vue class component):
  *   created() { this.scanBurst = new ScanBurstDetector(() => this.processScan()) }
@@ -18,30 +19,30 @@
  *   processScan() { this.scanBurst.reset(); ... }
  */
 export interface ScanBurstOptions {
-    /** Burst must contain more than this many characters to auto-submit (default: 5 → 6+ chars). */
+    /** More than this many characters inside the window arms auto-submit (default 5 → 6+ chars). */
     minChars?: number
-    /** Max ms between two characters for them to count as the same burst (default 40). */
-    maxGapMs?: number
-    /** Quiet time after the last burst character before submitting (default 120). */
+    /** Sliding window in which the characters must arrive (default 1000 ms). */
+    windowMs?: number
+    /** Quiet time after the last character before submitting (default 300 ms). */
     settleMs?: number
 }
 
 export class ScanBurstDetector {
     private readonly minChars: number
-    private readonly maxGapMs: number
+    private readonly windowMs: number
     private readonly settleMs: number
     private readonly submit: () => void
 
     private lastLen = 0
-    private lastTime = 0
-    private burstChars = 0
+    private arrivals: Array<{ t: number; n: number }> = []
+    private armed = false
     private timer: ReturnType<typeof setTimeout> | null = null
 
     constructor(submit: () => void, opts: ScanBurstOptions = {}) {
         this.submit = submit
         this.minChars = (opts.minChars ?? 5) + 1
-        this.maxGapMs = opts.maxGapMs ?? 40
-        this.settleMs = opts.settleMs ?? 120
+        this.windowMs = opts.windowMs ?? 1000
+        this.settleMs = opts.settleMs ?? 300
     }
 
     /** Call on every input event with the current full value of the field. */
@@ -49,16 +50,23 @@ export class ScanBurstDetector {
         const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
         const len = (value ?? '').length
         const added = len - this.lastLen
-
-        if (now - this.lastTime > this.maxGapMs) this.burstChars = 0
-        // Deletions / clears break the burst; only appended chars count
-        this.burstChars = added > 0 ? this.burstChars + added : 0
-
         this.lastLen = len
-        this.lastTime = now
         this.clearTimer()
 
-        if (this.burstChars >= this.minChars && len >= this.minChars) {
+        if (added <= 0) {
+            // Deletion or clear: the user is editing by hand, disarm
+            this.arrivals = []
+            this.armed = false
+            return
+        }
+
+        this.arrivals.push({ t: now, n: added })
+        const cutoff = now - this.windowMs
+        this.arrivals = this.arrivals.filter((a) => a.t >= cutoff)
+        const inWindow = this.arrivals.reduce((sum, a) => sum + a.n, 0)
+        if (inWindow >= this.minChars) this.armed = true
+
+        if (this.armed && len >= this.minChars) {
             this.timer = setTimeout(() => {
                 this.timer = null
                 this.reset()
@@ -71,8 +79,8 @@ export class ScanBurstDetector {
     reset(): void {
         this.clearTimer()
         this.lastLen = 0
-        this.lastTime = 0
-        this.burstChars = 0
+        this.arrivals = []
+        this.armed = false
     }
 
     private clearTimer(): void {
