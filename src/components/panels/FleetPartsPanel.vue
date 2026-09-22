@@ -399,7 +399,7 @@
 
         <!-- Add Part Mode Overlay -->
         <v-dialog v-model="addPartMode" fullscreen persistent no-click-animation>
-            <v-card class="d-flex flex-column" style="height: 100vh" @click="onAddPartCardClick">
+            <v-card class="d-flex flex-column" style="height: 100vh; transition: background-color 0.3s ease" :style="{ backgroundColor: addPartCardColor }" @click="onAddPartCardClick">
                 <!-- Header -->
                 <v-card-title class="d-flex align-center py-2">
                     <v-btn v-if="isMobile && addPartStep !== 'printer'" icon small class="mr-1" @click="addPartGoBack">
@@ -412,6 +412,16 @@
                         <v-icon>{{ mdiClose }}</v-icon>
                     </v-btn>
                 </v-card-title>
+
+                <!-- Persistent feedback banner (stays until the next scan result) -->
+                <div
+                    v-if="addPartBanner"
+                    class="d-flex align-center px-4 py-2"
+                    :style="{ background: addPartBanner.kind === 'success' ? '#2E7D32' : '#C62828', color: 'white' }"
+                >
+                    <v-icon color="white" class="mr-3">{{ addPartBanner.kind === 'success' ? mdiCheckCircle : mdiAlertCircle }}</v-icon>
+                    <span class="subtitle-1 font-weight-bold">{{ addPartBanner.text }}</span>
+                </div>
 
                 <!-- Printer banner -->
                 <div v-if="addPartSelectedPrinter" class="add-part-printer-banner d-flex align-center px-4 py-2" style="background: var(--v-primary-base); color: white;">
@@ -629,9 +639,9 @@
 
                 <!-- ==================== DESKTOP FLOW ==================== -->
                 <v-card-text v-else class="d-flex flex-column flex-grow-1 pa-4" style="overflow-y: auto">
-                    <!-- Status alert -->
+                    <!-- Status alert (info only — success/error go to the banner above) -->
                     <v-alert
-                        v-if="addPartStatusMessage"
+                        v-if="addPartStatusMessage && addPartStatusType === 'info'"
                         :type="addPartStatusType"
                         dense
                         class="mb-4"
@@ -1062,6 +1072,10 @@ export default class FleetPartsPanel extends Vue {
     addPartStatusType: 'success' | 'error' | 'info' | 'warning' = 'info'
     addPartRegisteredParts: Array<{ qr_code: string; hostname: string; filename: string; time: string }> = []
     addPartScanFocused = false
+    addPartSaving = false
+    addPartFlash: 'success' | 'error' | null = null
+    addPartFlashTimer: ReturnType<typeof setTimeout> | null = null
+    addPartBanner: { kind: 'success' | 'error'; text: string } | null = null
 
     // Add Part Mode — mobile camera scanning
     addPartCameraProcessing = false
@@ -1543,6 +1557,7 @@ export default class FleetPartsPanel extends Vue {
         this.addPartManualCode = ''
         this.addPartStep = 'printer'
         this.addPartPrinterSearch = ''
+        this.resetAddPartFeedback()
         this.$nextTick(() => this.refocusAddPartInput())
     }
 
@@ -1554,7 +1569,39 @@ export default class FleetPartsPanel extends Vue {
         this.addPartScanBuffer = ''
         this.addPartStatusMessage = ''
         this.addPartRegisteredParts = []
+        this.resetAddPartFeedback()
         this.applyFilters()
+    }
+
+    // ---- Add Part Mode — feedback (flash + persistent banner) ----
+
+    get addPartCardColor(): string | undefined {
+        if (this.addPartFlash === 'success') return '#2E7D32'
+        if (this.addPartFlash === 'error') return '#C62828'
+        return undefined
+    }
+
+    /** Green/red screen flash plus a banner that stays until the next feedback replaces it. */
+    addPartFeedback(kind: 'success' | 'error', text: string) {
+        this.addPartBanner = { kind, text }
+        this.addPartStatusMessage = text
+        this.addPartStatusType = kind
+        this.addPartFlash = kind
+        if (this.addPartFlashTimer) clearTimeout(this.addPartFlashTimer)
+        this.addPartFlashTimer = setTimeout(() => {
+            this.addPartFlash = null
+            this.addPartFlashTimer = null
+        }, 1500)
+    }
+
+    resetAddPartFeedback() {
+        this.addPartBanner = null
+        this.addPartFlash = null
+        this.addPartSaving = false
+        if (this.addPartFlashTimer) {
+            clearTimeout(this.addPartFlashTimer)
+            this.addPartFlashTimer = null
+        }
     }
 
     refocusAddPartInput() {
@@ -1586,82 +1633,21 @@ export default class FleetPartsPanel extends Vue {
         if (!scanned) return
 
         // Printer hostname scan (ends with .local)
-        if (scanned.endsWith('.local')) {
-            this.addPartRecentJobsLoading = true
-            this.addPartStatusMessage = ''
-            try {
-                const jobs = await this.$store.dispatch('fleet/history/fetchRecentJobs', {
-                    printer_hostname: scanned,
-                    limit: 10,
-                })
-                if (jobs.length > 0) {
-                    this.addPartSelectedPrinter = scanned
-                    this.addPartRecentJobs = jobs
-                    this.addPartSelectedJob = jobs[0]
-                    this.addPartStatusMessage = `Printer: ${scanned} — ${jobs.length} recent job${jobs.length > 1 ? 's' : ''}`
-                    this.addPartStatusType = 'success'
-                } else {
-                    this.addPartSelectedPrinter = ''
-                    this.addPartRecentJobs = []
-                    this.addPartSelectedJob = null
-                    this.addPartStatusMessage = `Scanned ${scanned}, no completed jobs found for this printer`
-                    this.addPartStatusType = 'warning'
-                }
-            } catch {
-                this.addPartSelectedPrinter = ''
-                this.addPartRecentJobs = []
-                this.addPartSelectedJob = null
-                this.addPartStatusMessage = `Scanned ${scanned}, not a valid printer`
-                this.addPartStatusType = 'error'
-            } finally {
-                this.addPartRecentJobsLoading = false
-            }
+        if (scanned.toLowerCase().endsWith('.local')) {
+            await this.addPartSelectPrinter(scanned.toLowerCase())
             this.refocusAddPartInput()
             return
         }
 
         // Part QR code scan (numbers only)
         if (/^\d+$/.test(scanned)) {
-            if (!this.addPartSelectedJob) {
-                this.addPartStatusMessage = 'Scan a printer hostname first before scanning parts'
-                this.addPartStatusType = 'warning'
-                this.refocusAddPartInput()
-                return
-            }
-            try {
-                await this.$store.dispatch('fleet/history/linkQrCode', {
-                    printer_hostname: this.addPartSelectedPrinter,
-                    moonraker_job_id: this.addPartSelectedJob.moonraker_job_id,
-                    qr_code: scanned,
-                })
-                const jobName = this.addPartSelectedJob.filename || this.addPartSelectedJob.moonraker_job_id
-                this.addPartStatusMessage = `Part ${scanned} registered to ${jobName}`
-                this.addPartStatusType = 'success'
-                this.addPartRegisteredParts.push({
-                    qr_code: scanned,
-                    hostname: this.addPartSelectedPrinter,
-                    filename: jobName,
-                    time: new Date().toLocaleTimeString(),
-                })
-                // Update the parts count on the selected job
-                if (this.addPartSelectedJob.parts_count != null) {
-                    const updated = { ...this.addPartSelectedJob, parts_count: this.addPartSelectedJob.parts_count + 1 }
-                    this.addPartSelectedJob = updated
-                    const idx = this.addPartRecentJobs.findIndex((j) => j.id === updated.id)
-                    if (idx >= 0) this.$set(this.addPartRecentJobs, idx, updated)
-                }
-            } catch (err: any) {
-                const msg = err?.response?.data?.detail || err?.response?.data?.error || 'Failed to register part'
-                this.addPartStatusMessage = `Error: ${msg}`
-                this.addPartStatusType = 'error'
-            }
+            await this.addPartRegisterPart(scanned)
             this.refocusAddPartInput()
             return
         }
 
         // Invalid scan
-        this.addPartStatusMessage = `Scanned "${scanned}", not a valid printer (.local) or part QR (numbers only)`
-        this.addPartStatusType = 'warning'
+        this.addPartFeedback('error', `Scanned "${scanned}" — not a printer hostname (.local) or part QR (numbers only)`)
         this.refocusAddPartInput()
     }
 
@@ -1744,13 +1730,12 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async addPartSelectPrinter(hostname: string) {
+        hostname = hostname.trim().toLowerCase()
         if (!hostname.endsWith('.local')) {
-            this.addPartStatusMessage = `"${hostname}" is not a valid printer hostname (must end with .local)`
-            this.addPartStatusType = 'warning'
+            this.addPartFeedback('error', `"${hostname}" is not a valid printer hostname (must end with .local)`)
             return
         }
         this.addPartRecentJobsLoading = true
-        this.addPartStatusMessage = ''
         try {
             const jobs = await this.$store.dispatch('fleet/history/fetchRecentJobs', {
                 printer_hostname: hostname,
@@ -1760,16 +1745,23 @@ export default class FleetPartsPanel extends Vue {
                 this.addPartSelectedPrinter = hostname
                 this.addPartRecentJobs = jobs
                 this.addPartSelectedJob = jobs[0]
-                this.addPartStatusMessage = `Printer: ${hostname} — ${jobs.length} recent job${jobs.length > 1 ? 's' : ''}`
-                this.addPartStatusType = 'success'
+                const jobName = jobs[0].filename || jobs[0].moonraker_job_id
+                this.addPartFeedback('success', `Printer ${hostname} — ${jobs.length} recent job${jobs.length > 1 ? 's' : ''}, selected ${jobName}`)
                 this.addPartStep = 'job'
             } else {
-                this.addPartStatusMessage = `Scanned ${hostname}, no completed jobs found for this printer`
-                this.addPartStatusType = 'warning'
+                this.addPartSelectedPrinter = ''
+                this.addPartRecentJobs = []
+                this.addPartSelectedJob = null
+                const known = this.printerOptions.some((h) => (h || '').toLowerCase() === hostname)
+                this.addPartFeedback('error', known
+                    ? `${hostname} has no completed jobs to register parts against`
+                    : `${hostname} is not a known printer in the fleet`)
             }
         } catch {
-            this.addPartStatusMessage = `Scanned ${hostname}, not a valid printer`
-            this.addPartStatusType = 'error'
+            this.addPartSelectedPrinter = ''
+            this.addPartRecentJobs = []
+            this.addPartSelectedJob = null
+            this.addPartFeedback('error', `Could not look up ${hostname} — not a valid printer or daemon unreachable`)
         } finally {
             this.addPartRecentJobsLoading = false
         }
@@ -1785,15 +1777,15 @@ export default class FleetPartsPanel extends Vue {
 
     async addPartRegisterPart(scanned: string) {
         if (!this.addPartSelectedJob) {
-            this.addPartStatusMessage = 'Select a job first before scanning parts'
-            this.addPartStatusType = 'warning'
+            this.addPartFeedback('error', 'Scan a printer first before scanning parts')
             return
         }
         if (!/^\d+$/.test(scanned)) {
-            this.addPartStatusMessage = `"${scanned}" is not a valid part QR code (numbers only)`
-            this.addPartStatusType = 'warning'
+            this.addPartFeedback('error', `"${scanned}" is not a valid part QR code (numbers only)`)
             return
         }
+        if (this.addPartSaving) return
+        this.addPartSaving = true
         try {
             await this.$store.dispatch('fleet/history/linkQrCode', {
                 printer_hostname: this.addPartSelectedPrinter,
@@ -1801,8 +1793,7 @@ export default class FleetPartsPanel extends Vue {
                 qr_code: scanned,
             })
             const jobName = this.addPartSelectedJob.filename || this.addPartSelectedJob.moonraker_job_id
-            this.addPartStatusMessage = `Part ${scanned} registered to ${jobName}`
-            this.addPartStatusType = 'success'
+            this.addPartFeedback('success', `Part ${scanned} registered to ${jobName}`)
             this.addPartRegisteredParts.push({
                 qr_code: scanned,
                 hostname: this.addPartSelectedPrinter,
@@ -1816,9 +1807,10 @@ export default class FleetPartsPanel extends Vue {
                 if (idx >= 0) this.$set(this.addPartRecentJobs, idx, updated)
             }
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || err?.response?.data?.error || 'Failed to register part'
-            this.addPartStatusMessage = `Error: ${msg}`
-            this.addPartStatusType = 'error'
+            const msg = err?.response?.data?.detail || err?.response?.data?.error || err?.message || 'Failed to register part'
+            this.addPartFeedback('error', `Part ${scanned} rejected: ${msg}`)
+        } finally {
+            this.addPartSaving = false
         }
     }
 
