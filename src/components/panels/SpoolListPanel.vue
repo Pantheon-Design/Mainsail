@@ -367,13 +367,14 @@
 
         <!-- Add Spool Mode Fullscreen -->
         <v-dialog v-model="addSpoolMode" fullscreen persistent no-click-animation>
-            <v-card class="d-flex flex-column" style="height: 100vh; transition: background-color 0.3s ease" :style="{ backgroundColor: addSpoolScanFocused && addSpoolReady ? '#1B5E20' : undefined }" @click="onAddSpoolCardClick">
+            <v-card class="d-flex flex-column" style="height: 100vh; transition: background-color 0.3s ease" :style="{ backgroundColor: addSpoolCardColor }" @click="onAddSpoolCardClick">
                 <!-- Header -->
                 <v-card-title class="d-flex align-center py-2">
                     <v-icon left color="primary">{{ mdiQrcodeScan }}</v-icon>
                     <span>Add Spool Mode</span>
-                    <v-chip v-if="addSpoolReady" small class="ml-3" color="success" outlined>Ready — scan QR to create</v-chip>
-                    <v-chip v-else small class="ml-3" color="warning" outlined>Select filament first</v-chip>
+                    <v-chip v-if="!addSpoolReady" small class="ml-3" color="warning" outlined>Select filament first</v-chip>
+                    <v-chip v-else-if="addSpoolPendingQr" small class="ml-3" color="info" outlined>QR {{ addSpoolPendingQr }} — scan batch/lot label</v-chip>
+                    <v-chip v-else small class="ml-3" color="success" outlined>Ready — scan spool QR</v-chip>
                     <v-spacer />
                     <v-btn icon @click="exitAddSpoolMode">
                         <v-icon>{{ mdiClose }}</v-icon>
@@ -425,14 +426,11 @@
                                 </v-col>
                             </v-row>
                             <v-row dense>
-                                <v-col cols="4">
+                                <v-col cols="6">
                                     <v-text-field v-model.number="addSpoolForm.initial_weight" label="Initial (g)" dense outlined hide-details type="number" />
                                 </v-col>
-                                <v-col cols="4">
+                                <v-col cols="6">
                                     <v-text-field v-model.number="addSpoolForm.spool_weight" label="Empty spool (g)" dense outlined hide-details type="number" />
-                                </v-col>
-                                <v-col cols="4">
-                                    <v-text-field v-model="addSpoolForm.lot_nr" label="Lot #" dense outlined hide-details />
                                 </v-col>
                             </v-row>
                             <v-row dense>
@@ -441,7 +439,7 @@
                                 </v-col>
                             </v-row>
                             <p class="caption grey--text mt-2 mb-0">
-                                Scan a QR code to create a spool with these settings. QR code becomes the spool's QR identifier.
+                                Scan the spool QR code, then the batch label. The QR becomes the spool identifier; the batch number becomes the lot #.
                             </p>
                         </v-card-text>
                     </v-card>
@@ -517,6 +515,9 @@ export default class SpoolListPanel extends Vue {
     addSpoolStatusType: 'success' | 'error' | 'warning' | 'info' = 'info'
     addSpoolSaving = false
     addSpoolScanFocused = false
+    addSpoolPendingQr: string | null = null
+    addSpoolFlash: 'success' | 'error' | null = null
+    addSpoolFlashTimer: ReturnType<typeof setTimeout> | null = null
     addSpoolForm = this.emptyAddSpoolForm()
 
     readonly addSpoolTableHeaders = [
@@ -982,32 +983,60 @@ export default class SpoolListPanel extends Vue {
         return this.addSpoolForm.filament_id != null
     }
 
+    get addSpoolCardColor(): string | undefined {
+        if (this.addSpoolFlash === 'success') return '#2E7D32'
+        if (this.addSpoolFlash === 'error') return '#C62828'
+        if (this.addSpoolScanFocused && this.addSpoolReady) return '#1B5E20'
+        return undefined
+    }
+
     emptyAddSpoolForm() {
         return {
             filament_id: null as number | null,
             initial_weight: null as number | null,
             spool_weight: null as number | null,
             location: '',
-            lot_nr: '',
             comment: '',
         }
     }
 
-    enterAddSpoolMode() {
-        this.addSpoolMode = true
-        this.addSpoolForm = this.emptyAddSpoolForm()
-        this.addSpoolScanBuffer = ''
-        this.addSpoolStatusMessage = ''
+    focusAddSpoolScanInput() {
         this.$nextTick(() => {
             const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
             if (input) input.focus()
         })
     }
 
-    exitAddSpoolMode() {
-        this.addSpoolMode = false
+    flashAddSpool(kind: 'success' | 'error') {
+        this.addSpoolFlash = kind
+        if (this.addSpoolFlashTimer) clearTimeout(this.addSpoolFlashTimer)
+        this.addSpoolFlashTimer = setTimeout(() => {
+            this.addSpoolFlash = null
+            this.addSpoolFlashTimer = null
+        }, 1500)
+    }
+
+    resetAddSpoolScanState() {
         this.addSpoolScanBuffer = ''
         this.addSpoolStatusMessage = ''
+        this.addSpoolPendingQr = null
+        this.addSpoolFlash = null
+        if (this.addSpoolFlashTimer) {
+            clearTimeout(this.addSpoolFlashTimer)
+            this.addSpoolFlashTimer = null
+        }
+    }
+
+    enterAddSpoolMode() {
+        this.addSpoolMode = true
+        this.addSpoolForm = this.emptyAddSpoolForm()
+        this.resetAddSpoolScanState()
+        this.focusAddSpoolScanInput()
+    }
+
+    exitAddSpoolMode() {
+        this.addSpoolMode = false
+        this.resetAddSpoolScanState()
         this.reloadSpools()
     }
 
@@ -1024,30 +1053,63 @@ export default class SpoolListPanel extends Vue {
         this.addSpoolForm.initial_weight = spool.initial_weight
         this.addSpoolForm.spool_weight = spool.spool_weight
         this.addSpoolForm.location = spool.location || ''
-        this.addSpoolForm.lot_nr = spool.lot_nr || ''
         this.addSpoolForm.comment = spool.comment || ''
         this.addSpoolStatusMessage = `Preset filled from spool #${spool.id} (${spool.material})`
         this.addSpoolStatusType = 'info'
-        // Re-focus scan input
-        this.$nextTick(() => {
-            const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
-            if (input) input.focus()
-        })
+        this.focusAddSpoolScanInput()
     }
 
+    /**
+     * Two-step scan flow:
+     *   1. A plain scan (no ':') is the spool QR. It becomes the pending QR,
+     *      replacing any earlier pending QR that was never paired with a lot#.
+     *   2. A scan containing ':' (e.g. "Batch No:12345") is the batch label.
+     *      Everything up to and including the first ':' is stripped; the rest
+     *      is the lot#. The pending QR + lot# create the spool.
+     */
     async processAddSpoolScan() {
-        const qrCode = (this.addSpoolScanBuffer || '').trim()
+        const scanned = (this.addSpoolScanBuffer || '').trim()
         this.addSpoolScanBuffer = ''
-        if (!qrCode) return
+        if (!scanned) return
 
         if (!this.addSpoolReady) {
             this.addSpoolStatusMessage = 'Select a filament first before scanning'
             this.addSpoolStatusType = 'warning'
+            this.focusAddSpoolScanInput()
+            return
+        }
+
+        const colonIdx = scanned.indexOf(':')
+        const isLotScan = colonIdx >= 0
+
+        if (!isLotScan) {
+            // QR scan: (re)arm the pending QR and wait for the batch label
+            this.addSpoolPendingQr = scanned
+            this.addSpoolStatusMessage = `QR ${scanned} captured — now scan the batch/lot label`
+            this.addSpoolStatusType = 'info'
+            this.focusAddSpoolScanInput()
+            return
+        }
+
+        const lotNr = scanned.slice(colonIdx + 1).trim()
+        if (!this.addSpoolPendingQr) {
+            this.addSpoolStatusMessage = 'Scan the spool QR code first, then the batch label'
+            this.addSpoolStatusType = 'warning'
+            this.flashAddSpool('error')
+            this.focusAddSpoolScanInput()
+            return
+        }
+        if (!lotNr) {
+            this.addSpoolStatusMessage = `Batch label "${scanned}" has no lot number after ':' — rescan the label`
+            this.addSpoolStatusType = 'warning'
+            this.flashAddSpool('error')
+            this.focusAddSpoolScanInput()
             return
         }
 
         if (this.addSpoolSaving) return
         this.addSpoolSaving = true
+        const qrCode = this.addSpoolPendingQr
 
         try {
             const toNum = (v: any) => (v === '' || v === null || v === undefined || Number.isNaN(v)) ? null : Number(v)
@@ -1058,22 +1120,23 @@ export default class SpoolListPanel extends Vue {
                 used_weight: 0,
                 spool_weight: toNum(this.addSpoolForm.spool_weight),
                 location: this.addSpoolForm.location || null,
-                lot_nr: this.addSpoolForm.lot_nr || null,
+                lot_nr: lotNr,
                 comment: this.addSpoolForm.comment || null,
             }
             await this.$store.dispatch('fleet/spools/createSpool', payload)
-            this.addSpoolStatusMessage = `Spool created with QR: ${qrCode}`
+            this.addSpoolStatusMessage = `Spool created — QR: ${qrCode}, Lot #: ${lotNr}`
             this.addSpoolStatusType = 'success'
+            this.flashAddSpool('success')
             this.reloadSpools()
         } catch (err: any) {
             this.addSpoolStatusMessage = err?.message || 'Failed to create spool'
             this.addSpoolStatusType = 'error'
+            this.flashAddSpool('error')
         } finally {
+            // Either way the pair is consumed; next spool starts with a fresh QR scan
+            this.addSpoolPendingQr = null
             this.addSpoolSaving = false
-            this.$nextTick(() => {
-                const input = this.$refs.addSpoolScanInput as HTMLInputElement | undefined
-                if (input) input.focus()
-            })
+            this.focusAddSpoolScanInput()
         }
     }
 
