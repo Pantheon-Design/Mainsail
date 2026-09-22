@@ -388,6 +388,7 @@
                         ref="addSpoolScanInput"
                         v-model="addSpoolScanBuffer"
                         class="qc-hidden-input"
+                        @input="onAddSpoolScanInput"
                         @keydown.enter="processAddSpoolScan"
                         @focus="addSpoolScanFocused = true"
                         @blur="addSpoolScanFocused = false"
@@ -494,6 +495,7 @@ import Component from 'vue-class-component'
 import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, mdiQrcodeScan } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
+import { ScanBurstDetector } from '@/plugins/scanBurstDetector'
 
 @Component
 export default class SpoolListPanel extends Vue {
@@ -519,6 +521,8 @@ export default class SpoolListPanel extends Vue {
     addSpoolFlash: 'success' | 'error' | null = null
     addSpoolFlashTimer: ReturnType<typeof setTimeout> | null = null
     addSpoolForm = this.emptyAddSpoolForm()
+    /** Auto-submits scanner bursts that arrive without a trailing Enter (set in created). */
+    addSpoolBurst: ScanBurstDetector | null = null
 
     readonly addSpoolTableHeaders = [
         { text: 'ID', value: 'id', sortable: true },
@@ -600,6 +604,7 @@ export default class SpoolListPanel extends Vue {
     // --- Lifecycle ---
 
     created() {
+        this.addSpoolBurst = new ScanBurstDetector(() => this.processAddSpoolScan())
         try {
             const saved = localStorage.getItem(this.STORAGE_KEY)
             if (saved) {
@@ -630,6 +635,7 @@ export default class SpoolListPanel extends Vue {
     beforeDestroy() {
         fleetDaemonEvents.$off('spool_updated', this.onSpoolUpdated)
         this.cleanupResizeListeners()
+        this.addSpoolBurst?.reset()
     }
 
     onSpoolUpdated() {
@@ -1016,7 +1022,12 @@ export default class SpoolListPanel extends Vue {
         }, 1500)
     }
 
+    onAddSpoolScanInput(event: Event) {
+        this.addSpoolBurst?.onInput((event.target as HTMLInputElement).value)
+    }
+
     resetAddSpoolScanState() {
+        this.addSpoolBurst?.reset()
         this.addSpoolScanBuffer = ''
         this.addSpoolStatusMessage = ''
         this.addSpoolPendingQr = null
@@ -1068,6 +1079,7 @@ export default class SpoolListPanel extends Vue {
      *      is the lot#. The pending QR + lot# create the spool.
      */
     async processAddSpoolScan() {
+        this.addSpoolBurst?.reset()
         const scanned = (this.addSpoolScanBuffer || '').trim()
         this.addSpoolScanBuffer = ''
         if (!scanned) return

@@ -447,6 +447,7 @@
                         outlined
                         hide-details
                         :prepend-inner-icon="mdiQrcodeScan"
+                        @input="onAddPartScanInput"
                         @keydown.enter="processAddPartScan"
                         @focus="addPartScanFocused = true"
                         @blur="addPartScanFocused = false"
@@ -806,6 +807,7 @@
                         ref="qcScanInput"
                         v-model="qcScanBuffer"
                         class="qc-hidden-input"
+                        @input="onQcScanInput"
                         @keydown.enter="processScan"
                         autofocus
                         @blur="refocusScanInput"
@@ -973,6 +975,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle, mdiMagnify, mdiArrowLeft } from '@mdi/js'
+import { ScanBurstDetector } from '@/plugins/scanBurstDetector'
 import axios from 'axios'
 
 @Component
@@ -1076,6 +1079,9 @@ export default class FleetPartsPanel extends Vue {
     addPartFlash: 'success' | 'error' | null = null
     addPartFlashTimer: ReturnType<typeof setTimeout> | null = null
     addPartBanner: { kind: 'success' | 'error'; text: string } | null = null
+    /** Auto-submit scanner bursts that arrive without a trailing Enter (set in created). */
+    addPartBurst: ScanBurstDetector | null = null
+    qcBurst: ScanBurstDetector | null = null
 
     // Add Part Mode — mobile camera scanning
     addPartCameraProcessing = false
@@ -1137,6 +1143,8 @@ export default class FleetPartsPanel extends Vue {
     }
 
     created() {
+        this.qcBurst = new ScanBurstDetector(() => this.processScan())
+        this.addPartBurst = new ScanBurstDetector(() => this.processAddPartScan())
         try {
             const saved = localStorage.getItem(this.STORAGE_KEY)
             if (saved) {
@@ -1166,6 +1174,16 @@ export default class FleetPartsPanel extends Vue {
 
     beforeDestroy() {
         this.cleanupResizeListeners()
+        this.qcBurst?.reset()
+        this.addPartBurst?.reset()
+    }
+
+    onQcScanInput(event: Event) {
+        this.qcBurst?.onInput((event.target as HTMLInputElement).value)
+    }
+
+    onAddPartScanInput(value: string) {
+        this.addPartBurst?.onInput(value)
     }
 
     get isMobile(): boolean {
@@ -1379,6 +1397,7 @@ export default class FleetPartsPanel extends Vue {
     // ---- QC Mode ----
 
     async enterQcMode() {
+        this.qcBurst?.reset()
         this.qcMode = true
         this.qcStep = 'inspector'
         this.qcInspector = ''
@@ -1397,6 +1416,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     exitQcMode() {
+        this.qcBurst?.reset()
         this.qcMode = false
         this.qcStep = 'inspector'
         this.qcSelectedRecord = null
@@ -1431,6 +1451,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async processScan() {
+        this.qcBurst?.reset()
         const scanned = this.qcScanBuffer.trim()
         this.qcScanBuffer = ''
         if (!scanned) return
@@ -1546,6 +1567,7 @@ export default class FleetPartsPanel extends Vue {
     // ---- Add Part Mode ----
 
     enterAddPartMode() {
+        this.addPartBurst?.reset()
         this.addPartMode = true
         this.addPartScanBuffer = ''
         this.addPartSelectedPrinter = ''
@@ -1562,6 +1584,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     exitAddPartMode() {
+        this.addPartBurst?.reset()
         this.addPartMode = false
         this.addPartSelectedPrinter = ''
         this.addPartRecentJobs = []
@@ -1628,6 +1651,7 @@ export default class FleetPartsPanel extends Vue {
     }
 
     async processAddPartScan() {
+        this.addPartBurst?.reset()
         const scanned = this.addPartScanBuffer.trim()
         this.addPartScanBuffer = ''
         if (!scanned) return
