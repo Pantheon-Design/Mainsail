@@ -129,9 +129,18 @@ export class ScanBurstDetector {
         this.lastLen = len
         this.lastValue = text
         this.pollSeen = text
+
+        if (added === 0) {
+            // Same length as before: an IME committing its composition re-fires
+            // `input` with an unchanged value. Not a keystroke — leave any
+            // pending submit timer running.
+            this.trace = `${source}: len=${len} +0 (composition commit / no change) armed=${this.armed}`
+            return
+        }
+
         this.clearTimer()
 
-        if (added <= 0) {
+        if (added < 0) {
             // Deletion or clear: the user is editing by hand, disarm
             this.arrivals = []
             this.armed = false
@@ -150,7 +159,14 @@ export class ScanBurstDetector {
             this.trace += ` → submit in ${this.settleMs}ms`
             this.timer = setTimeout(() => {
                 this.timer = null
-                const submitted = this.lastValue
+                // Prefer the live field value in case the IME rewrote it after the last event
+                let live = ''
+                try {
+                    live = this.pollGetValue ? this.pollGetValue() || '' : ''
+                } catch {
+                    live = ''
+                }
+                const submitted = live || this.lastValue
                 this.reset()
                 this.trace = `submitted "${submitted}"`
                 this.submit(submitted)
