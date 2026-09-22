@@ -443,6 +443,10 @@
                         ref="addPartScanInput"
                         v-model="addPartScanBuffer"
                         label="Scan or type here"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                         dense
                         outlined
                         hide-details
@@ -461,6 +465,10 @@
                     ref="addPartScanInput"
                     v-model="addPartScanBuffer"
                     class="qc-hidden-input"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
                     autofocus
                     @input="onAddPartScanNativeInput"
                     @keydown.enter="processAddPartScan"
@@ -818,6 +826,10 @@
                         ref="qcScanInput"
                         v-model="qcScanBuffer"
                         class="qc-hidden-input"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                         @input="onQcScanInput"
                         @keydown.enter="processScan"
                         autofocus
@@ -986,7 +998,7 @@ import Vue from 'vue'
 import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle, mdiMagnify, mdiArrowLeft } from '@mdi/js'
-import { ScanBurstDetector } from '@/plugins/scanBurstDetector'
+import { ScanBurstDetector, takeScanInput } from '@/plugins/scanBurstDetector'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 import axios from 'axios'
 
@@ -1155,8 +1167,14 @@ export default class FleetPartsPanel extends Vue {
     }
 
     created() {
-        this.qcBurst = new ScanBurstDetector(() => this.processScan())
-        this.addPartBurst = new ScanBurstDetector(() => this.processAddPartScan())
+        this.qcBurst = new ScanBurstDetector((value) => {
+            this.qcScanBuffer = value
+            this.processScan()
+        })
+        this.addPartBurst = new ScanBurstDetector((value) => {
+            this.addPartScanBuffer = value
+            this.processAddPartScan()
+        })
         try {
             const saved = localStorage.getItem(this.STORAGE_KEY)
             if (saved) {
@@ -1469,7 +1487,7 @@ export default class FleetPartsPanel extends Vue {
 
     async processScan() {
         this.qcBurst?.reset()
-        const scanned = this.qcScanBuffer.trim()
+        const scanned = takeScanInput(this.$refs.qcScanInput, this.qcScanBuffer)
         this.qcScanBuffer = ''
         if (!scanned) return
 
@@ -1670,7 +1688,7 @@ export default class FleetPartsPanel extends Vue {
 
     async processAddPartScan() {
         this.addPartBurst?.reset()
-        const scanned = this.addPartScanBuffer.trim()
+        const scanned = takeScanInput(this.$refs.addPartScanInput, this.addPartScanBuffer)
         this.addPartScanBuffer = ''
         if (!scanned) return
 

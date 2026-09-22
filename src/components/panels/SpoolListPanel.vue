@@ -388,6 +388,10 @@
                         ref="addSpoolScanInput"
                         v-model="addSpoolScanBuffer"
                         class="qc-hidden-input"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                         @input="onAddSpoolScanInput"
                         @keydown.enter="processAddSpoolScan"
                         @focus="addSpoolScanFocused = true"
@@ -495,7 +499,7 @@ import Component from 'vue-class-component'
 import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, mdiQrcodeScan } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
-import { ScanBurstDetector } from '@/plugins/scanBurstDetector'
+import { ScanBurstDetector, takeScanInput } from '@/plugins/scanBurstDetector'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 
 @Component
@@ -605,7 +609,10 @@ export default class SpoolListPanel extends Vue {
     // --- Lifecycle ---
 
     created() {
-        this.addSpoolBurst = new ScanBurstDetector(() => this.processAddSpoolScan())
+        this.addSpoolBurst = new ScanBurstDetector((value) => {
+            this.addSpoolScanBuffer = value
+            this.processAddSpoolScan()
+        })
         try {
             const saved = localStorage.getItem(this.STORAGE_KEY)
             if (saved) {
@@ -1082,7 +1089,7 @@ export default class SpoolListPanel extends Vue {
      */
     async processAddSpoolScan() {
         this.addSpoolBurst?.reset()
-        const scanned = (this.addSpoolScanBuffer || '').trim()
+        const scanned = takeScanInput(this.$refs.addSpoolScanInput, this.addSpoolScanBuffer)
         this.addSpoolScanBuffer = ''
         if (!scanned) return
 
