@@ -496,6 +496,7 @@ import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, md
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { ScanBurstDetector } from '@/plugins/scanBurstDetector'
+import { warmScanKeyboard } from '@/plugins/scanFocus'
 
 @Component
 export default class SpoolListPanel extends Vue {
@@ -1039,6 +1040,7 @@ export default class SpoolListPanel extends Vue {
     }
 
     enterAddSpoolMode() {
+        warmScanKeyboard() // must be first: synchronous, inside the tap gesture
         this.addSpoolMode = true
         this.addSpoolForm = this.emptyAddSpoolForm()
         this.resetAddSpoolScanState()

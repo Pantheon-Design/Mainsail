@@ -455,6 +455,18 @@
                         class="flex-grow-1"
                     />
                 </div>
+                <!-- Mobile: hidden input so a keyboard-wedge scanner has somewhere to type -->
+                <input
+                    v-else
+                    ref="addPartScanInput"
+                    v-model="addPartScanBuffer"
+                    class="qc-hidden-input"
+                    autofocus
+                    @input="onAddPartScanNativeInput"
+                    @keydown.enter="processAddPartScan"
+                    @focus="addPartScanFocused = true"
+                    @blur="addPartScanFocused = false"
+                />
 
                 <!-- ==================== MOBILE FLOW ==================== -->
                 <template v-if="isMobile">
@@ -801,9 +813,8 @@
 
                 <!-- Step 2: Scanning -->
                 <v-card-text v-else-if="qcStep === 'scanning'" class="d-flex flex-column flex-grow-1 pa-4" :class="{ 'qc-mobile-scanning': isMobile }">
-                    <!-- Desktop: hidden input for barcode scanner -->
+                    <!-- Hidden input for barcode scanner (all layouts) -->
                     <input
-                        v-if="!isMobile"
                         ref="qcScanInput"
                         v-model="qcScanBuffer"
                         class="qc-hidden-input"
@@ -976,6 +987,7 @@ import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiAccountCheck, mdiDelete, mdiCamera, mdiDownload, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle, mdiMagnify, mdiArrowLeft } from '@mdi/js'
 import { ScanBurstDetector } from '@/plugins/scanBurstDetector'
+import { warmScanKeyboard } from '@/plugins/scanFocus'
 import axios from 'axios'
 
 @Component
@@ -1184,6 +1196,10 @@ export default class FleetPartsPanel extends Vue {
 
     onAddPartScanInput(value: string) {
         this.addPartBurst?.onInput(value)
+    }
+
+    onAddPartScanNativeInput(event: Event) {
+        this.addPartBurst?.onInput((event.target as HTMLInputElement).value)
     }
 
     get isMobile(): boolean {
@@ -1427,14 +1443,15 @@ export default class FleetPartsPanel extends Vue {
 
     confirmInspector() {
         if (!this.qcInspector) return
+        warmScanKeyboard() // synchronous, inside the tap gesture
         this.qcStep = 'scanning'
         this.$nextTick(() => this.refocusScanInput())
     }
 
     onQcCardClick(e: MouseEvent) {
-        // Don't steal focus if clicking on an input/button/textarea
-        const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
-        if (tag === 'input' || tag === 'textarea' || tag === 'button') return
+        // Don't steal focus if clicking on an input/button/textarea or a Vuetify control
+        const el = e.target as HTMLElement
+        if (el.closest('input, textarea, button, .v-input, .v-btn, .v-list-item, .v-menu')) return
         if (this.qcNoteVisible) return
         this.refocusScanInput()
     }
@@ -1567,6 +1584,7 @@ export default class FleetPartsPanel extends Vue {
     // ---- Add Part Mode ----
 
     enterAddPartMode() {
+        warmScanKeyboard() // must be first: synchronous, inside the tap gesture
         this.addPartBurst?.reset()
         this.addPartMode = true
         this.addPartScanBuffer = ''
@@ -1818,6 +1836,7 @@ export default class FleetPartsPanel extends Vue {
             })
             const jobName = this.addPartSelectedJob.filename || this.addPartSelectedJob.moonraker_job_id
             this.addPartFeedback('success', `Part ${scanned} registered to ${jobName}`)
+            this.addPartStep = 'parts'
             this.addPartRegisteredParts.push({
                 qr_code: scanned,
                 hostname: this.addPartSelectedPrinter,

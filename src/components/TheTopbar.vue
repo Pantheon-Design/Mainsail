@@ -116,6 +116,7 @@ import TheNotificationMenu from '@/components/notifications/TheNotificationMenu.
 import { topbarHeight } from '@/store/variables'
 import { mdiAlertOctagonOutline, mdiContentSave, mdiFileUpload, mdiClose, mdiCloseThick, mdiQrcodeScan, mdiPrinter3dNozzle, mdiPackageVariantClosed } from '@mdi/js'
 import EmergencyStopDialog from '@/components/dialogs/EmergencyStopDialog.vue'
+import { warmScanKeyboard } from '@/plugins/scanFocus'
 
 type uploadSnackbar = {
     status: boolean
@@ -347,6 +348,7 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     }
 
     openAddSpoolMode() {
+        warmScanKeyboard() // open the mobile keyboard inside the tap; the spool page moves focus to its scan input
         this.$router.push({ path: '/spools', query: { addSpoolMode: '1' } }).catch(() => {})
     }
 
