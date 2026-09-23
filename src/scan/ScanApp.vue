@@ -22,11 +22,11 @@
                 </v-alert>
 
                 <v-btn block x-large color="primary" class="mb-4 scan-mode-btn" :disabled="loading" @click="openQc">
-                    <v-icon left large>{{ mdiClipboardCheck }}</v-icon>
+                    <v-icon left large>{{ mdiMagnifyCheck }}</v-icon>
                     QC Mode
                 </v-btn>
                 <v-btn block x-large color="teal" dark class="mb-4 scan-mode-btn" :disabled="loading" @click="openAddSpool">
-                    <v-icon left large>{{ mdiPrinter3dNozzle }}</v-icon>
+                    <v-icon left large>{{ mdiSpool }}</v-icon>
                     Add Spool Mode
                 </v-btn>
                 <v-btn block x-large color="indigo" dark class="mb-4 scan-mode-btn" :disabled="loading" @click="openAddPart">
@@ -83,7 +83,8 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiQrcodeScan, mdiBug, mdiCog, mdiClipboardCheck, mdiPrinter3dNozzle, mdiPackageVariantClosed } from '@mdi/js'
+import { mdiQrcodeScan, mdiBug, mdiCog, mdiPackageVariantClosed } from '@mdi/js'
+import { mdiMagnifyCheck, mdiSpool } from '@/plugins/customIcons'
 import QcScanMode from '@/components/scan/QcScanMode.vue'
 import AddSpoolScanMode from '@/components/scan/AddSpoolScanMode.vue'
 import AddPartScanMode from '@/components/scan/AddPartScanMode.vue'
@@ -97,8 +98,8 @@ export default class ScanApp extends Vue {
     mdiQrcodeScan = mdiQrcodeScan
     mdiBug = mdiBug
     mdiCog = mdiCog
-    mdiClipboardCheck = mdiClipboardCheck
-    mdiPrinter3dNozzle = mdiPrinter3dNozzle
+    mdiMagnifyCheck = mdiMagnifyCheck
+    mdiSpool = mdiSpool
     mdiPackageVariantClosed = mdiPackageVariantClosed
 
     qcMode = false

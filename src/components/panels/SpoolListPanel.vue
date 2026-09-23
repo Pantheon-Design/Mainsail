@@ -17,7 +17,7 @@
                 <v-icon small left>{{ mdiPlus }}</v-icon> Add Spool
             </v-btn>
             <v-btn small color="primary" class="mr-2" @click="enterAddSpoolMode" title="Add Spool Mode (scan QR codes)">
-                <v-icon small left>{{ mdiQrcodeScan }}</v-icon> Add Spool Mode
+                <v-icon small left>{{ mdiSpool }}</v-icon> Add Spool Mode
             </v-btn>
             <!-- Dev mode toggle -->
             <v-btn small :color="devMode ? 'orange' : 'grey'" :outlined="!devMode" @click="devMode = !devMode" class="mr-2" title="Toggle dev mode">
@@ -376,6 +376,7 @@ import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, md
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
+import { mdiSpool } from '@/plugins/customIcons'
 import AddSpoolScanMode from '@/components/scan/AddSpoolScanMode.vue'
 
 @Component({ components: { AddSpoolScanMode } })
@@ -388,6 +389,7 @@ export default class SpoolListPanel extends Vue {
     mdiCog = mdiCog
     mdiClose = mdiClose
     mdiQrcodeScan = mdiQrcodeScan
+    mdiSpool = mdiSpool
 
     devMode = false
 

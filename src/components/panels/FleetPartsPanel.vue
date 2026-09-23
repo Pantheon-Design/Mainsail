@@ -8,7 +8,7 @@
                 Add Part
             </v-btn>
             <v-btn small color="primary" outlined @click="enterQcMode" class="mr-2" title="QC Mode">
-                <v-icon small left>{{ mdiQrcodeScan }}</v-icon>
+                <v-icon small left>{{ mdiMagnifyCheck }}</v-icon>
                 QC Mode
             </v-btn>
             <v-btn small :color="devMode ? 'orange' : 'grey'" :outlined="!devMode" @click="toggleDevMode" class="mr-2" title="Toggle dev mode">
@@ -409,6 +409,7 @@ import Component from 'vue-class-component'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { mdiCog, mdiQrcodeScan, mdiBug, mdiClose, mdiDelete, mdiDownload, mdiPackageVariantClosed } from '@mdi/js'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
+import { mdiMagnifyCheck } from '@/plugins/customIcons'
 import AddPartScanMode from '@/components/scan/AddPartScanMode.vue'
 import QcScanMode from '@/components/scan/QcScanMode.vue'
 import axios from 'axios'
@@ -417,6 +418,7 @@ import axios from 'axios'
 export default class FleetPartsPanel extends Vue {
     mdiCog = mdiCog
     mdiQrcodeScan = mdiQrcodeScan
+    mdiMagnifyCheck = mdiMagnifyCheck
     mdiBug = mdiBug
     mdiClose = mdiClose
     mdiDelete = mdiDelete

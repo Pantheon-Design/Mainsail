@@ -2,6 +2,15 @@
     <div>
         <v-app-bar app elevate-on-scroll :height="topbarHeight" class="topbar pa-0" clipped-left>
             <v-app-bar-nav-icon tile @click.stop="naviDrawer = !naviDrawer" />
+            <v-btn
+                tile
+                icon
+                color="primary"
+                class="button-min-width-auto px-2"
+                href="/scan.html"
+                title="Scanner Lite (QC / Add Spool / Add Part)">
+                <v-icon>{{ mdiQrcodeScan }}</v-icon>
+            </v-btn>
             <router-link to="/">
                 <template v-if="sidebarLogo">
                     <img :src="sidebarLogo"
@@ -57,7 +66,7 @@
                 color="primary"
                 class="button-min-width-auto px-3"
                 @click="openQcMode">
-                <v-icon :class="{ 'mr-md-2': $vuetify.breakpoint.mdAndUp }">{{ mdiQrcodeScan }}</v-icon>
+                <v-icon :class="{ 'mr-md-2': $vuetify.breakpoint.mdAndUp }">{{ mdiMagnifyCheck }}</v-icon>
                 <span class="d-none d-md-inline">QC Mode</span>
             </v-btn>
             <v-btn
@@ -67,7 +76,7 @@
                 color="primary"
                 class="button-min-width-auto px-3"
                 @click="openAddSpoolMode">
-                <v-icon :class="{ 'mr-md-2': $vuetify.breakpoint.mdAndUp }">{{ mdiPrinter3dNozzle }}</v-icon>
+                <v-icon :class="{ 'mr-md-2': $vuetify.breakpoint.mdAndUp }">{{ mdiSpool }}</v-icon>
                 <span class="d-none d-md-inline">Add Spool</span>
             </v-btn>
             <v-btn
@@ -114,7 +123,8 @@ import PrinterSelector from '@/components/ui/PrinterSelector.vue'
 import PantheonLogo from '@/components/ui/PantheonLogo.vue'
 import TheNotificationMenu from '@/components/notifications/TheNotificationMenu.vue'
 import { topbarHeight } from '@/store/variables'
-import { mdiAlertOctagonOutline, mdiContentSave, mdiFileUpload, mdiClose, mdiCloseThick, mdiQrcodeScan, mdiPrinter3dNozzle, mdiPackageVariantClosed } from '@mdi/js'
+import { mdiAlertOctagonOutline, mdiContentSave, mdiFileUpload, mdiClose, mdiCloseThick, mdiQrcodeScan, mdiPackageVariantClosed } from '@mdi/js'
+import { mdiMagnifyCheck, mdiSpool } from '@/plugins/customIcons'
 import EmergencyStopDialog from '@/components/dialogs/EmergencyStopDialog.vue'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 
@@ -145,7 +155,8 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     mdiClose = mdiClose
     mdiCloseThick = mdiCloseThick
     mdiQrcodeScan = mdiQrcodeScan
-    mdiPrinter3dNozzle = mdiPrinter3dNozzle
+    mdiMagnifyCheck = mdiMagnifyCheck
+    mdiSpool = mdiSpool
     mdiPackageVariantClosed = mdiPackageVariantClosed
 
     topbarHeight = topbarHeight
