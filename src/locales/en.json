@@ -1068,6 +1068,9 @@
         },
         "RemotePrintersTab": {
             "AddPrinter": "Add Printer",
+            "DeviceType": "Device type",
+            "DeviceTypeOven": "Oven",
+            "DeviceTypePrinter": "Printer",
             "EditPrinter": "Edit Printer",
             "Hostname": "Hostname",
             "Port": "Port",

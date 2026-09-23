@@ -1,5 +1,5 @@
 import { GetterTree } from 'vuex'
-import { GuiRemoteprintersState, GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
+import { DeviceType, GuiRemoteprintersState, GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
 import { caseInsensitiveSort } from '@/plugins/helpers'
 
 // eslint-disable-next-line
@@ -15,4 +15,16 @@ export const getters: GetterTree<GuiRemoteprintersState, any> = {
 
         return caseInsensitiveSort(printers, 'hostname')
     },
+
+    // Device type of the roster entry with this hostname (case-insensitive). Legacy entries
+    // without a deviceType key, and hostnames not in the roster, are printers.
+    getDeviceType:
+        (state) =>
+        (hostname: string): DeviceType => {
+            const key = hostname.toLowerCase()
+            for (const printer of Object.values(state.printers)) {
+                if (printer.hostname?.toLowerCase() === key) return printer.deviceType ?? 'printer'
+            }
+            return 'printer'
+        },
 }

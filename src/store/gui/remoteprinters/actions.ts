@@ -62,6 +62,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     printerModel: state.printers[id].printerModel ?? 'HS-3',
                     // NEW: default legacy printers to the Print Farm tab
                     location: state.printers[id].location ?? 'farm',
+                    // NEW: default legacy entries to printers
+                    deviceType: state.printers[id].deviceType ?? 'printer',
                 })
             })
 
@@ -77,6 +79,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 printerModel: state.printers[id].printerModel ?? 'HS-3',
                 // NEW: default legacy printers to the Print Farm tab
                 location: state.printers[id].location ?? 'farm',
+                // NEW: default legacy entries to printers
+                deviceType: state.printers[id].deviceType ?? 'printer',
             }
 
             Vue.$socket.emit('server.database.post_item', {
@@ -99,6 +103,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 port: payload.values.port ?? 7125,
                 position: payload.values.position,
                 printerModel: payload.values.printerModel ?? 'HS-3',
+                deviceType: payload.values.deviceType ?? 'printer',
             },
             { root: true }
         )

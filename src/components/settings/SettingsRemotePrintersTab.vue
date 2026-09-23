@@ -19,7 +19,7 @@
                 </v-alert>
                 <div v-for="(printer, index) in printers" :key="printer.id">
                     <v-divider v-if="index" class="my-2"></v-divider>
-                    <settings-row :title="formatPrinterName(printer)" :sub-title="locationLabel(printer.location)">
+                    <settings-row :title="formatPrinterName(printer)" :sub-title="deviceSubtitle(printer)">
                         <v-btn small outlined :disabled="!canAddPrinters" @click="editPrinter(printer)">
                             <v-icon left small>{{ mdiPencil }}</v-icon>
                             {{ $t('Settings.Edit') }}
@@ -76,12 +76,30 @@
                 </settings-row>
                 <v-divider class="my-2"></v-divider>
                 <settings-row :title="'Printer Model'">
-                    <v-select v-model="form.printerModel" :items="printerModels" dense outlined hide-details="auto" />
+                    <v-select
+                        v-model="form.printerModel"
+                        :items="printerModelItems"
+                        :disabled="isOven"
+                        dense
+                        outlined
+                        hide-details="auto" />
                 </settings-row>
                 <v-divider class="my-2"></v-divider>
                 <!-- NEW: Location field — chooses which map tab the printer appears on -->
                 <settings-row :title="'Location'">
                     <v-select v-model="form.location" :items="locationItems" dense outlined hide-details="auto" />
+                </settings-row>
+                <v-divider class="my-2"></v-divider>
+                <!-- NEW: Device type — an oven is registered like a printer but fleet_daemon
+                     connects it separately and the map ignores it (Phase 1) -->
+                <settings-row :title="$t('Settings.RemotePrintersTab.DeviceType')">
+                    <v-select
+                        v-model="form.deviceType"
+                        :items="deviceTypeItems"
+                        dense
+                        outlined
+                        hide-details="auto"
+                        @change="onDeviceTypeChange" />
                 </settings-row>
             </v-card-text>
             <v-card-actions class="d-flex justify-end">
@@ -101,7 +119,13 @@
 import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '../mixins/base'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
-import { GuiRemoteprintersStatePrinter, PrinterModel, PRINTER_MODELS } from '@/store/gui/remoteprinters/types'
+import {
+    DeviceType,
+    GuiRemoteprintersStatePrinter,
+    OVEN_PRINTER_MODEL,
+    PrinterModel,
+    PRINTER_MODELS,
+} from '@/store/gui/remoteprinters/types'
 import { mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
 import Vue from 'vue'
 
@@ -113,6 +137,7 @@ interface printerForm {
     namespace: string | null
     printerModel: PrinterModel
     location: 'farm' | 'ground'
+    deviceType: DeviceType
 }
 
 @Component({
@@ -132,6 +157,33 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         { text: 'Print Farm', value: 'farm' },
         { text: 'Ground Floor', value: 'ground' },
     ]
+
+    // NEW: options for the Device type select
+    get deviceTypeItems() {
+        return [
+            { text: this.$t('Settings.RemotePrintersTab.DeviceTypePrinter'), value: 'printer' },
+            { text: this.$t('Settings.RemotePrintersTab.DeviceTypeOven'), value: 'oven' },
+        ]
+    }
+
+    get isOven(): boolean {
+        return this.form.deviceType === 'oven'
+    }
+
+    // Ovens have no printer model; the (disabled) select just shows the 'Oven' label.
+    get printerModelItems(): PrinterModel[] {
+        return this.isOven ? [OVEN_PRINTER_MODEL] : this.printerModels
+    }
+
+    onDeviceTypeChange(deviceType: DeviceType) {
+        if (deviceType === 'oven') this.form.printerModel = OVEN_PRINTER_MODEL
+        else if (this.form.printerModel === OVEN_PRINTER_MODEL) this.form.printerModel = 'HS-Pro'
+    }
+
+    // printerModel as persisted: always 'Oven' for ovens, whatever the select holds
+    get formPrinterModel(): PrinterModel {
+        return this.isOven ? OVEN_PRINTER_MODEL : this.form.printerModel
+    }
 
     get fleetDaemonUrl() {
         return this.$store.getters['gui/fleetDaemonUrl']
@@ -162,6 +214,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         namespace: null,
         printerModel: 'HS-Pro',
         location: 'farm',
+        deviceType: 'printer',
     }
 
     get printers() {
@@ -185,6 +238,15 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         return (location ?? 'farm') === 'ground' ? 'Ground Floor' : 'Print Farm'
     }
 
+    // NEW: list subtitle; ovens are called out explicitly
+    deviceSubtitle(printer: GuiRemoteprintersStatePrinter) {
+        const location = this.locationLabel(printer.location)
+        if ((printer.deviceType ?? 'printer') === 'oven') {
+            return `${this.$t('Settings.RemotePrintersTab.DeviceTypeOven')} · ${location}`
+        }
+        return location
+    }
+
     createPrinter() {
         this.form.hostname = ''
         this.form.port = 7125
@@ -192,6 +254,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.namespace = null
         this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
+        this.form.deviceType = 'printer'
         this.form.bool = true
     }
 
@@ -200,8 +263,9 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
             hostname: this.form.hostname,
             port: this.form.port,
             position: { x: 500, y: 0 },
-            printerModel: this.form.printerModel,
+            printerModel: this.formPrinterModel,
             location: this.form.location,
+            deviceType: this.form.deviceType,
         }
 
         this.$store.dispatch('gui/remoteprinters/store', { values: printer })
@@ -212,6 +276,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.bool = false
         this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
+        this.form.deviceType = 'printer'
 
         this.refreshPrinterList()
     }
@@ -223,6 +288,9 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.printerModel = printer.printerModel ?? 'HS-3'
         // NEW: default legacy printers (no location key) to the Print Farm tab
         this.form.location = printer.location ?? 'farm'
+        // NEW: default legacy entries (no deviceType key) to printers
+        this.form.deviceType = printer.deviceType ?? 'printer'
+        if (this.form.deviceType === 'oven') this.form.printerModel = OVEN_PRINTER_MODEL
         this.form.bool = true
     }
 
@@ -230,8 +298,9 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         const values = {
             hostname: this.form.hostname,
             port: this.form.port,
-            printerModel: this.form.printerModel,
+            printerModel: this.formPrinterModel,
             location: this.form.location,
+            deviceType: this.form.deviceType,
         }
 
         this.$store.dispatch('gui/remoteprinters/update', { id: this.form.id, values })
@@ -242,6 +311,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.bool = false
         this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
+        this.form.deviceType = 'printer'
         this.refreshPrinterList()
     }
 

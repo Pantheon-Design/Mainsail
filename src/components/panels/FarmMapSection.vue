@@ -261,6 +261,12 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return null
     }
 
+    // Ovens are roster entries (deviceType === 'oven') but not printers: they never send
+    // printer WS frames, so without this they would render as offline printers.
+    isOvenHostname(hostname: string): boolean {
+        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
+    }
+
     isSquareModel(hostname: string): boolean {
         const model = this.getPrinterModel(hostname)
         return model !== null && SQUARE_PRINTER_MODELS.includes(model)
@@ -273,7 +279,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get activePrinterEntries(): [string, any][] {
         return Object.entries(this.fleetDaemonPrinters).filter(
-            ([hostname]) => this.getPrinterLocation(hostname) === this.location
+            ([hostname]) => !this.isOvenHostname(hostname) && this.getPrinterLocation(hostname) === this.location
         ) as [string, any][]
     }
 

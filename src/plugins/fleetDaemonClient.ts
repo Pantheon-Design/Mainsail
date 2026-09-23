@@ -73,6 +73,11 @@ class FleetDaemonClient {
 
                     const message = JSON.parse(event.data)
 
+                    // Oven frames ({hostname, device_type: 'oven', update|removed}) are not
+                    // printers: the farm store is printer-only in Phase 1, so drop them here
+                    // instead of letting an oven appear as an offline printer.
+                    if (message.device_type === 'oven') return
+
                     if (message.removed && message.hostname) {
                         store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname)
                     } else if (message.hostname && message.update) {

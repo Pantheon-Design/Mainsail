@@ -110,8 +110,14 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         return this.$store.getters['gui/fleetDaemonUrl']
     }
 
+    // Ovens (roster deviceType === 'oven') are not printers; keep them off this map
+    isOvenHostname(hostname: string): boolean {
+        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
+    }
+
     get fleetDaemonPrinters() {
-        return this.$store.state.farm.fleetDaemonPrinters || {}
+        const all = this.$store.state.farm.fleetDaemonPrinters || {}
+        return Object.fromEntries(Object.entries(all).filter(([hostname]) => !this.isOvenHostname(hostname)))
     }
 
     get printerStatusCounts() {
