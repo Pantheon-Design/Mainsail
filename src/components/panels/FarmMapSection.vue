@@ -1257,7 +1257,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     background: url('/img/oven/oven-body.png') center / 100% 100% no-repeat;
     image-rendering: pixelated;
     /* slightly see-through so the map grid shows behind the furnace */
-    opacity: 0.8;
+    opacity: 0.85;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
 }
 .oven-dot--off {
