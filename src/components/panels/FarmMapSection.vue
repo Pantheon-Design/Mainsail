@@ -224,6 +224,7 @@ import BaseMixin from '@/components/mixins/base'
 import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue'
 import MapDrawingToolbar from '@/components/panels/MapDrawingToolbar.vue'
 import Vue from 'vue'
+import { hostKey } from '@/plugins/hostKey'
 import {
     getPrinterStatus as getPrinterStatusUtil,
     computeRemainingFilamentG,
@@ -370,9 +371,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     // Resolve a printer's location, defaulting legacy printers (no location key) to 'farm'
     getPrinterLocation(hostname: string): MapLocation {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         for (const printer of Object.values(this.remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key) {
+            if (hostKey((printer as any).hostname) === key) {
                 return ((printer as any).location as MapLocation) ?? 'farm'
             }
         }
@@ -380,9 +381,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     getPrinterModel(hostname: string): PrinterModel | null {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         for (const printer of Object.values(this.remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key) return (printer as any).printerModel ?? null
+            if (hostKey((printer as any).hostname) === key) return (printer as any).printerModel ?? null
         }
         return null
     }
@@ -427,7 +428,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
             const e = entry as any
             if (e?.deviceType !== 'oven' || !e.hostname) continue
             if (((e.location as MapLocation) ?? 'farm') !== this.location) continue
-            const key = e.hostname.toLowerCase()
+            const key = hostKey(e.hostname)
             if (seen.has(key)) continue
             seen.add(key)
             entries.push({ id, hostname: e.hostname })
@@ -471,9 +472,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     ovenFrame(hostname: string): OvenFrame | null {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         for (const [h, frame] of Object.entries(this.fleetDaemonOvens)) {
-            if (h.toLowerCase() === key) return frame
+            if (hostKey(h) === key) return frame
         }
         return null
     }
@@ -552,7 +553,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         if (this.isEditing) return
         // Ovens cannot be fleet workers, so the workers map ignores the click
         if (this.mode === 'workers') return
-        this.openPrinter({ socket: { hostname, webPort: 80 } })
+        // Open by the hostname fleet_daemon resolved (`oven1.local`), since a roster entry may be
+        // saved without the `.local` suffix that mDNS needs in the browser.
+        const resolved = this.ovenFrame(hostname)?.hostname || hostname
+        this.openPrinter({ socket: { hostname: resolved, webPort: 80 } })
     }
 
     /** Worker count, stickers and tooltip lines are shown in workers mode or on request. */
@@ -608,10 +612,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     // ---------- marker rendering ----------
     getPrinterGridPosition(hostname: string): { x: number; y: number } {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         if (this.gridPositions[key]) return this.gridPositions[key]
         for (const printer of Object.values(this.remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key && (printer as any).gridPosition) {
+            if (hostKey((printer as any).hostname) === key && (printer as any).gridPosition) {
                 Vue.set(this.gridPositions, key, (printer as any).gridPosition)
                 return (printer as any).gridPosition
             }
@@ -775,7 +779,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     loadGridPositions() {
         Object.values(this.remotePrinters).forEach((printer: any) => {
             if (printer.hostname && printer.gridPosition) {
-                Vue.set(this.gridPositions, printer.hostname.toLowerCase(), printer.gridPosition)
+                Vue.set(this.gridPositions, hostKey(printer.hostname), printer.gridPosition)
             }
         })
     }
@@ -794,23 +798,23 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     isHighlighted(hostname: string): boolean {
-        return !!this.highlightHostname && this.highlightHostname.toLowerCase() === (hostname || '').toLowerCase()
+        return !!this.highlightHostname && hostKey(this.highlightHostname) === hostKey(hostname)
     }
 
     needsAttention(hostname: string): boolean {
-        const h = (hostname || '').toLowerCase()
-        return this.attentionHostnames.some((w) => w.toLowerCase() === h)
+        const h = hostKey(hostname)
+        return this.attentionHostnames.some((w) => hostKey(w) === h)
     }
 
     attentionReason(hostname: string): string | null {
-        const h = (hostname || '').toLowerCase()
-        const key = Object.keys(this.attentionReasons).find((k) => k.toLowerCase() === h)
+        const h = hostKey(hostname)
+        const key = Object.keys(this.attentionReasons).find((k) => hostKey(k) === h)
         return key ? this.attentionReasons[key] || null : null
     }
 
     isWorker(hostname: string): boolean {
-        const h = (hostname || '').toLowerCase()
-        return this.workerHostnames.some((w) => w.toLowerCase() === h)
+        const h = hostKey(hostname)
+        return this.workerHostnames.some((w) => hostKey(w) === h)
     }
 
     onMarkerClick(printer: any, hostname: string) {
@@ -849,14 +853,14 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         const rect = canvas.getBoundingClientRect()
         const gx = Math.min(this.GRID_COLS, Math.max(1, Math.floor((event.clientX - rect.left - this.pad) / this.CELL) + 1))
         const gy = Math.min(this.GRID_ROWS, Math.max(1, Math.floor((event.clientY - rect.top - this.pad) / this.CELL) + 1))
-        Vue.set(this.gridPositions, this.draggingGridHostname.toLowerCase(), { x: gx, y: gy })
+        Vue.set(this.gridPositions, hostKey(this.draggingGridHostname), { x: gx, y: gy })
     }
 
     stopGridDrag() {
         document.removeEventListener('mousemove', this.onGridDrag)
         document.removeEventListener('mouseup', this.stopGridDrag)
         if (this.draggingGridHostname) {
-            const pos = this.gridPositions[this.draggingGridHostname.toLowerCase()]
+            const pos = this.gridPositions[hostKey(this.draggingGridHostname)]
             if (pos) this.updatePrinterGridPosition(this.draggingGridHostname, pos.x, pos.y)
         }
         this.draggingPrinter = null
@@ -864,10 +868,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     updatePrinterGridPosition(hostname: string, gx: number, gy: number) {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         let printerId: string | null = null
         for (const [id, printer] of Object.entries(this.remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key) {
+            if (hostKey((printer as any).hostname) === key) {
                 printerId = id
                 break
             }

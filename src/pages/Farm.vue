@@ -62,6 +62,7 @@
 import { Component, Mixins } from 'vue-property-decorator'
 import { mdiExclamationThick, mdiHammer } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
+import { hostKey } from '@/plugins/hostKey'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 import { FleetWorker } from '@/store/fleet/jobs/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
@@ -157,8 +158,8 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     /** Daemon printers currently enabled as workers (same figure as the Workers map header). */
     get totalWorkerCount(): number {
-        const enabled = new Set(this.enabledHostnames.map((h) => h.toLowerCase()))
-        return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(h.toLowerCase())).length
+        const enabled = new Set(this.enabledHostnames.map(hostKey))
+        return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(hostKey(h))).length
     }
 
     // Ovens (roster deviceType === 'oven') are not printers; keep them out of the counters
@@ -185,7 +186,7 @@ export default class PageFarm extends Mixins(BaseMixin) {
         const out: string[] = []
         Object.values(roster).forEach((e: any) => {
             if (e?.deviceType !== 'oven' || !e.hostname) return
-            const key = e.hostname.toLowerCase()
+            const key = hostKey(e.hostname)
             if (seen.has(key)) return
             seen.add(key)
             out.push(e.hostname)
@@ -199,9 +200,9 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     ovenFrame(hostname: string): OvenFrame | null {
         const ovens: Record<string, OvenFrame> = this.$store.state.farm.fleetDaemonOvens || {}
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         for (const [h, frame] of Object.entries(ovens)) {
-            if (h.toLowerCase() === key) return frame
+            if (hostKey(h) === key) return frame
         }
         return null
     }

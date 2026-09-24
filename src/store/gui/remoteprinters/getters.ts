@@ -1,4 +1,5 @@
 import { GetterTree } from 'vuex'
+import { hostKey } from '@/plugins/hostKey'
 import { DeviceType, GuiRemoteprintersState, GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
 import { caseInsensitiveSort } from '@/plugins/helpers'
 
@@ -21,9 +22,9 @@ export const getters: GetterTree<GuiRemoteprintersState, any> = {
     getDeviceType:
         (state) =>
         (hostname: string): DeviceType => {
-            const key = hostname.toLowerCase()
+            const key = hostKey(hostname)
             for (const printer of Object.values(state.printers)) {
-                if (printer.hostname?.toLowerCase() === key) return printer.deviceType ?? 'printer'
+                if (hostKey(printer.hostname) === key) return printer.deviceType ?? 'printer'
             }
             return 'printer'
         },
@@ -33,9 +34,9 @@ export const getters: GetterTree<GuiRemoteprintersState, any> = {
     getMaxSpools:
         (state) =>
         (hostname: string): number | null => {
-            const key = hostname.toLowerCase()
+            const key = hostKey(hostname)
             for (const printer of Object.values(state.printers)) {
-                if (printer.hostname?.toLowerCase() !== key) continue
+                if (hostKey(printer.hostname) !== key) continue
                 const n = Number(printer.maxSpools)
                 return Number.isInteger(n) && n >= 1 ? n : null
             }

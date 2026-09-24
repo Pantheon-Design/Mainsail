@@ -75,6 +75,7 @@ import SettingsControlTab from '@/components/settings/SettingsControlTab.vue'
 import SettingsConsoleTab from '@/components/settings/SettingsConsoleTab.vue'
 import SettingsPresetsTab from '@/components/settings/SettingsPresetsTab.vue'
 import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue'
+import SettingsOvensTab from '@/components/settings/SettingsOvensTab.vue'
 import SettingsUiSettingsTab from '@/components/settings/SettingsUiSettingsTab.vue'
 import SettingsDashboardTab from '@/components/settings/SettingsDashboardTab.vue'
 import SettingsGCodeViewerTab from '@/components/settings/SettingsGCodeViewerTab.vue'
@@ -94,6 +95,7 @@ import {
     mdiMonitorDashboard,
     mdiPalette,
     mdiPrinter3d,
+    mdiToasterOven,
     mdiTimelapse,
     mdiTune,
     mdiVideo3d,
@@ -110,6 +112,7 @@ import SettingsHeightmapTab from '@/components/settings/SettingsHeightmapTab.vue
         Panel,
         SettingsUiSettingsTab,
         SettingsRemotePrintersTab,
+        SettingsOvensTab,
         SettingsPresetsTab,
         SettingsConsoleTab,
         SettingsControlTab,
@@ -175,6 +178,11 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
                 icon: mdiPrinter3d,
                 name: 'remote-printers',
                 title: this.$t('Settings.RemotePrintersTab.RemotePrinters'),
+            },
+            {
+                icon: mdiToasterOven,
+                name: 'ovens',
+                title: this.$t('Settings.OvensTab.Ovens'),
             },
             {
                 icon: mdiMenu,

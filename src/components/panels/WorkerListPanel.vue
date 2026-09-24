@@ -239,6 +239,7 @@ import {
     attentionWorkerHostnames,
     attentionWorkerReasons,
 } from '@/components/panels/fleetWorkerAttention'
+import { hostKey } from '@/plugins/hostKey'
 
 const VIEW_KEY = 'fleetWorkersView'
 const SIDE_WIDTH_KEY = 'fleetWorkersSideWidth'
@@ -465,8 +466,8 @@ export default class WorkerListPanel extends Vue {
 
     /** Daemon printers currently enabled as workers (sums the per-floor "Workers" counts). */
     get totalWorkerCount(): number {
-        const enabled = new Set(this.enabledHostnames.map((h) => h.toLowerCase()))
-        return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(h.toLowerCase())).length
+        const enabled = new Set(this.enabledHostnames.map(hostKey))
+        return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(hostKey(h))).length
     }
 
     get totalStatusList() {
@@ -487,8 +488,8 @@ export default class WorkerListPanel extends Vue {
 
     /** Map click: flip the worker flag of that printer. */
     async toggleByHostname(hostname: string) {
-        const h = hostname.toLowerCase()
-        const w = this.workers.find((x) => x.printer_hostname.toLowerCase() === h)
+        const h = hostKey(hostname)
+        const w = this.workers.find((x) => hostKey(x.printer_hostname) === h)
         if (w) {
             await this.toggle(w, !w.enabled)
             return

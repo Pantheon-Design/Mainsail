@@ -1,5 +1,6 @@
 import store from '@/store'
 import Vue from 'vue'
+import { hostKey } from '@/plugins/hostKey'
 import { PrinterModel } from '@/store/gui/remoteprinters/types'
 import { OvenFrame } from '@/store/farm/types'
 
@@ -191,10 +192,10 @@ class FleetDaemonClient {
     }
 
     private getPrinterPosition(hostname: string): { x: number; y: number } {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         const remotePrinters = store.state.gui?.remoteprinters?.printers || {}
         for (const printer of Object.values(remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key && (printer as any).position) {
+            if (hostKey((printer as any).hostname) === key && (printer as any).position) {
                 return (printer as any).position
             }
         }
@@ -202,10 +203,10 @@ class FleetDaemonClient {
     }
 
     private getPrinterModel(hostname: string): PrinterModel | null {
-        const key = hostname.toLowerCase()
+        const key = hostKey(hostname)
         const remotePrinters = store.state.gui?.remoteprinters?.printers || {}
         for (const printer of Object.values(remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key) {
+            if (hostKey((printer as any).hostname) === key) {
                 return (printer as any).printerModel ?? null
             }
         }
