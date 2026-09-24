@@ -12,6 +12,14 @@
                         <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
                         Workers {{ totalWorkerCount }}
                     </span>
+                    <!-- Same "N need attention" chip as the Jobs -> Workers card title -->
+                    <span
+                        class="status-counter status-counter--attention"
+                        :class="{ 'status-counter--attention-active': attentionHostnames.length > 0 }"
+                        :title="attentionTitle">
+                        <v-icon x-small :color="attentionHostnames.length ? 'white' : undefined">{{ mdiExclamationThick }}</v-icon>
+                        {{ attentionHostnames.length }} need{{ attentionHostnames.length === 1 ? 's' : '' }} attention
+                    </span>
                     <span v-for="s in totalStatusList" :key="'total-' + s.key" class="status-counter">
                         <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
                               :style="{ backgroundColor: s.color }"></span>
@@ -52,7 +60,7 @@
 
 <script lang="ts">
 import { Component, Mixins } from 'vue-property-decorator'
-import { mdiHammer } from '@mdi/js'
+import { mdiExclamationThick, mdiHammer } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 import { FleetWorker } from '@/store/fleet/jobs/types'
@@ -61,6 +69,7 @@ import {
     enabledWorkerHostnames,
     attentionWorkerHostnames,
     attentionWorkerReasons,
+    attentionChipTitle,
 } from '@/components/panels/fleetWorkerAttention'
 import {
     getPrinterStatus as getPrinterStatusUtil,
@@ -83,6 +92,7 @@ import { OvenFrame } from '@/store/farm/types'
 })
 export default class PageFarm extends Mixins(BaseMixin) {
     mdiHammer = mdiHammer
+    mdiExclamationThick = mdiExclamationThick
 
     private workersTimer: ReturnType<typeof setTimeout> | null = null
     private pollTimer: ReturnType<typeof setInterval> | null = null
@@ -138,6 +148,11 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     get attentionReasons(): Record<string, string> {
         return attentionWorkerReasons(this.workers)
+    }
+
+    /** Chip hover: one `host: reason` line per blocked worker, else what the chip means. */
+    get attentionTitle(): string {
+        return attentionChipTitle(this.attentionHostnames, this.attentionReasons)
     }
 
     /** Daemon printers currently enabled as workers (same figure as the Workers map header). */
@@ -307,5 +322,18 @@ export default class PageFarm extends Mixins(BaseMixin) {
 .status-counter--oven {
     padding-left: 12px;
     border-left: 1px solid rgba(128, 128, 128, 0.4);
+}
+/* "N need attention" chip: mirrors the chip in the Jobs -> Workers card title */
+.status-counter--attention {
+    padding: 1px 8px;
+    border-radius: 11px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    line-height: 18px;
+}
+.status-counter--attention-active {
+    background: #d32f2f;
+    border-color: #d32f2f;
+    color: #fff;
+    font-weight: 700;
 }
 </style>

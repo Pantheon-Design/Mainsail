@@ -36,6 +36,14 @@
                 <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
                 Workers {{ workerCount }}
             </span>
+            <span
+                v-if="workersVisible"
+                class="status-counter status-counter--attention"
+                :class="{ 'status-counter--attention-active': sectionAttentionHostnames.length > 0 }"
+                :title="sectionAttentionTitle">
+                <v-icon x-small :color="sectionAttentionHostnames.length ? 'white' : undefined">{{ mdiExclamationThick }}</v-icon>
+                {{ sectionAttentionHostnames.length }} need{{ sectionAttentionHostnames.length === 1 ? 's' : '' }} attention
+            </span>
             <span v-for="s in activeStatusList" :key="'active-' + s.key" class="status-counter">
                 <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
                       :style="{ backgroundColor: s.color }"></span>
@@ -237,6 +245,7 @@ import {
     OVEN_STATUS_META,
 } from '@/components/panels/farmOvenStatus'
 import { mdiExclamationThick, mdiHammer } from '@mdi/js'
+import { attentionChipTitle } from '@/components/panels/fleetWorkerAttention'
 
 type MapLocation = 'farm' | 'ground'
 
@@ -542,6 +551,20 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     /** Printers in this section currently enabled as fleet workers. */
     get workerCount(): number {
         return this.activePrinterEntries.filter(([hostname]) => this.isWorker(hostname)).length
+    }
+
+    /** Blocked workers placed in this section (the page header counts the whole fleet). */
+    get sectionAttentionHostnames(): string[] {
+        return this.activePrinterEntries.map(([hostname]) => hostname).filter((h) => this.needsAttention(h))
+    }
+
+    get sectionAttentionTitle(): string {
+        const reasons: Record<string, string> = {}
+        this.sectionAttentionHostnames.forEach((h) => {
+            const r = this.attentionReason(h)
+            if (r) reasons[h] = r
+        })
+        return attentionChipTitle(this.sectionAttentionHostnames, reasons)
     }
 
     getPrinterStatus(printer: any): PrinterStatus {
@@ -1005,6 +1028,19 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     padding-left: 12px;
     border-left: 1px solid rgba(128, 128, 128, 0.4);
 }
+/* "N need attention" chip: mirrors the chip in the Jobs -> Workers card title */
+.status-counter--attention {
+    padding: 1px 8px;
+    border-radius: 11px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    line-height: 18px;
+}
+.status-counter--attention-active {
+    background: #d32f2f;
+    border-color: #d32f2f;
+    color: #fff;
+    font-weight: 700;
+}
 
 /* Controls */
 .map-controls {
@@ -1180,7 +1216,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     background: url('/img/oven/oven-body.png') center / 100% 100% no-repeat;
     image-rendering: pixelated;
     /* slightly see-through so the map grid shows behind the furnace */
-    opacity: 0.85;
+    opacity: 0.8;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
 }
 .oven-dot--off {
@@ -1238,9 +1274,18 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     padding: 0 2px;
     box-sizing: border-box;
     color: #fff;
-    /* heaviest Roboto face + a hard offset shadow (a blurred glow makes 7-9px strokes look thin) */
+    /* heaviest Roboto face + a 1px black outline (8-direction hard shadow; a blurred glow
+       makes 7-9px strokes look thin) */
     font-weight: 900;
-    text-shadow: 0 1px 0 #000, 1px 0 0 rgba(0, 0, 0, 0.7);
+    text-shadow:
+        1px 0 0 #000,
+        -1px 0 0 #000,
+        0 1px 0 #000,
+        0 -1px 0 #000,
+        1px 1px 0 #000,
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000;
 }
 .oven-material {
     display: block;

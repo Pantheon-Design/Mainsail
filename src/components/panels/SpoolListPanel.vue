@@ -143,7 +143,12 @@
                 {{ item.lot_nr || '—' }}
             </template>
             <template #item.loaded_on_printer="{ item }">
-                <v-chip v-if="item.loaded_on_printer" x-small color="success" dark>{{ item.loaded_on_printer }}</v-chip>
+                <v-tooltip v-if="item.loaded_on_printer" bottom :disabled="!item.ready_at">
+                    <template #activator="{ on, attrs }">
+                        <v-chip x-small color="success" dark v-bind="attrs" v-on="on">{{ item.loaded_on_printer }}</v-chip>
+                    </template>
+                    <span>{{ readiness(item) }}<template v-if="item.ready_at"> · ready {{ formatDateTime(item.ready_at) }}</template></span>
+                </v-tooltip>
                 <v-tooltip v-else-if="item.in_oven" bottom>
                     <template #activator="{ on, attrs }">
                         <v-chip
@@ -221,11 +226,11 @@
                                 </v-chip>
                                 <span v-else>—</span>
                             </td></tr>
-                            <tr v-if="detailSpool.in_oven"><td class="font-weight-bold">Drying since</td><td>
+                            <tr v-if="detailSpool.oven_loaded_at"><td class="font-weight-bold">Drying since</td><td>
                                 {{ formatDateTime(detailSpool.oven_loaded_at) }}
                                 <span v-if="detailSpool.dry_time_hours != null" class="grey--text"> · dry time {{ detailSpool.dry_time_hours }} h</span>
                             </td></tr>
-                            <tr v-if="detailSpool.in_oven"><td class="font-weight-bold">Ready</td><td>
+                            <tr v-if="detailSpool.oven_loaded_at"><td class="font-weight-bold">Ready</td><td>
                                 <strong v-if="readiness(detailSpool) === 'READY'" class="light-blue--text">READY</strong>
                                 <template v-else>{{ formatDateTime(detailSpool.ready_at) }} ({{ readiness(detailSpool) }})</template>
                             </td></tr>
