@@ -90,6 +90,8 @@ export function ovenSpoolWeights(spool: OvenSpoolFrame, lookup?: OvenWeightLooku
 export interface OvenMaterialStat {
     material: string
     count: number
+    /** spools whose dryer time has elapsed (see ovenSpoolIsReady); drying = count - ready */
+    ready: number
     /** grams left across the weighed spools of this material */
     remaining: number
     /** grams those same spools hold when full */
@@ -99,17 +101,22 @@ export interface OvenMaterialStat {
 }
 
 /**
- * Per-material spool counts and weights, best first: most spools, then (tie) most filament
- * left by weight, then name. Only spools with both weights known contribute to the sums.
+ * Per-material spool counts, readiness and weights, best first: most spools, then (tie) most
+ * filament left by weight, then name. Only spools with both weights known contribute to the sums.
  */
-export function ovenMaterialStats(frame: OvenFrame | null | undefined, lookup?: OvenWeightLookup): OvenMaterialStat[] {
+export function ovenMaterialStats(
+    frame: OvenFrame | null | undefined,
+    lookup?: OvenWeightLookup,
+    now: number = Date.now()
+): OvenMaterialStat[] {
     const spools = frame?.oven?.spools
     if (!Array.isArray(spools)) return []
     const stats = new Map<string, OvenMaterialStat>()
     spools.forEach((s) => {
         const m = ovenSpoolMaterial(s)
-        const st = stats.get(m) ?? { material: m, count: 0, remaining: 0, capacity: 0, weighed: 0 }
+        const st = stats.get(m) ?? { material: m, count: 0, ready: 0, remaining: 0, capacity: 0, weighed: 0 }
         st.count++
+        if (ovenSpoolIsReady(s, now)) st.ready++
         const w = ovenSpoolWeights(s, lookup)
         if (w.remaining !== null && w.capacity !== null && w.capacity > 0) {
             st.remaining += w.remaining

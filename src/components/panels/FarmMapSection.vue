@@ -165,9 +165,11 @@
                     </div>
                 </div>
 
-                <!-- Oven tooltip: name, oven temperature, then one row per material:
-                     `NAME ×n`, grams left / grams when full, and a fullness bar (same ranking
-                     as the marker, so the first row is the material shown on the icon) -->
+                <!-- Oven tooltip: name, oven temperature, then one block per material (same
+                     ranking as the marker, so the first block is the material shown on the icon):
+                       row 1  `NAME ×n` | grams left / grams when full | fullness bar
+                       row 2  `r ready · d drying`                     | readiness bar (green = ready
+                              share, amber track = still drying) -->
                 <div v-if="hoveredOven" class="tooltip tooltip--oven" :style="tooltipStyle">
                     <p>
                         <strong>{{ hoveredOvenLabel }}</strong>
@@ -180,6 +182,13 @@
                         <span class="oven-mat-weight">{{ m.weightText }}</span>
                         <span class="oven-mat-bar">
                             <span class="oven-mat-bar-fill" :style="{ width: m.fillPercent + '%' }"></span>
+                        </span>
+                        <span class="oven-mat-state">
+                            <span class="oven-mat-ready">{{ m.ready }} ready</span> ·
+                            <span class="oven-mat-drying">{{ m.drying }} drying</span>
+                        </span>
+                        <span class="oven-mat-bar oven-mat-bar--dry">
+                            <span class="oven-mat-bar-fill" :style="{ width: m.readyPercent + '%' }"></span>
                         </span>
                     </div>
                     <p v-if="isEditing" class="oven-hint">Drag to place</p>
@@ -935,11 +944,22 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return ovenTemperatureText(this.hoveredOvenFrame)
     }
 
-    /** One row per material, best first (the marker's shown material is row one). */
-    get hoveredOvenMaterials(): { material: string; count: number; weightText: string; fillPercent: number }[] {
+    /** One block per material, best first (the marker's shown material comes first). */
+    get hoveredOvenMaterials(): {
+        material: string
+        count: number
+        ready: number
+        drying: number
+        readyPercent: number
+        weightText: string
+        fillPercent: number
+    }[] {
         return ovenMaterialStats(this.hoveredOvenFrame, this.spoolWeightLookup).map((m) => ({
             material: m.material,
             count: m.count,
+            ready: m.ready,
+            drying: m.count - m.ready,
+            readyPercent: m.count > 0 ? Math.round((m.ready / m.count) * 100) : 0,
             weightText: m.capacity > 0 ? `${formatWeight(m.remaining)} / ${formatWeight(m.capacity)}` : '—',
             fillPercent: m.capacity > 0 ? Math.round(Math.min(1, m.remaining / m.capacity) * 100) : 0,
         }))
@@ -1350,12 +1370,31 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     opacity: 0.6;
     font-style: italic;
 }
-/* Per-material rows: `NAME ×n` | grams left / full | fullness bar */
+/* Per-material block: `NAME ×n` | grams left / full | fullness bar
+                        `r ready · d drying`        | readiness bar */
 .tooltip .oven-mat {
     display: grid;
     grid-template-columns: auto auto 72px;
-    gap: 0 10px;
+    gap: 1px 10px;
     align-items: center;
+}
+.tooltip .oven-mat + .oven-mat {
+    margin-top: 5px;
+}
+.tooltip .oven-mat-state {
+    grid-column: 1 / 3;
+    opacity: 0.85;
+    font-variant-numeric: tabular-nums;
+}
+.tooltip .oven-mat-ready {
+    color: #00e676;
+}
+.tooltip .oven-mat-drying {
+    color: #ffa000;
+}
+/* readiness bar: green fill = ready share, amber track = still drying */
+.tooltip .oven-mat-bar--dry {
+    background: rgba(255, 160, 0, 0.55);
 }
 .tooltip .oven-mat-name {
     font-weight: 700;
