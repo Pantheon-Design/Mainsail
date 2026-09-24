@@ -157,27 +157,23 @@
                     </div>
                 </div>
 
-                <!-- Oven tooltip -->
+                <!-- Oven tooltip: name, oven temperature, then one row per material:
+                     `NAME ×n`, grams left / grams when full, and a fullness bar (same ranking
+                     as the marker, so the first row is the material shown on the icon) -->
                 <div v-if="hoveredOven" class="tooltip tooltip--oven" :style="tooltipStyle">
-                    <p><strong>{{ hoveredOvenLabel }}</strong> ({{ hoveredOven.hostname }}): {{ hoveredOvenStatusLabel }}</p>
-                    <p v-if="hoveredOvenFrame && hoveredOvenFrame.webhooks && hoveredOvenFrame.webhooks.state">
-                        Klipper: {{ hoveredOvenFrame.webhooks.state }}
+                    <p>
+                        <strong>{{ hoveredOvenLabel }}</strong>
+                        <span v-if="hoveredOvenStatusNote" class="oven-note"> · {{ hoveredOvenStatusNote }}</span>
                     </p>
-                    <p v-if="!hoveredOvenFrame">No status from fleet_daemon yet</p>
-                    <p v-else-if="hoveredOvenFrame.fleet_to_printer_ws === false">Daemon → oven websocket: down</p>
-                    <p v-for="t in hoveredOvenTemps" :key="'t-' + t">{{ t }}</p>
-                    <p v-if="hoveredOvenFrame && hoveredOvenLayout">Layout: {{ hoveredOvenLayout }}</p>
-                    <p v-if="hoveredOvenFrame">
-                        Spools: {{ hoveredOvenReady }}/{{ hoveredOvenTotal }} ready · capacity {{ hoveredOvenCapacityText }}
-                        <span v-if="hoveredOven && ovenIsOverCapacity(hoveredOven.hostname)" class="oven-over">(over capacity)</span>
-                    </p>
-                    <p v-if="hoveredOvenFrame && hoveredOvenTotal">Top material: {{ hoveredOvenTopMaterialDetail }}</p>
-                    <p v-for="line in hoveredOvenSpoolLines" :key="'s-' + line" class="oven-spool-line">{{ line }}</p>
-                    <p
-                        v-if="hoveredOvenFrame && hoveredOvenFrame.webhooks && hoveredOvenFrame.webhooks.state_message"
-                        style="white-space: pre-wrap; max-width: 300px;">
-                        <strong>Webhook:</strong><br>{{ hoveredOvenFrame.webhooks.state_message }}
-                    </p>
+                    <p>Temperature: {{ hoveredOvenTemperature }}</p>
+                    <p v-if="hoveredOvenFrame && !hoveredOvenMaterials.length" class="oven-note">No spools loaded</p>
+                    <div v-for="m in hoveredOvenMaterials" :key="'m-' + m.material" class="oven-mat">
+                        <span class="oven-mat-name">{{ m.material }} ×{{ m.count }}</span>
+                        <span class="oven-mat-weight">{{ m.weightText }}</span>
+                        <span class="oven-mat-bar">
+                            <span class="oven-mat-bar-fill" :style="{ width: m.fillPercent + '%' }"></span>
+                        </span>
+                    </div>
                     <p v-if="isEditing" class="oven-hint">Drag to place</p>
                 </div>
 
@@ -226,16 +222,15 @@ import {
     ovenLabel,
     ovenMaxSpools,
     ovenOverCapacity,
-    ovenReadyCount,
     ovenSpoolCount,
-    ovenSpoolLine,
-    ovenTemperatureLines,
     ovenTopMaterial,
     OvenStatus,
     OvenFire,
     ovenFire,
     ovenMaterialFill,
-    ovenTopMaterialDetail,
+    ovenMaterialStats,
+    ovenTemperatureText,
+    formatWeight,
     OvenSpoolWeights,
     OvenWeightLookup,
     OVEN_LEGEND,
@@ -313,9 +308,6 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     hoveredPrinter: any = null
     hoveredOven: OvenEntry | null = null
     tooltipStyle: Record<string, string> = { top: '0px', left: '0px', position: 'absolute' }
-    // Countdown clock for the oven tooltip: ticks only while an oven tooltip is open
-    tooltipNow = Date.now()
-    private tooltipTimer: ReturnType<typeof setInterval> | null = null
 
     // ---------- geometry helpers ----------
     get pad(): number {
@@ -736,7 +728,6 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     beforeDestroy() {
-        this.stopTooltipClock()
         fleetDaemonEvents.$off('spool_updated', this.loadSpoolWeights)
         fleetDaemonEvents.$off('ovens_updated', this.loadSpoolWeights)
     }
@@ -863,7 +854,6 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     showTooltip(printer: any, hostname: string, _event: MouseEvent) {
         if (this.isEditing) return
         this.hoveredOven = null
-        this.stopTooltipClock()
         this.hoveredPrinter = printer
         this.placeTooltip(hostname)
     }
@@ -884,7 +874,6 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     hideTooltip() {
         this.hoveredPrinter = null
         this.hoveredOven = null
-        this.stopTooltipClock()
     }
 
     // ---------- oven tooltip ----------
@@ -894,17 +883,6 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         const entry = this.ovenEntries.find((o) => o.hostname === hostname)
         this.hoveredOven = entry ?? { id: '', hostname }
         this.placeTooltip(hostname)
-        this.tooltipNow = Date.now()
-        // Countdowns ("3h 12m left") are recomputed from ready_at on every render; the clock
-        // only runs while the oven tooltip is open.
-        if (!this.tooltipTimer) this.tooltipTimer = setInterval(() => (this.tooltipNow = Date.now()), 1000)
-    }
-
-    stopTooltipClock() {
-        if (this.tooltipTimer) {
-            clearInterval(this.tooltipTimer)
-            this.tooltipTimer = null
-        }
     }
 
     get hoveredOvenFrame(): OvenFrame | null {
@@ -919,37 +897,29 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return this.hoveredOven ? OVEN_STATUS_META[this.ovenStatus(this.hoveredOven.hostname)].label : ''
     }
 
-    get hoveredOvenTemps(): string[] {
-        return ovenTemperatureLines(this.hoveredOvenFrame)
+    /** Only shown when something is wrong; a healthy oven needs no status line. */
+    get hoveredOvenStatusNote(): string {
+        if (!this.hoveredOven) return ''
+        const frame = this.hoveredOvenFrame
+        if (!frame) return 'no status from fleet_daemon yet'
+        if (!this.$store.state.farm.fleetDaemonConnected) return 'fleet_daemon disconnected'
+        if (frame.fleet_to_printer_ws === false) return 'daemon → oven websocket down'
+        if (this.ovenStatus(this.hoveredOven.hostname) === 'error') return `Klipper ${frame.webhooks?.state ?? 'error'}`
+        return ''
     }
 
-    get hoveredOvenLayout(): string {
-        const cfg = this.hoveredOvenFrame?.oven?.config
-        if (!cfg || cfg.shelf_rows == null || cfg.slots_per_row == null) return ''
-        return `${cfg.shelf_rows} rows × ${cfg.slots_per_row} slots`
+    get hoveredOvenTemperature(): string {
+        return ovenTemperatureText(this.hoveredOvenFrame)
     }
 
-    get hoveredOvenTotal(): number {
-        return ovenSpoolCount(this.hoveredOvenFrame)
-    }
-
-    get hoveredOvenReady(): number {
-        return ovenReadyCount(this.hoveredOvenFrame)
-    }
-
-    get hoveredOvenCapacityText(): string {
-        const max = this.hoveredOven ? this.ovenMax(this.hoveredOven.hostname) : null
-        return max === null ? 'unknown' : String(max)
-    }
-
-    get hoveredOvenTopMaterialDetail(): string {
-        return ovenTopMaterialDetail(this.hoveredOvenFrame, this.spoolWeightLookup)
-    }
-
-    get hoveredOvenSpoolLines(): string[] {
-        const spools = [...(this.hoveredOvenFrame?.oven?.spools ?? [])]
-        spools.sort((a, b) => a.row - b.row || a.slot - b.slot)
-        return spools.map((s) => ovenSpoolLine(s, this.tooltipNow))
+    /** One row per material, best first (the marker's shown material is row one). */
+    get hoveredOvenMaterials(): { material: string; count: number; weightText: string; fillPercent: number }[] {
+        return ovenMaterialStats(this.hoveredOvenFrame, this.spoolWeightLookup).map((m) => ({
+            material: m.material,
+            count: m.count,
+            weightText: m.capacity > 0 ? `${formatWeight(m.remaining)} / ${formatWeight(m.capacity)}` : '—',
+            fillPercent: m.capacity > 0 ? Math.round(Math.min(1, m.remaining / m.capacity) * 100) : 0,
+        }))
     }
 
     getPrinterPrintPercent(printer: any): number {
@@ -1328,16 +1298,38 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     white-space: normal;
     max-width: 300px;
 }
-.tooltip .oven-spool-line {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 11px;
-    white-space: pre;
+.tooltip .oven-note {
+    opacity: 0.75;
 }
 .tooltip .oven-hint {
     opacity: 0.6;
     font-style: italic;
 }
-.tooltip .oven-over {
-    color: #ff8a80;
+/* Per-material rows: `NAME ×n` | grams left / full | fullness bar */
+.tooltip .oven-mat {
+    display: grid;
+    grid-template-columns: auto auto 72px;
+    gap: 0 10px;
+    align-items: center;
+}
+.tooltip .oven-mat-name {
+    font-weight: 700;
+}
+.tooltip .oven-mat-weight {
+    opacity: 0.85;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.tooltip .oven-mat-bar {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+}
+.tooltip .oven-mat-bar-fill {
+    display: block;
+    height: 100%;
+    background: #00e676;
 }
 </style>

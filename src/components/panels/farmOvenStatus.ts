@@ -310,6 +310,19 @@ export function ovenSpoolLine(spool: OvenSpoolFrame, now: number = Date.now()): 
     return (slot ? `${slot}  ` : '') + parts.join(' · ')
 }
 
+/**
+ * The oven's own temperature for the tooltip: the sensor named like "oven" first, else the
+ * first sensor that is not a Pi/CPU probe, else the first one; `—` when nothing is reported.
+ */
+export function ovenTemperatureText(frame: OvenFrame | null | undefined): string {
+    const temps = frame?.temperatures ?? {}
+    const names = Object.keys(temps).sort()
+    const pick = names.find((n) => /oven/i.test(n)) ?? names.find((n) => !/cpu|\bpi\b|_pi/i.test(n)) ?? names[0]
+    if (!pick) return '—'
+    const v = temps[pick]
+    return typeof v === 'number' && !isNaN(v) ? `${v.toFixed(1)}°C` : '—'
+}
+
 /** `pi_cpu 41.2°C` per sensor, sorted by name. */
 export function ovenTemperatureLines(frame: OvenFrame | null | undefined): string[] {
     const temps = frame?.temperatures ?? {}
