@@ -170,7 +170,7 @@
                        row 1  `NAME ×n` | grams left / grams when full | fullness bar
                        row 2  `r ready · d drying`                     | readiness bar (green = ready
                               share, amber track = still drying) -->
-                <div v-if="hoveredOven" class="tooltip tooltip--oven" :style="tooltipStyle">
+                <div v-if="hoveredOven" ref="tooltipEl" class="tooltip tooltip--oven" :style="tooltipStyle">
                     <p>
                         <strong>{{ hoveredOvenLabel }}</strong>
                         <span v-if="hoveredOvenStatusNote" class="oven-note"> · {{ hoveredOvenStatusNote }}</span>
@@ -195,7 +195,7 @@
                 </div>
 
                 <!-- Tooltip -->
-                <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
+                <div v-if="hoveredPrinter" ref="tooltipEl" class="tooltip" :style="tooltipStyle">
                     <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
                     <p v-if="workersVisible">
                         Fleet worker: {{ isWorker(hoveredPrinter.socket.hostname) ? 'yes' : 'no' }}<span v-if="mode === 'workers'"> (click to toggle)</span>
@@ -295,8 +295,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     // Grid geometry
     readonly GRID_COLS = 25
-    readonly GRID_ROWS = 12
     readonly CELL = 46
+    /** Rows per location: the Print Farm has one extra row along the bottom. */
+    get GRID_ROWS(): number {
+        return this.location === 'farm' ? 13 : 12
+    }
 
     // Status color/label vocabulary (matches farmPrinterStatus + FarmPrinterGridPanel)
     readonly STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
@@ -901,6 +904,20 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
             left: flipLeft ? 'auto' : cellLeft + this.CELL + 8 + 'px',
             right: flipLeft ? this.gridW + this.CELL - cellLeft + 8 + 'px' : 'auto',
         }
+        // The canvas clips overflow, so once the tooltip has rendered (and its height is known)
+        // push it up as far as needed to keep it inside the bottom edge.
+        this.$nextTick(this.clampTooltipToCanvas)
+    }
+
+    clampTooltipToCanvas() {
+        const el = this.$refs.tooltipEl as HTMLElement | undefined
+        if (!el) return
+        const margin = 4
+        const canvasH = this.gridH + this.CELL
+        const top = parseFloat(this.tooltipStyle.top)
+        if (isNaN(top)) return
+        const maxTop = Math.max(margin, canvasH - el.offsetHeight - margin)
+        if (top > maxTop) this.tooltipStyle = { ...this.tooltipStyle, top: maxTop + 'px' }
     }
 
     hideTooltip() {
