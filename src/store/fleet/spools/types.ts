@@ -18,6 +18,8 @@ export interface FleetFilament {
     color_hex: string | null
     settings_extruder_temp: number | null
     settings_bed_temp: number | null
+    /** Extruder target sent by the Scanner Lite "Auto Set Extruder Temp" macro (null -> macro skips this filament). */
+    extrude_temp: number | null
     /** Hours in an oven before a spool of this filament counts as dry (null -> daemon default). */
     dry_time_hours: number | null
     comment: string | null

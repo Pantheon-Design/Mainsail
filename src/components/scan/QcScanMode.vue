@@ -252,6 +252,7 @@ import { mdiQrcodeScan, mdiClose, mdiAccountCheck, mdiCamera, mdiDownload } from
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
+import { flashScreen } from '@/plugins/scanFlash'
 
 @Component
 export default class QcScanMode extends Vue {
@@ -424,6 +425,7 @@ export default class QcScanMode extends Vue {
         if (prefixMatch && (prefixMatch[2] === '0' || prefixMatch[2] === '1')) {
             this.qcStatusMessage = 'Pass/Fail codes should not be scanned with the QC scanner. Use the standard scanner instead.'
             this.qcStatusType = 'warning'
+            flashScreen('error')
             this.refocusScanInput()
             return
         }
@@ -443,10 +445,12 @@ export default class QcScanMode extends Vue {
                     this.qcSelectedRecord = null
                     this.qcStatusMessage = `No part found for QR code: ${qrCode}`
                     this.qcStatusType = 'warning'
+                    flashScreen('error')
                 }
             } catch {
                 this.qcStatusMessage = `Error searching for QR code: ${qrCode}`
                 this.qcStatusType = 'error'
+                flashScreen('error')
             }
             this.refocusScanInput()
             return
@@ -462,14 +466,17 @@ export default class QcScanMode extends Vue {
                 this.qcSelectedRecord = record
                 this.qcStatusMessage = `Found part: ${record.qr_code} (${record.filename || record.printer_hostname})`
                 this.qcStatusType = 'info'
+                flashScreen('success')
             } else {
                 this.qcSelectedRecord = null
                 this.qcStatusMessage = `No part found for QR code: ${scanned}`
                 this.qcStatusType = 'warning'
+                flashScreen('error')
             }
         } catch {
             this.qcStatusMessage = `Error searching for QR code: ${scanned}`
             this.qcStatusType = 'error'
+            flashScreen('error')
         }
         this.refocusScanInput()
     }
@@ -490,6 +497,7 @@ export default class QcScanMode extends Vue {
             this.qcStatusType = result === 'pass' ? 'success' : 'error'
             this.qcFlashResult = result
             this.qcFlashVisible = true
+            flashScreen(result === 'pass' ? 'success' : 'error')
             if (this.qcFlashTimer) clearTimeout(this.qcFlashTimer)
             this.qcFlashTimer = setTimeout(() => { this.qcFlashVisible = false }, 2000)
             this.qcNoteVisible = true
@@ -497,6 +505,7 @@ export default class QcScanMode extends Vue {
         } catch {
             this.qcStatusMessage = 'Failed to update QC status'
             this.qcStatusType = 'error'
+            flashScreen('error')
         }
         this.refocusScanInput()
     }
@@ -560,10 +569,12 @@ export default class QcScanMode extends Vue {
             } else {
                 this.qcStatusMessage = 'No code found in photo. Ensure the Data Matrix is clearly visible and well-lit.'
                 this.qcStatusType = 'warning'
+                flashScreen('error')
             }
         } catch {
             this.qcStatusMessage = 'Failed to process photo. Please try again.'
             this.qcStatusType = 'error'
+            flashScreen('error')
         } finally {
             this.qcCameraProcessing = false
         }

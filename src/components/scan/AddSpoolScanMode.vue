@@ -172,6 +172,7 @@ import { mdiClose, mdiQrcodeScan } from '@mdi/js'
 import { FleetSpool, FleetFilament } from '@/store/fleet/spools/types'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
 import { isTouchDevice } from '@/plugins/scanFocus'
+import { flashScreen } from '@/plugins/scanFlash'
 
 @Component
 export default class AddSpoolScanMode extends Vue {
@@ -277,6 +278,7 @@ export default class AddSpoolScanMode extends Vue {
     }
 
     flashAddSpool(kind: 'success' | 'error') {
+        flashScreen(kind)
         this.addSpoolFlash = kind
         if (this.addSpoolFlashTimer) clearTimeout(this.addSpoolFlashTimer)
         this.addSpoolFlashTimer = setTimeout(() => {
@@ -363,6 +365,7 @@ export default class AddSpoolScanMode extends Vue {
         if (!this.addSpoolReady) {
             this.addSpoolStatusMessage = 'Select a filament first before scanning'
             this.addSpoolStatusType = 'warning'
+            this.flashAddSpool('error')
             this.focusAddSpoolScanInput()
             return
         }
@@ -375,6 +378,7 @@ export default class AddSpoolScanMode extends Vue {
             this.addSpoolPendingQr = scanned
             this.addSpoolStatusMessage = `QR ${scanned} captured — now scan the batch/lot label`
             this.addSpoolStatusType = 'info'
+            flashScreen('success')
             this.focusAddSpoolScanInput()
             return
         }

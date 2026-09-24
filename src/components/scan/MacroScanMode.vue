@@ -47,6 +47,9 @@
                         <span v-if="macro.hasTemp" class="caption d-block" style="opacity: 0.8; text-transform: none">
                             default {{ defaultTemp }}°C · editable
                         </span>
+                        <span v-else-if="macro.hint" class="caption d-block" style="opacity: 0.8; text-transform: none">
+                            {{ macro.hint }}
+                        </span>
                     </span>
                 </v-btn>
 
@@ -234,6 +237,9 @@
  * The G-code strings are the exact ones the full Mainsail UI sends
  * (src/components/mixins/control.ts, panels/Temperature/*):
  *   home      → G28
+ *   auto      → daemon looks up the printer's filament type in the fleet filament
+ *               database and sends SET_HEATER_TEMPERATURE HEATER=extruder TARGET=<extrude_temp>
+ *               only if that filament has one (otherwise nothing is sent)
  *   extruder  → SET_HEATER_TEMPERATURE HEATER=extruder TARGET=<t>
  *   bed       → SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=<t>
  *   chamber   → SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=<t>
@@ -263,14 +269,26 @@ import {
     mdiThermometer,
     mdiSend,
     mdiTimerSand,
+    mdiAutoFix,
 } from '@mdi/js'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
+import { flashScreen } from '@/plugins/scanFlash'
+import { FleetAutoExtruderTempResult } from '@/store/fleet/workers/actions'
 
 export interface ScanMacro {
     id: string
     label: string
     icon: string
     color: string
+    /**
+     * 'gcode': send `gcode(temp)` as-is.
+     * 'auto_extruder': ask the daemon to look up the printer's filament type in the
+     * fleet filament database and send SET_HEATER_TEMPERATURE only if that filament
+     * has an extrude_temp (POST /printer/{hostname}/auto_extruder_temp).
+     */
+    kind: 'gcode' | 'auto_extruder'
+    /** Short explanation shown under the label in the macro list. */
+    hint?: string
     /** When true the macro takes a target temperature (default DEFAULT_TEMP). */
     hasTemp: boolean
     /** Quick-pick chips shown next to the temperature field. */
@@ -296,15 +314,28 @@ export const SCAN_MACROS: ScanMacro[] = [
         label: 'Home All (G28)',
         icon: mdiHome,
         color: 'primary',
+        kind: 'gcode',
         hasTemp: false,
         presets: [],
         gcode: () => 'G28',
+    },
+    {
+        id: 'auto_extruder_temp',
+        label: 'Auto Set Extruder Temp',
+        icon: mdiAutoFix,
+        color: 'orange',
+        kind: 'auto_extruder',
+        hint: "uses the printer's filament type → fleet filament extrude temp",
+        hasTemp: false,
+        presets: [],
+        gcode: () => 'SET_HEATER_TEMPERATURE HEATER=extruder TARGET=<filament extrude temp>',
     },
     {
         id: 'extruder_temp',
         label: 'Set Extruder Temp',
         icon: mdiPrinter3dNozzleHeat,
         color: 'deep-orange',
+        kind: 'gcode',
         hasTemp: true,
         presets: [0, 20, 200, 240, 260],
         gcode: (temp) => `SET_HEATER_TEMPERATURE HEATER=extruder TARGET=${temp}`,
@@ -314,6 +345,7 @@ export const SCAN_MACROS: ScanMacro[] = [
         label: 'Set Bed Temp',
         icon: mdiRadiator,
         color: 'purple',
+        kind: 'gcode',
         hasTemp: true,
         presets: [0, 20, 60, 80, 100],
         gcode: (temp) => `SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET=${temp}`,
@@ -323,6 +355,7 @@ export const SCAN_MACROS: ScanMacro[] = [
         label: 'Set Chamber Temp',
         icon: mdiHeatWave,
         color: 'teal',
+        kind: 'gcode',
         hasTemp: true,
         presets: [0, 20, 40, 50, 60],
         gcode: (temp) => `SET_TEMPERATURE_FAN_TARGET TEMPERATURE_FAN=chamber TARGET=${temp}`,
@@ -332,6 +365,7 @@ export const SCAN_MACROS: ScanMacro[] = [
 const MACRO_COLORS: Record<string, string> = {
     primary: 'var(--v-primary-base)',
     'deep-orange': '#E64A19',
+    orange: '#EF6C00',
     purple: '#7B1FA2',
     teal: '#00796B',
 }
@@ -475,6 +509,7 @@ export default class MacroScanMode extends Vue {
     }
 
     feedback(kind: 'success' | 'error', text: string) {
+        flashScreen(kind)
         this.banner = { kind, text }
         this.flash = kind
         if (this.flashTimer) clearTimeout(this.flashTimer)
@@ -556,6 +591,10 @@ export default class MacroScanMode extends Vue {
         this.sendingTo = hostname
         this.banner = null
         try {
+            if (macro.kind === 'auto_extruder') {
+                await this.runAutoExtruderTemp(hostname, macro)
+                return
+            }
             await this.$store.dispatch('fleet/workers/sendGcode', { hostname, script: gcode })
             this.feedback('success', `${hostname}: ${macro.label} sent (${gcode})`)
             this.log.push({ hostname, macro: macro.label, gcode, ok: true, detail: 'ok', time: new Date().toLocaleTimeString() })
@@ -563,6 +602,36 @@ export default class MacroScanMode extends Vue {
             const msg = err?.message || 'request failed'
             this.feedback('error', `${hostname}: ${msg}`)
             this.log.push({ hostname, macro: macro.label, gcode, ok: false, detail: msg, time: new Date().toLocaleTimeString() })
+        } finally {
+            this.sending = false
+            this.sendingTo = ''
+        }
+    }
+
+    /**
+     * Auto Set Extruder Temp: the daemon resolves printer filament type → fleet
+     * filament → extrude_temp and sends the heater command itself. A skip
+     * (no match / no extrude temp) is reported as a red flash, but nothing is sent.
+     */
+    async runAutoExtruderTemp(hostname: string, macro: ScanMacro) {
+        const time = () => new Date().toLocaleTimeString()
+        try {
+            const res: FleetAutoExtruderTempResult = await this.$store.dispatch('fleet/workers/autoSetExtruderTemp', { hostname })
+            const type = res.filament_type || 'unknown type'
+            if (res.applied) {
+                const fil = res.filament
+                const filLabel = fil ? [fil.vendor_name, fil.name].filter(Boolean).join(' ') || fil.material : type
+                this.feedback('success', `${hostname}: ${type} → ${res.temp}°C (${filLabel}) — ${res.script}`)
+                this.log.push({ hostname, macro: macro.label, gcode: res.script || '', ok: true, detail: `ok · ${type} → ${res.temp}°C`, time: time() })
+            } else {
+                const reason = res.reason || 'no matching filament'
+                this.feedback('error', `${hostname}: nothing sent — ${reason}`)
+                this.log.push({ hostname, macro: macro.label, gcode: '—', ok: false, detail: `skipped: ${reason}`, time: time() })
+            }
+        } catch (err: any) {
+            const msg = err?.message || 'request failed'
+            this.feedback('error', `${hostname}: ${msg}`)
+            this.log.push({ hostname, macro: macro.label, gcode: '—', ok: false, detail: msg, time: time() })
         } finally {
             this.sending = false
             this.sendingTo = ''

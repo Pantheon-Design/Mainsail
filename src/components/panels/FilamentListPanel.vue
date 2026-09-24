@@ -58,6 +58,9 @@
             <template #item.dry_time_hours="{ item }">
                 {{ item.dry_time_hours != null ? item.dry_time_hours + ' h' : '—' }}
             </template>
+            <template #item.extrude_temp="{ item }">
+                {{ item.extrude_temp != null ? item.extrude_temp + ' °C' : '—' }}
+            </template>
             <template #item.registered="{ item }">
                 {{ formatDate(item.registered) }}
             </template>
@@ -114,13 +117,26 @@
                             <v-text-field v-model.number="form.settings_bed_temp" label="Bed temp" dense outlined type="number" suffix="°C" />
                         </v-col>
                     </v-row>
-                    <v-text-field
-                        v-model.number="form.dry_time_hours"
-                        label="Dry time (h)"
-                        dense outlined clearable persistent-hint
-                        type="number" min="0" step="0.5"
-                        hint="Hours in an oven before a spool counts as dry; empty = fleet default"
-                        class="mb-2" />
+                    <v-row dense>
+                        <v-col cols="6">
+                            <v-text-field
+                                v-model.number="form.dry_time_hours"
+                                label="Dry time (h)"
+                                dense outlined clearable persistent-hint
+                                type="number" min="0" step="0.5"
+                                hint="Hours in an oven before a spool counts as dry; empty = fleet default"
+                                class="mb-2" />
+                        </v-col>
+                        <v-col cols="6">
+                            <v-text-field
+                                v-model.number="form.extrude_temp"
+                                label="Extrude temp"
+                                dense outlined clearable persistent-hint
+                                type="number" min="0" step="1" suffix="°C"
+                                hint="Sent by the scanner's Auto Set Extruder Temp macro; empty = macro skips this filament"
+                                class="mb-2" />
+                        </v-col>
+                    </v-row>
                     <v-text-field v-model="form.comment" label="Comment" dense outlined />
                 </v-card-text>
                 <v-card-actions>
@@ -190,6 +206,7 @@ export default class FilamentListPanel extends Vue {
         { text: 'Diameter', value: 'diameter', width: 100 },
         { text: 'Net Weight', value: 'weight', width: 110 },
         { text: 'Dry time', value: 'dry_time_hours', width: 90 },
+        { text: 'Extrude temp', value: 'extrude_temp', width: 110 },
         { text: 'Registered', value: 'registered', width: 130 },
         { text: 'Actions', value: 'actions', sortable: false, width: 100 },
     ]
@@ -239,6 +256,7 @@ export default class FilamentListPanel extends Vue {
             settings_extruder_temp: null as number | null,
             settings_bed_temp: null as number | null,
             dry_time_hours: null as number | null,
+            extrude_temp: null as number | null,
             comment: '',
         }
     }
@@ -272,6 +290,7 @@ export default class FilamentListPanel extends Vue {
             settings_extruder_temp: filament.settings_extruder_temp,
             settings_bed_temp: filament.settings_bed_temp,
             dry_time_hours: filament.dry_time_hours ?? null,
+            extrude_temp: filament.extrude_temp ?? null,
             comment: filament.comment || '',
         }
         this.editDialog = true
@@ -290,6 +309,11 @@ export default class FilamentListPanel extends Vue {
                 payload.dry_time_hours = null
             } else {
                 payload.dry_time_hours = Number(payload.dry_time_hours)
+            }
+            if (payload.extrude_temp === '' || payload.extrude_temp == null || isNaN(Number(payload.extrude_temp))) {
+                payload.extrude_temp = null
+            } else {
+                payload.extrude_temp = Math.round(Number(payload.extrude_temp))
             }
 
             if (this.editingFilament) {

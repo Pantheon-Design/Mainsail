@@ -4,6 +4,19 @@ import { RootState } from '@/store/types'
 import { toApiError } from '@/store/fleet/utils'
 import { FleetWorkersState, FleetWorkerRow, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 
+export interface FleetAutoExtruderTempResult {
+    hostname: string
+    filament_type: string | null
+    spool_qr_code: string | null
+    applied: boolean
+    /** Why nothing was sent (only when applied is false). */
+    reason?: string
+    filament?: { id: number; name: string | null; material: string; vendor_name: string | null; extrude_temp: number }
+    temp?: number
+    script?: string
+    result?: string
+}
+
 export const actions: ActionTree<FleetWorkersState, RootState> = {
     /** GET /workers — one row per connected printer (workers and non-workers). */
     async loadWorkers({ commit, rootGetters }) {
@@ -84,6 +97,29 @@ export const actions: ActionTree<FleetWorkersState, RootState> = {
             const response = await axios.post(
                 `${baseUrl}/printer/${encodeURIComponent(payload.hostname)}/gcode`,
                 { script: payload.script },
+                { timeout: 190_000 }
+            )
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
+    /**
+     * POST /printer/{hostname}/auto_extruder_temp — Scanner Lite "Auto Set
+     * Extruder Temp". The daemon matches the printer's filament type against
+     * the fleet filament database and sends SET_HEATER_TEMPERATURE only when
+     * the matching filament has an extrude_temp; otherwise `applied` is false.
+     */
+    async autoSetExtruderTemp(
+        { rootGetters },
+        payload: { hostname: string }
+    ): Promise<FleetAutoExtruderTempResult> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.post(
+                `${baseUrl}/printer/${encodeURIComponent(payload.hostname)}/auto_extruder_temp`,
+                {},
                 { timeout: 190_000 }
             )
             return response.data

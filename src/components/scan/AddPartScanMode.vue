@@ -388,6 +388,7 @@ import { Prop, Watch } from 'vue-property-decorator'
 import { mdiQrcodeScan, mdiClose, mdiCamera, mdiPackageVariantClosed, mdiPrinter3d, mdiCheckCircle, mdiAlertCircle, mdiMagnify, mdiArrowLeft } from '@mdi/js'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
+import { flashScreen } from '@/plugins/scanFlash'
 
 @Component
 export default class AddPartScanMode extends Vue {
@@ -511,6 +512,7 @@ export default class AddPartScanMode extends Vue {
 
     /** Green/red screen flash plus a banner that stays until the next feedback replaces it. */
     addPartFeedback(kind: 'success' | 'error', text: string) {
+        flashScreen(kind)
         this.addPartBanner = { kind, text }
         this.addPartStatusMessage = text
         this.addPartStatusType = kind
@@ -628,10 +630,12 @@ export default class AddPartScanMode extends Vue {
             } else {
                 this.addPartStatusMessage = 'No code found in photo. Ensure the QR code is clearly visible and well-lit.'
                 this.addPartStatusType = 'warning'
+                flashScreen('error')
             }
         } catch {
             this.addPartStatusMessage = 'Failed to process photo. Please try again.'
             this.addPartStatusType = 'error'
+            flashScreen('error')
         } finally {
             this.addPartCameraProcessing = false
         }
