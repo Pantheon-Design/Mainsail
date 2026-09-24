@@ -329,13 +329,17 @@
                     <v-text-field v-model="form.qr_code" label="QR Code" dense outlined
                         hint="Type or scan with USB scanner" />
                     <v-row dense>
-                        <v-col cols="4">
+                        <v-col cols="3">
                             <v-text-field v-model.number="form.initial_weight" label="Initial (g)" dense outlined type="number" />
                         </v-col>
-                        <v-col cols="4">
+                        <v-col cols="3">
                             <v-text-field v-model.number="form.used_weight" label="Used (g)" dense outlined type="number" />
                         </v-col>
-                        <v-col cols="4">
+                        <v-col cols="3">
+                            <!-- Stored as-is by the daemon (not derived from initial - used) -->
+                            <v-text-field v-model.number="form.remaining_weight" label="Remaining (g)" dense outlined type="number" />
+                        </v-col>
+                        <v-col cols="3">
                             <v-text-field v-model.number="form.spool_weight" label="Empty spool (g)" dense outlined type="number" />
                         </v-col>
                     </v-row>
@@ -710,6 +714,7 @@ export default class SpoolListPanel extends Vue {
             qr_code: '',
             initial_weight: null as number | null,
             used_weight: 0,
+            remaining_weight: null as number | null,
             spool_weight: null as number | null,
             location: '',
             lot_nr: '',
@@ -844,6 +849,7 @@ export default class SpoolListPanel extends Vue {
             qr_code: spool.qr_code || '',
             initial_weight: spool.initial_weight,
             used_weight: spool.used_weight,
+            remaining_weight: spool.remaining_weight,
             spool_weight: spool.spool_weight,
             location: spool.location || '',
             lot_nr: spool.lot_nr || '',
@@ -857,6 +863,9 @@ export default class SpoolListPanel extends Vue {
         try {
             const payload: any = { ...this.form }
             for (const key of ['qr_code', 'location', 'lot_nr', 'comment']) {
+                if (payload[key] === '') payload[key] = null
+            }
+            for (const key of ['initial_weight', 'used_weight', 'remaining_weight', 'spool_weight']) {
                 if (payload[key] === '') payload[key] = null
             }
             if (this.editingSpool) {
