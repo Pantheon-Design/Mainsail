@@ -51,35 +51,114 @@ export function ovenGlyph(frame: OvenFrame | null | undefined): string {
     return ready === total ? String(total) : `${ready}/${total}`
 }
 
-/**
- * Material with the most spools in the oven (ties -> alphabetical), computed from
- * `oven.spools[].material`; falls back to the daemon's `top_material` when the frame has
- * no spool list. `EMPTY` for an empty oven, `—` when there is no frame at all.
- */
 export const OVEN_EMPTY_MATERIAL = 'EMPTY'
-export function ovenTopMaterial(frame: OvenFrame | null | undefined): string {
+
+/** Per-spool weights in grams; null when unknown. */
+export interface OvenSpoolWeights {
+    remaining: number | null
+    /** grams the spool holds when full (initial weight) */
+    capacity: number | null
+}
+/** Fallback weights by QR code (the fleet spool list) for frames whose spools carry no
+ *  weight fields (older daemons / oven firmware). */
+export type OvenWeightLookup = (qrCode: string) => OvenSpoolWeights | null | undefined
+
+export function ovenSpoolMaterial(spool: OvenSpoolFrame): string {
+    return (spool.material || '').trim() || 'unknown'
+}
+
+const nonNegative = (v: unknown): number | null => {
+    if (v == null || v === '') return null
+    const n = Number(v)
+    return isFinite(n) && n >= 0 ? n : null
+}
+
+/** Weights for one oven spool: the frame's own fields first, then the lookup fallback. */
+export function ovenSpoolWeights(spool: OvenSpoolFrame, lookup?: OvenWeightLookup): OvenSpoolWeights {
+    let remaining = nonNegative(spool.remaining_weight)
+    let capacity = nonNegative(spool.initial_weight)
+    if ((remaining === null || capacity === null) && lookup && spool.qr_code) {
+        const fb = lookup(spool.qr_code)
+        if (fb) {
+            if (remaining === null) remaining = nonNegative(fb.remaining)
+            if (capacity === null) capacity = nonNegative(fb.capacity)
+        }
+    }
+    return { remaining, capacity }
+}
+
+export interface OvenMaterialStat {
+    material: string
+    count: number
+    /** grams left across the weighed spools of this material */
+    remaining: number
+    /** grams those same spools hold when full */
+    capacity: number
+    /** spools with both weights known (the only ones counted in remaining/capacity) */
+    weighed: number
+}
+
+/**
+ * Per-material spool counts and weights, best first: most spools, then (tie) most filament
+ * left by weight, then name. Only spools with both weights known contribute to the sums.
+ */
+export function ovenMaterialStats(frame: OvenFrame | null | undefined, lookup?: OvenWeightLookup): OvenMaterialStat[] {
+    const spools = frame?.oven?.spools
+    if (!Array.isArray(spools)) return []
+    const stats = new Map<string, OvenMaterialStat>()
+    spools.forEach((s) => {
+        const m = ovenSpoolMaterial(s)
+        const st = stats.get(m) ?? { material: m, count: 0, remaining: 0, capacity: 0, weighed: 0 }
+        st.count++
+        const w = ovenSpoolWeights(s, lookup)
+        if (w.remaining !== null && w.capacity !== null && w.capacity > 0) {
+            st.remaining += w.remaining
+            st.capacity += w.capacity
+            st.weighed++
+        }
+        stats.set(m, st)
+    })
+    return [...stats.values()].sort(
+        (a, b) => b.count - a.count || b.remaining - a.remaining || a.material.localeCompare(b.material)
+    )
+}
+
+/**
+ * Material shown on the marker: the one with the most spools; a tie goes to the one with
+ * more filament left by weight (see ovenMaterialStats). Falls back to the daemon's
+ * `top_material` when the frame has no spool list. `EMPTY` for an empty oven, `—` without a frame.
+ */
+export function ovenTopMaterial(frame: OvenFrame | null | undefined, lookup?: OvenWeightLookup): string {
     if (!frame) return '—'
-    const spools = frame.oven?.spools
-    if (Array.isArray(spools)) {
-        if (spools.length === 0) return OVEN_EMPTY_MATERIAL
-        const counts = new Map<string, number>()
-        spools.forEach((s) => {
-            const m = (s.material || '').trim() || 'unknown'
-            counts.set(m, (counts.get(m) ?? 0) + 1)
-        })
-        let best = ''
-        let bestN = -1
-        counts.forEach((n, m) => {
-            if (n > bestN || (n === bestN && m.localeCompare(best) < 0)) {
-                best = m
-                bestN = n
-            }
-        })
-        return best
+    if (Array.isArray(frame.oven?.spools)) {
+        const stats = ovenMaterialStats(frame, lookup)
+        return stats.length ? stats[0].material : OVEN_EMPTY_MATERIAL
     }
     if (ovenSpoolCount(frame) === 0) return OVEN_EMPTY_MATERIAL
     const top = frame.oven?.top_material
     return top && String(top).trim() ? String(top).trim() : 'unknown'
+}
+
+/** Fill bar for the shown material: grams left / grams when full over its weighed spools; null when unknown. */
+export function ovenMaterialFill(frame: OvenFrame | null | undefined, lookup?: OvenWeightLookup): number | null {
+    const top = ovenMaterialStats(frame, lookup)[0]
+    if (!top || top.capacity <= 0) return null
+    return Math.max(0, Math.min(1, top.remaining / top.capacity))
+}
+
+/** `2.4kg` / `850g`. */
+export function formatWeight(grams: number): string {
+    return grams >= 1000 ? `${(grams / 1000).toFixed(grams >= 10000 ? 0 : 1)}kg` : `${Math.round(grams)}g`
+}
+
+/** Tooltip text: `PC-PBT · 2.0kg / 3.0kg (67%)`; just the name when no weights are known. */
+export function ovenTopMaterialDetail(frame: OvenFrame | null | undefined, lookup?: OvenWeightLookup): string {
+    const top = ovenMaterialStats(frame, lookup)[0]
+    if (!top) return ovenTopMaterial(frame, lookup)
+    if (top.capacity <= 0) return top.material
+    const pct = Math.round((top.remaining / top.capacity) * 100)
+    const partial = top.weighed < top.count ? ` · ${top.weighed}/${top.count} spools weighed` : ''
+    return `${top.material} · ${formatWeight(top.remaining)} / ${formatWeight(top.capacity)} (${pct}%)${partial}`
 }
 
 /** True when the spool's dryer time has elapsed (server flag first, then the `ready_at` clock). */
@@ -93,8 +172,7 @@ export function ovenSpoolIsReady(spool: OvenSpoolFrame, now: number = Date.now()
 }
 
 /**
- * Fire colour on the oven marker, judged on the spools of the top material only
- * (the material printed on the icon):
+ * Fire colour on the oven marker, judged on the spools of the shown (top) material only:
  *   off    no fire: offline, Klipper error, or nothing loaded
  *   red    none of that material's spools are ready
  *   blue   at least one of them is ready
@@ -102,14 +180,19 @@ export function ovenSpoolIsReady(spool: OvenSpoolFrame, now: number = Date.now()
  * Without a per-spool list (daemon summary only) the oven-wide ready/total counts are used.
  */
 export type OvenFire = 'off' | 'red' | 'blue' | 'green'
-export function ovenFire(frame: OvenFrame | null | undefined, status: OvenStatus, now: number = Date.now()): OvenFire {
+export function ovenFire(
+    frame: OvenFrame | null | undefined,
+    status: OvenStatus,
+    lookup?: OvenWeightLookup,
+    now: number = Date.now()
+): OvenFire {
     if (!frame || status === 'disconnected' || status === 'error' || status === 'empty') return 'off'
     const spools = frame.oven?.spools
     let total: number
     let ready: number
     if (Array.isArray(spools)) {
-        const top = ovenTopMaterial(frame)
-        const ofType = spools.filter((s) => ((s.material || '').trim() || 'unknown') === top)
+        const top = ovenTopMaterial(frame, lookup)
+        const ofType = spools.filter((s) => ovenSpoolMaterial(s) === top)
         total = ofType.length
         ready = ofType.filter((s) => ovenSpoolIsReady(s, now)).length
     } else {

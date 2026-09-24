@@ -115,8 +115,10 @@
                 <!-- Ovens (roster deviceType === 'oven'), placed by gridPosition like printers.
                      Pixel-art furnace (public/img/oven): the body PNG is the marker background, the
                      top material over `count/max` (red when over capacity) is stacked in the furnace
-                     window like the printer marker's two rows, and an animated fire sprite burns in
-                     the hearth: red = none of that material ready, blue = some, green = all.
+                     window like the printer marker's two rows, a bar on the right wall shows how full
+                     that material is by weight (grams left / grams when full, hidden when unknown),
+                     and an animated fire sprite burns in the hearth: red = none of that material
+                     ready, blue = some, green = all.
                      No fire when offline / Klipper error / empty (see ovenFire()).
                      One markup for both modes ('map' and 'workers' render this same loop). -->
                 <div
@@ -149,6 +151,9 @@
                                 {{ ovenCountLabel(o.hostname) }}
                             </span>
                         </div>
+                        <span v-if="ovenMaterialFillFor(o.hostname) !== null" class="oven-bar">
+                            <span class="oven-bar-fill" :style="{ height: ovenBarHeight(o.hostname) }"></span>
+                        </span>
                     </div>
                 </div>
 
@@ -166,7 +171,7 @@
                         Spools: {{ hoveredOvenReady }}/{{ hoveredOvenTotal }} ready · capacity {{ hoveredOvenCapacityText }}
                         <span v-if="hoveredOven && ovenIsOverCapacity(hoveredOven.hostname)" class="oven-over">(over capacity)</span>
                     </p>
-                    <p v-if="hoveredOvenFrame && hoveredOvenTotal">Top material: {{ ovenTopMaterialText(hoveredOven.hostname) }}</p>
+                    <p v-if="hoveredOvenFrame && hoveredOvenTotal">Top material: {{ hoveredOvenTopMaterialDetail }}</p>
                     <p v-for="line in hoveredOvenSpoolLines" :key="'s-' + line" class="oven-spool-line">{{ line }}</p>
                     <p
                         v-if="hoveredOvenFrame && hoveredOvenFrame.webhooks && hoveredOvenFrame.webhooks.state_message"
@@ -213,6 +218,8 @@ import {
 } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import { OvenFrame } from '@/store/farm/types'
+import { FleetSpool } from '@/store/fleet/spools/types'
+import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import {
     getOvenStatus,
     ovenCountText,
@@ -227,6 +234,10 @@ import {
     OvenStatus,
     OvenFire,
     ovenFire,
+    ovenMaterialFill,
+    ovenTopMaterialDetail,
+    OvenSpoolWeights,
+    OvenWeightLookup,
     OVEN_LEGEND,
     OVEN_STATUS_META,
 } from '@/components/panels/farmOvenStatus'
@@ -464,9 +475,34 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return ovenMaxSpools(this.ovenFrame(hostname), rosterMax)
     }
 
-    /** Marker top row: most common material (`EMPTY` when the oven holds nothing). */
+    /** Weights by QR code from the fleet spool list: fallback for oven frames without weight fields. */
+    get spoolWeightLookup(): OvenWeightLookup {
+        const byQr = new Map<string, OvenSpoolWeights>()
+        const spools: FleetSpool[] = this.$store.getters['fleet/spools/getSpools'] || []
+        spools.forEach((s) => {
+            if (!s.qr_code) return
+            byQr.set(s.qr_code, { remaining: s.remaining_weight, capacity: s.initial_weight ?? s.filament_weight })
+        })
+        return (qr) => byQr.get(qr) ?? null
+    }
+
+    /** The fleet spool list only feeds the fill bar, so a failed load just hides the bar. */
+    loadSpoolWeights() {
+        this.$store.dispatch('fleet/spools/loadSpools').catch(() => {})
+    }
+
+    /** Marker top row: most common material, ties broken by weight (`EMPTY` when the oven holds nothing). */
     ovenTopMaterialText(hostname: string): string {
-        return ovenTopMaterial(this.ovenFrame(hostname))
+        return ovenTopMaterial(this.ovenFrame(hostname), this.spoolWeightLookup)
+    }
+
+    /** 0..1 fullness of the shown material by weight; null when no spool of it has known weights. */
+    ovenMaterialFillFor(hostname: string): number | null {
+        return ovenMaterialFill(this.ovenFrame(hostname), this.spoolWeightLookup)
+    }
+
+    ovenBarHeight(hostname: string): string {
+        return Math.round((this.ovenMaterialFillFor(hostname) ?? 0) * 100) + '%'
     }
 
     /** Marker bottom row: `5/12` (`5/?` when no capacity is known, `?/12` without a frame). */
@@ -480,7 +516,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     /** Fire colour in the hearth (see ovenFire in farmOvenStatus.ts). */
     ovenFireFor(hostname: string): OvenFire {
-        return ovenFire(this.ovenFrame(hostname), this.ovenStatus(hostname))
+        return ovenFire(this.ovenFrame(hostname), this.ovenStatus(hostname), this.spoolWeightLookup)
     }
 
     ovenDotClass(hostname: string) {
@@ -694,10 +730,15 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     // ---------- lifecycle ----------
     mounted() {
         this.loadGridPositions()
+        this.loadSpoolWeights()
+        fleetDaemonEvents.$on('spool_updated', this.loadSpoolWeights)
+        fleetDaemonEvents.$on('ovens_updated', this.loadSpoolWeights)
     }
 
     beforeDestroy() {
         this.stopTooltipClock()
+        fleetDaemonEvents.$off('spool_updated', this.loadSpoolWeights)
+        fleetDaemonEvents.$off('ovens_updated', this.loadSpoolWeights)
     }
 
     @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
@@ -899,6 +940,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     get hoveredOvenCapacityText(): string {
         const max = this.hoveredOven ? this.ovenMax(this.hoveredOven.hostname) : null
         return max === null ? 'unknown' : String(max)
+    }
+
+    get hoveredOvenTopMaterialDetail(): string {
+        return ovenTopMaterialDetail(this.hoveredOvenFrame, this.spoolWeightLookup)
     }
 
     get hoveredOvenSpoolLines(): string[] {
@@ -1164,10 +1209,13 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     box-sizing: border-box;
     background: url('/img/oven/oven-body.png') center / 100% 100% no-repeat;
     image-rendering: pixelated;
+    /* slightly see-through so the map grid shows behind the furnace */
+    opacity: 0.85;
     filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
 }
 .oven-dot--off {
-    filter: grayscale(1) opacity(0.55);
+    opacity: 0.5;
+    filter: grayscale(1);
 }
 .oven-dot--error {
     filter: drop-shadow(0 0 3px #d32f2f) drop-shadow(0 0 1px #d32f2f);
@@ -1208,8 +1256,8 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 /* Two text rows stacked over the furnace window + band (rows 9-23 of the 36px sprite) */
 .oven-text {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 1px;
+    right: 5px; /* leaves the right wall to the material fill bar */
     top: 22%;
     height: 44%;
     display: flex;
@@ -1220,7 +1268,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     padding: 0 2px;
     box-sizing: border-box;
     color: #fff;
-    text-shadow: 0 0 2px #000, 0 0 2px #000;
+    /* heaviest Roboto face + a hard offset shadow (a blurred glow makes 7-9px strokes look thin) */
+    font-weight: 900;
+    text-shadow: 0 1px 0 #000, 1px 0 0 rgba(0, 0, 0, 0.7);
 }
 .oven-material {
     display: block;
@@ -1228,17 +1278,34 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 800;
     line-height: 1;
-    letter-spacing: -0.01em;
 }
 .oven-count {
-    font-weight: 800;
     line-height: 1;
     white-space: nowrap;
 }
 .oven-count--over {
     color: #ff5252;
+}
+/* Material fill bar on the right wall: grams left / grams when full of the shown material */
+.oven-bar {
+    position: absolute;
+    right: 1px;
+    top: 22%;
+    height: 44%;
+    width: 3px;
+    border-radius: 1px;
+    background: rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    pointer-events: none;
+}
+.oven-bar-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #00e676;
+    transition: height 0.3s ease;
 }
 
 /* Tooltip */

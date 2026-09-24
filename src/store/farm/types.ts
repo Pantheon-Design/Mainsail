@@ -14,6 +14,10 @@ export interface OvenSpoolFrame {
     is_ready: boolean
     material: string | null
     color_hex: string | null
+    /** Grams left / grams when full. Newer daemons + oven firmware only; the map falls back to
+     *  the fleet spool list (by qr_code) when these are missing. */
+    remaining_weight?: number | null
+    initial_weight?: number | null
 }
 
 export interface OvenConfigFrame {
