@@ -113,9 +113,11 @@
                 </div>
 
                 <!-- Ovens (roster deviceType === 'oven'), placed by gridPosition like printers.
-                     Rounded square with a thick status border so they never read as a printer.
-                     Two text rows: top material (most spools, ellipsized) over `count/max`,
-                     plus a fill bar along the bottom edge (full + red count when over capacity).
+                     Pixel-art furnace (public/img/oven): the body PNG is the marker background, the
+                     top material over `count/max` (red when over capacity) is stacked in the furnace
+                     window like the printer marker's two rows, and an animated fire sprite burns in
+                     the hearth: red = none of that material ready, blue = some, green = all.
+                     No fire when offline / Klipper error / empty (see ovenFire()).
                      One markup for both modes ('map' and 'workers' render this same loop). -->
                 <div
                     v-for="o in ovenEntries"
@@ -128,18 +130,25 @@
                     @click="onOvenClick(o.hostname)"
                     @mouseover="showOvenTooltip(o.hostname)"
                     @mouseleave="hideTooltip">
-                    <div class="oven-dot" :style="ovenDotStyle(o.hostname)">
-                        <span class="oven-tag">OVEN</span>
-                        <span class="oven-material" :title="ovenTopMaterialText(o.hostname)">
-                            {{ ovenTopMaterialText(o.hostname) }}
-                        </span>
+                    <div class="oven-dot" :class="ovenDotClass(o.hostname)" :style="ovenDotStyle(o.hostname)">
                         <span
-                            class="oven-count"
-                            :class="{ 'oven-count--over': ovenIsOverCapacity(o.hostname) }"
-                            :style="{ fontSize: ovenCountLabel(o.hostname).length > 5 ? '9px' : '11px' }">
-                            {{ ovenCountLabel(o.hostname) }}
-                        </span>
-                        <span class="oven-fill" :style="ovenFillStyle(o.hostname)"></span>
+                            v-if="ovenFireFor(o.hostname) !== 'off'"
+                            class="oven-fire"
+                            :class="'oven-fire--' + ovenFireFor(o.hostname)"></span>
+                        <div class="oven-text">
+                            <span
+                                class="oven-material"
+                                :title="ovenTopMaterialText(o.hostname)"
+                                :style="{ fontSize: ovenTopMaterialText(o.hostname).length > 4 ? '7px' : '9px' }">
+                                {{ ovenTopMaterialText(o.hostname) }}
+                            </span>
+                            <span
+                                class="oven-count"
+                                :class="{ 'oven-count--over': ovenIsOverCapacity(o.hostname) }"
+                                :style="{ fontSize: ovenCountLabel(o.hostname).length > 5 ? '7px' : '9px' }">
+                                {{ ovenCountLabel(o.hostname) }}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -207,7 +216,6 @@ import { OvenFrame } from '@/store/farm/types'
 import {
     getOvenStatus,
     ovenCountText,
-    ovenFillFraction,
     ovenLabel,
     ovenMaxSpools,
     ovenOverCapacity,
@@ -217,6 +225,8 @@ import {
     ovenTemperatureLines,
     ovenTopMaterial,
     OvenStatus,
+    OvenFire,
+    ovenFire,
     OVEN_LEGEND,
     OVEN_STATUS_META,
 } from '@/components/panels/farmOvenStatus'
@@ -468,36 +478,25 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return ovenOverCapacity(this.ovenFrame(hostname), this.ovenMax(hostname))
     }
 
-    /** Thin bar along the marker's bottom edge, width = min(count/max, 1). */
-    ovenFillStyle(hostname: string) {
+    /** Fire colour in the hearth (see ovenFire in farmOvenStatus.ts). */
+    ovenFireFor(hostname: string): OvenFire {
+        return ovenFire(this.ovenFrame(hostname), this.ovenStatus(hostname))
+    }
+
+    ovenDotClass(hostname: string) {
         const status = this.ovenStatus(hostname)
-        const off = status === 'disconnected'
-        const over = this.ovenIsOverCapacity(hostname)
-        const fraction = ovenFillFraction(this.ovenFrame(hostname), this.ovenMax(hostname))
         return {
-            width: Math.round(fraction * 100) + '%',
-            backgroundColor: over ? OVEN_STATUS_META.error.color : off ? '#c4c4c4' : OVEN_STATUS_META[status].color,
+            'oven-dot--off': status === 'disconnected',
+            'oven-dot--error': status === 'error',
+            'oven-dot--editing': this.isEditing && !this.isDrawing,
         }
     }
 
     ovenDotStyle(hostname: string) {
-        const status = this.ovenStatus(hostname)
-        const off = status === 'disconnected'
-        const color = OVEN_STATUS_META[status].color
-        const size = this.CELL - 8
-        return {
-            width: size + 'px',
-            height: size + 'px',
-            borderRadius: '18%',
-            // Thick colored border on a dark body: the shape + border are the oven signature
-            border: off ? '3px dashed #c4c4c4' : `3.5px solid ${color}`,
-            backgroundColor: off ? 'rgba(80,80,80,.35)' : 'rgba(30, 27, 22, .92)',
-            color: off ? '#e0e0e0' : color,
-            boxShadow: this.isEditing && !this.isDrawing
-                ? '0 0 0 2px rgba(240,211,176,.5), 0 2px 6px rgba(0,0,0,.4)'
-                : off ? 'none' : '0 2px 6px rgba(0,0,0,.4)',
-            opacity: off ? 0.6 : 1,
-        }
+        // 36px = the furnace sprite's native size, so its pixels render 1:1 (no resampling)
+        void hostname
+        const size = this.CELL - 10
+        return { width: size + 'px', height: size + 'px' }
     }
 
     onOvenClick(hostname: string) {
@@ -1154,31 +1153,74 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     line-height: 1;
 }
 
-/* Oven markers: rounded square, thick colored border, "OVEN" tag, top material over
-   count/max, fill bar along the bottom edge */
+/* Oven markers: pixel-art furnace body with material over count/max stacked in the window
+   (same two-row layout as the printer marker) and an animated fire sprite in the hearth */
 .marker.highlighted >>> .oven-dot {
     animation: highlight-pulse 0.9s ease-in-out infinite;
     transform: scale(1.12);
 }
 .oven-dot {
     position: relative;
+    box-sizing: border-box;
+    background: url('/img/oven/oven-body.png') center / 100% 100% no-repeat;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+.oven-dot--off {
+    filter: grayscale(1) opacity(0.55);
+}
+.oven-dot--error {
+    filter: drop-shadow(0 0 3px #d32f2f) drop-shadow(0 0 1px #d32f2f);
+}
+.oven-dot--editing {
+    outline: 2px solid rgba(240, 211, 176, 0.5);
+    outline-offset: 2px;
+    border-radius: 18%;
+}
+.oven-fire {
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    background-size: 300% 100%;
+    background-position-x: 0;
+    image-rendering: pixelated;
+    pointer-events: none;
+    animation: oven-flicker 0.45s steps(3, end) infinite;
+}
+.oven-fire--red {
+    background-image: url('/img/oven/oven-fire-red.png');
+}
+.oven-fire--blue {
+    background-image: url('/img/oven/oven-fire-blue.png');
+}
+.oven-fire--green {
+    background-image: url('/img/oven/oven-fire-green.png');
+}
+/* 3-frame sprite sheet: the steps land on 0% / 50% / 100% = frame 1 / 2 / 3 */
+@keyframes oven-flicker {
+    from {
+        background-position-x: 0;
+    }
+    to {
+        background-position-x: 150%;
+    }
+}
+/* Two text rows stacked over the furnace window + band (rows 9-23 of the 36px sprite) */
+.oven-text {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 22%;
+    height: 44%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0;
+    gap: 1px;
+    padding: 0 2px;
     box-sizing: border-box;
-    /* keep the fill bar inside the rounded corners */
-    overflow: hidden;
-    /* leave room for the fill bar below the text rows */
-    padding: 0 2px 3px;
-}
-.oven-tag {
-    font-size: 6px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    line-height: 1;
-    opacity: 0.7;
+    color: #fff;
+    text-shadow: 0 0 2px #000, 0 0 2px #000;
 }
 .oven-material {
     display: block;
@@ -1186,9 +1228,8 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 8px;
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1;
     letter-spacing: -0.01em;
 }
 .oven-count {
@@ -1197,16 +1238,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     white-space: nowrap;
 }
 .oven-count--over {
-    color: #d32f2f;
-}
-.oven-fill {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 3px;
-    max-width: 100%;
-    transition: width 0.3s ease;
-    pointer-events: none;
+    color: #ff5252;
 }
 
 /* Tooltip */

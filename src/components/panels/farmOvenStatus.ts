@@ -82,6 +82,45 @@ export function ovenTopMaterial(frame: OvenFrame | null | undefined): string {
     return top && String(top).trim() ? String(top).trim() : 'unknown'
 }
 
+/** True when the spool's dryer time has elapsed (server flag first, then the `ready_at` clock). */
+export function ovenSpoolIsReady(spool: OvenSpoolFrame, now: number = Date.now()): boolean {
+    if (spool.is_ready) return true
+    if (spool.ready_at) {
+        const t = new Date(spool.ready_at).getTime()
+        return !isNaN(t) && t <= now
+    }
+    return false
+}
+
+/**
+ * Fire colour on the oven marker, judged on the spools of the top material only
+ * (the material printed on the icon):
+ *   off    no fire: offline, Klipper error, or nothing loaded
+ *   red    none of that material's spools are ready
+ *   blue   at least one of them is ready
+ *   green  all of them are ready
+ * Without a per-spool list (daemon summary only) the oven-wide ready/total counts are used.
+ */
+export type OvenFire = 'off' | 'red' | 'blue' | 'green'
+export function ovenFire(frame: OvenFrame | null | undefined, status: OvenStatus, now: number = Date.now()): OvenFire {
+    if (!frame || status === 'disconnected' || status === 'error' || status === 'empty') return 'off'
+    const spools = frame.oven?.spools
+    let total: number
+    let ready: number
+    if (Array.isArray(spools)) {
+        const top = ovenTopMaterial(frame)
+        const ofType = spools.filter((s) => ((s.material || '').trim() || 'unknown') === top)
+        total = ofType.length
+        ready = ofType.filter((s) => ovenSpoolIsReady(s, now)).length
+    } else {
+        total = ovenSpoolCount(frame)
+        ready = ovenReadyCount(frame)
+    }
+    if (total === 0) return 'off'
+    if (ready === 0) return 'red'
+    return ready < total ? 'blue' : 'green'
+}
+
 /**
  * Soft spool capacity: the roster's `maxSpools` first, then the daemon's `max_spools`,
  * then `shelf_rows * slots_per_row` from the oven config; null when none is known.
