@@ -18,6 +18,8 @@ export interface FleetFilament {
     color_hex: string | null
     settings_extruder_temp: number | null
     settings_bed_temp: number | null
+    /** Hours in an oven before a spool of this filament counts as dry (null -> daemon default). */
+    dry_time_hours: number | null
     comment: string | null
     registered: string
 }
@@ -38,6 +40,17 @@ export interface FleetSpool {
     last_used: string | null
     last_printer: string | null
     loaded_on_printer: string | null
+    // Oven placement (a spool is in at most one of {printer, oven}; see ARCHITECTURE.md "Ovens")
+    in_oven: string | null
+    oven_row: number | null
+    oven_slot: number | null
+    oven_loaded_at: string | null
+    /** Effective dry time (filament value or daemon default), hours */
+    dry_time_hours: number | null
+    ready_at: string | null
+    is_ready: boolean | null
+    /** List/detail endpoints only */
+    seconds_in_oven?: number | null
     registered: string
     // Joined fields from the API
     filament_name: string | null

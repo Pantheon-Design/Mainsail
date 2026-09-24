@@ -41,6 +41,14 @@
                       :style="{ backgroundColor: s.color }"></span>
                 {{ s.label }} {{ s.count }}
             </span>
+            <!-- Ovens are counted apart from printers (never part of the printer statuses) -->
+            <span
+                v-if="ovenCount"
+                class="status-counter status-counter--oven"
+                :title="ovenLegendTitle">
+                <span class="status-dot oven" :style="{ borderColor: OVEN_LEGEND.color }"></span>
+                {{ OVEN_LEGEND.label }}{{ ovenCount === 1 ? '' : 's' }} {{ ovenCount }}
+            </span>
         </div>
 
         <!-- Grid canvas -->
@@ -104,6 +112,49 @@
                     </span>
                 </div>
 
+                <!-- Ovens (roster deviceType === 'oven'), placed by gridPosition like printers.
+                     Rounded square with a thick border + "OVEN" tag so they never read as a printer. -->
+                <div
+                    v-for="o in ovenEntries"
+                    :key="'oven-' + o.hostname"
+                    class="marker marker--oven"
+                    :style="markerWrapStyle(o.hostname)"
+                    :class="{ draggable: isEditing && !isDrawing, highlighted: isHighlighted(o.hostname) }"
+                    :data-oven-id="o.hostname"
+                    @mousedown="isEditing && !isDrawing ? startGridDrag($event, null, o.hostname) : null"
+                    @click="onOvenClick(o.hostname)"
+                    @mouseover="showOvenTooltip(o.hostname)"
+                    @mouseleave="hideTooltip">
+                    <div class="oven-dot" :style="ovenDotStyle(o.hostname)">
+                        <span class="oven-tag">OVEN</span>
+                        <span class="oven-glyph" :style="{ fontSize: ovenGlyphText(o.hostname).length > 3 ? '10px' : '13px' }">
+                            {{ ovenGlyphText(o.hostname) }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Oven tooltip -->
+                <div v-if="hoveredOven" class="tooltip tooltip--oven" :style="tooltipStyle">
+                    <p><strong>{{ hoveredOvenLabel }}</strong> ({{ hoveredOven.hostname }}): {{ hoveredOvenStatusLabel }}</p>
+                    <p v-if="hoveredOvenFrame && hoveredOvenFrame.webhooks && hoveredOvenFrame.webhooks.state">
+                        Klipper: {{ hoveredOvenFrame.webhooks.state }}
+                    </p>
+                    <p v-if="!hoveredOvenFrame">No status from fleet_daemon yet</p>
+                    <p v-else-if="hoveredOvenFrame.fleet_to_printer_ws === false">Daemon → oven websocket: down</p>
+                    <p v-for="t in hoveredOvenTemps" :key="'t-' + t">{{ t }}</p>
+                    <p v-if="hoveredOvenFrame && hoveredOvenLayout">Layout: {{ hoveredOvenLayout }}</p>
+                    <p v-if="hoveredOvenFrame">
+                        Spools: {{ hoveredOvenReady }}/{{ hoveredOvenTotal }} ready
+                    </p>
+                    <p v-for="line in hoveredOvenSpoolLines" :key="'s-' + line" class="oven-spool-line">{{ line }}</p>
+                    <p
+                        v-if="hoveredOvenFrame && hoveredOvenFrame.webhooks && hoveredOvenFrame.webhooks.state_message"
+                        style="white-space: pre-wrap; max-width: 300px;">
+                        <strong>Webhook:</strong><br>{{ hoveredOvenFrame.webhooks.state_message }}
+                    </p>
+                    <p v-if="isEditing" class="oven-hint">Drag to place</p>
+                </div>
+
                 <!-- Tooltip -->
                 <div v-if="hoveredPrinter" class="tooltip" :style="tooltipStyle">
                     <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
@@ -140,9 +191,28 @@ import {
     PrinterStatus,
 } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
+import { OvenFrame } from '@/store/farm/types'
+import {
+    getOvenStatus,
+    ovenGlyph,
+    ovenLabel,
+    ovenReadyCount,
+    ovenSpoolCount,
+    ovenSpoolLine,
+    ovenTemperatureLines,
+    OvenStatus,
+    OVEN_LEGEND,
+    OVEN_STATUS_META,
+} from '@/components/panels/farmOvenStatus'
 import { mdiExclamationThick, mdiHammer } from '@mdi/js'
 
 type MapLocation = 'farm' | 'ground'
+
+interface OvenEntry {
+    /** roster id (gui/remoteprinters key) */
+    id: string
+    hostname: string
+}
 
 @Component({
     components: {
@@ -187,6 +257,8 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         disconnected: { color: '#8a8a8a', label: 'Offline' },
     }
     readonly STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+    // Oven legend entry (shared with Farm.vue through farmOvenStatus.ts)
+    readonly OVEN_LEGEND = OVEN_LEGEND
 
     isEditing = false
     isDrawing = false
@@ -202,7 +274,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     // tooltip
     hoveredPrinter: any = null
+    hoveredOven: OvenEntry | null = null
     tooltipStyle: Record<string, string> = { top: '0px', left: '0px', position: 'absolute' }
+    // Countdown clock for the oven tooltip: ticks only while an oven tooltip is open
+    tooltipNow = Date.now()
+    private tooltipTimer: ReturnType<typeof setInterval> | null = null
 
     // ---------- geometry helpers ----------
     get pad(): number {
@@ -287,6 +363,88 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return this.activePrinterEntries.length
     }
 
+    // ---------- ovens ----------
+    get fleetDaemonOvens(): Record<string, OvenFrame> {
+        return this.$store.state.farm.fleetDaemonOvens || {}
+    }
+
+    /** Roster ovens on this map tab. Driven by the roster (not by WS frames) so an oven
+     *  that has never reported still shows up — as offline — and can be dragged into place. */
+    get ovenEntries(): OvenEntry[] {
+        const seen = new Set<string>()
+        const entries: OvenEntry[] = []
+        for (const [id, entry] of Object.entries(this.remotePrinters)) {
+            const e = entry as any
+            if (e?.deviceType !== 'oven' || !e.hostname) continue
+            if (((e.location as MapLocation) ?? 'farm') !== this.location) continue
+            const key = e.hostname.toLowerCase()
+            if (seen.has(key)) continue
+            seen.add(key)
+            entries.push({ id, hostname: e.hostname })
+        }
+        return entries.sort((a, b) => a.hostname.localeCompare(b.hostname))
+    }
+
+    get ovenCount(): number {
+        return this.ovenEntries.length
+    }
+
+    get ovenLegendTitle(): string {
+        const c: Record<OvenStatus, number> = { drying: 0, ready: 0, empty: 0, error: 0, disconnected: 0 }
+        this.ovenEntries.forEach((o) => {
+            c[this.ovenStatus(o.hostname)]++
+        })
+        return (Object.keys(c) as OvenStatus[])
+            .filter((k) => c[k] > 0)
+            .map((k) => `${OVEN_STATUS_META[k].label} ${c[k]}`)
+            .join(' · ')
+    }
+
+    ovenFrame(hostname: string): OvenFrame | null {
+        const key = hostname.toLowerCase()
+        for (const [h, frame] of Object.entries(this.fleetDaemonOvens)) {
+            if (h.toLowerCase() === key) return frame
+        }
+        return null
+    }
+
+    ovenStatus(hostname: string): OvenStatus {
+        return getOvenStatus(this.ovenFrame(hostname), this.$store.state.farm.fleetDaemonConnected)
+    }
+
+    ovenGlyphText(hostname: string): string {
+        const frame = this.ovenFrame(hostname)
+        if (!frame) return '—'
+        return ovenGlyph(frame)
+    }
+
+    ovenDotStyle(hostname: string) {
+        const status = this.ovenStatus(hostname)
+        const off = status === 'disconnected'
+        const color = OVEN_STATUS_META[status].color
+        const size = this.CELL - 8
+        return {
+            width: size + 'px',
+            height: size + 'px',
+            borderRadius: '18%',
+            // Thick colored border on a dark body: the shape + border are the oven signature
+            border: off ? '3px dashed #c4c4c4' : `3.5px solid ${color}`,
+            backgroundColor: off ? 'rgba(80,80,80,.35)' : 'rgba(30, 27, 22, .92)',
+            color: off ? '#e0e0e0' : color,
+            boxShadow: this.isEditing && !this.isDrawing
+                ? '0 0 0 2px rgba(240,211,176,.5), 0 2px 6px rgba(0,0,0,.4)'
+                : off ? 'none' : '0 2px 6px rgba(0,0,0,.4)',
+            opacity: off ? 0.6 : 1,
+        }
+    }
+
+    onOvenClick(hostname: string) {
+        if (this.isEditing) return
+        // Ovens cannot be fleet workers, so the workers map ignores the click
+        if (this.mode === 'workers') return
+        this.openPrinter({ socket: { hostname, webPort: 80 } })
+    }
+
     /** Worker count, stickers and tooltip lines are shown in workers mode or on request. */
     get workersVisible(): boolean {
         return this.mode === 'workers' || this.showWorkers
@@ -316,7 +474,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get editHint(): string {
         if (this.isDrawing) return 'Draw on the plan — strokes save per map.'
-        if (this.isEditing) return 'Drag any printer to a new cell.'
+        if (this.isEditing) return this.ovenCount ? 'Drag any printer or oven to a new cell.' : 'Drag any printer to a new cell.'
         return ''
     }
 
@@ -477,6 +635,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         this.loadGridPositions()
     }
 
+    beforeDestroy() {
+        this.stopTooltipClock()
+    }
+
     @Watch('$store.state.gui.remoteprinters.printers', { deep: true })
     onRemotePrintersChanged() {
         this.loadGridPositions()
@@ -598,7 +760,13 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     showTooltip(printer: any, hostname: string, _event: MouseEvent) {
         if (this.isEditing) return
+        this.hoveredOven = null
+        this.stopTooltipClock()
         this.hoveredPrinter = printer
+        this.placeTooltip(hostname)
+    }
+
+    placeTooltip(hostname: string) {
         const pos = this.getPrinterGridPosition(hostname)
         const cellLeft = (pos.x - 1) * this.CELL + this.pad
         const cellTop = (pos.y - 1) * this.CELL + this.pad
@@ -613,6 +781,64 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     hideTooltip() {
         this.hoveredPrinter = null
+        this.hoveredOven = null
+        this.stopTooltipClock()
+    }
+
+    // ---------- oven tooltip ----------
+    showOvenTooltip(hostname: string) {
+        if (this.isEditing) return
+        this.hoveredPrinter = null
+        const entry = this.ovenEntries.find((o) => o.hostname === hostname)
+        this.hoveredOven = entry ?? { id: '', hostname }
+        this.placeTooltip(hostname)
+        this.tooltipNow = Date.now()
+        // Countdowns ("3h 12m left") are recomputed from ready_at on every render; the clock
+        // only runs while the oven tooltip is open.
+        if (!this.tooltipTimer) this.tooltipTimer = setInterval(() => (this.tooltipNow = Date.now()), 1000)
+    }
+
+    stopTooltipClock() {
+        if (this.tooltipTimer) {
+            clearInterval(this.tooltipTimer)
+            this.tooltipTimer = null
+        }
+    }
+
+    get hoveredOvenFrame(): OvenFrame | null {
+        return this.hoveredOven ? this.ovenFrame(this.hoveredOven.hostname) : null
+    }
+
+    get hoveredOvenLabel(): string {
+        return this.hoveredOven ? ovenLabel(this.hoveredOvenFrame, this.hoveredOven.hostname) : ''
+    }
+
+    get hoveredOvenStatusLabel(): string {
+        return this.hoveredOven ? OVEN_STATUS_META[this.ovenStatus(this.hoveredOven.hostname)].label : ''
+    }
+
+    get hoveredOvenTemps(): string[] {
+        return ovenTemperatureLines(this.hoveredOvenFrame)
+    }
+
+    get hoveredOvenLayout(): string {
+        const cfg = this.hoveredOvenFrame?.oven?.config
+        if (!cfg || cfg.shelf_rows == null || cfg.slots_per_row == null) return ''
+        return `${cfg.shelf_rows} rows × ${cfg.slots_per_row} slots`
+    }
+
+    get hoveredOvenTotal(): number {
+        return ovenSpoolCount(this.hoveredOvenFrame)
+    }
+
+    get hoveredOvenReady(): number {
+        return ovenReadyCount(this.hoveredOvenFrame)
+    }
+
+    get hoveredOvenSpoolLines(): string[] {
+        const spools = [...(this.hoveredOvenFrame?.oven?.spools ?? [])]
+        spools.sort((a, b) => a.row - b.row || a.slot - b.slot)
+        return spools.map((s) => ovenSpoolLine(s, this.tooltipNow))
     }
 
     getPrinterPrintPercent(printer: any): number {
@@ -684,6 +910,19 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 }
 .status-dot.square {
     border-radius: 2px;
+}
+/* Oven legend dot: hollow rounded square with a thick border, like the marker */
+.status-dot.oven {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: rgba(30, 27, 22, 0.9);
+    border: 2px solid;
+    box-sizing: border-box;
+}
+.status-counter--oven {
+    padding-left: 12px;
+    border-left: 1px solid rgba(128, 128, 128, 0.4);
 }
 
 /* Controls */
@@ -848,6 +1087,32 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     line-height: 1;
 }
 
+/* Oven markers: rounded square, thick colored border, "OVEN" tag + spool counter */
+.marker.highlighted >>> .oven-dot {
+    animation: highlight-pulse 0.9s ease-in-out infinite;
+    transform: scale(1.12);
+}
+.oven-dot {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    box-sizing: border-box;
+}
+.oven-tag {
+    font-size: 6.5px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    opacity: 0.85;
+}
+.oven-glyph {
+    font-weight: 800;
+    line-height: 1;
+}
+
 /* Tooltip */
 .tooltip {
     background-color: rgba(0, 0, 0, 0.78);
@@ -867,5 +1132,14 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     color: #ff8a80;
     white-space: normal;
     max-width: 300px;
+}
+.tooltip .oven-spool-line {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 11px;
+    white-space: pre;
+}
+.tooltip .oven-hint {
+    opacity: 0.6;
+    font-style: italic;
 }
 </style>

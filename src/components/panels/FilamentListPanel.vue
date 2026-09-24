@@ -55,6 +55,9 @@
             <template #item.diameter="{ item }">
                 {{ item.diameter }} mm
             </template>
+            <template #item.dry_time_hours="{ item }">
+                {{ item.dry_time_hours != null ? item.dry_time_hours + ' h' : '—' }}
+            </template>
             <template #item.registered="{ item }">
                 {{ formatDate(item.registered) }}
             </template>
@@ -111,6 +114,13 @@
                             <v-text-field v-model.number="form.settings_bed_temp" label="Bed temp" dense outlined type="number" suffix="°C" />
                         </v-col>
                     </v-row>
+                    <v-text-field
+                        v-model.number="form.dry_time_hours"
+                        label="Dry time (h)"
+                        dense outlined clearable persistent-hint
+                        type="number" min="0" step="0.5"
+                        hint="Hours in an oven before a spool counts as dry; empty = fleet default"
+                        class="mb-2" />
                     <v-text-field v-model="form.comment" label="Comment" dense outlined />
                 </v-card-text>
                 <v-card-actions>
@@ -179,6 +189,7 @@ export default class FilamentListPanel extends Vue {
         { text: 'Density', value: 'density', width: 110 },
         { text: 'Diameter', value: 'diameter', width: 100 },
         { text: 'Net Weight', value: 'weight', width: 110 },
+        { text: 'Dry time', value: 'dry_time_hours', width: 90 },
         { text: 'Registered', value: 'registered', width: 130 },
         { text: 'Actions', value: 'actions', sortable: false, width: 100 },
     ]
@@ -227,6 +238,7 @@ export default class FilamentListPanel extends Vue {
             color_hex: '',
             settings_extruder_temp: null as number | null,
             settings_bed_temp: null as number | null,
+            dry_time_hours: null as number | null,
             comment: '',
         }
     }
@@ -259,6 +271,7 @@ export default class FilamentListPanel extends Vue {
             color_hex: filament.color_hex || '',
             settings_extruder_temp: filament.settings_extruder_temp,
             settings_bed_temp: filament.settings_bed_temp,
+            dry_time_hours: filament.dry_time_hours ?? null,
             comment: filament.comment || '',
         }
         this.editDialog = true
@@ -271,6 +284,12 @@ export default class FilamentListPanel extends Vue {
             // Clean empty strings to null
             for (const key of ['name', 'color_hex', 'comment']) {
                 if (payload[key] === '') payload[key] = null
+            }
+            // v-model.number leaves '' (or null after clear) when the field is emptied
+            if (payload.dry_time_hours === '' || payload.dry_time_hours == null || isNaN(Number(payload.dry_time_hours))) {
+                payload.dry_time_hours = null
+            } else {
+                payload.dry_time_hours = Number(payload.dry_time_hours)
             }
 
             if (this.editingFilament) {

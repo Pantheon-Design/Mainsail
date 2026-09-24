@@ -80,6 +80,9 @@
                             <tr><td class="font-weight-bold">Remaining</td><td>{{ spool.remaining_weight != null ? spool.remaining_weight.toFixed(0) + ' g' : '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Loaded On</td><td>
                                 <v-chip v-if="spool.loaded_on_printer" x-small color="success" dark>{{ spool.loaded_on_printer }}</v-chip>
+                                <v-chip v-else-if="spool.in_oven" x-small :color="spool.is_ready ? 'light-blue darken-1' : 'amber darken-2'" dark>
+                                    oven {{ (spool.in_oven || '').replace(/\.local$/i, '') }}<template v-if="spool.oven_row != null"> · R{{ spool.oven_row }}S{{ spool.oven_slot }}</template>
+                                </v-chip>
                                 <span v-else>Not loaded</span>
                             </td></tr>
                             <tr><td class="font-weight-bold">Location</td><td>{{ spool.location || '—' }}</td></tr>

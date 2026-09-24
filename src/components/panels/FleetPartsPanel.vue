@@ -333,6 +333,9 @@
                                 <tr><td class="font-weight-bold">Remaining</td><td>{{ detailSpool.remaining_weight != null ? detailSpool.remaining_weight.toFixed(0) + ' g' : '—' }}</td></tr>
                                 <tr><td class="font-weight-bold">Loaded On</td><td>
                                     <v-chip v-if="detailSpool.loaded_on_printer" x-small color="success" dark>{{ detailSpool.loaded_on_printer }}</v-chip>
+                                    <v-chip v-else-if="detailSpool.in_oven" x-small :color="detailSpool.is_ready ? 'light-blue darken-1' : 'amber darken-2'" dark>
+                                        oven {{ (detailSpool.in_oven || '').replace(/\.local$/i, '') }}<template v-if="detailSpool.oven_row != null"> · R{{ detailSpool.oven_row }}S{{ detailSpool.oven_slot }}</template>
+                                    </v-chip>
                                     <span v-else>Not loaded</span>
                                 </td></tr>
                                 <tr><td class="font-weight-bold">Location</td><td>{{ detailSpool.location || '—' }}</td></tr>

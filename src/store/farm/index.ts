@@ -1,12 +1,13 @@
 import { printer } from '@/store/farm/printer'
 import { Module } from 'vuex'
-import { FarmState } from '@/store/farm/types'
+import { FarmState, OvenFrame } from '@/store/farm/types'
 import { RootState } from '@/store/types'
 import Vue from 'vue'
 
 export const getDefaultState = (): FarmState => {
     return {
         fleetDaemonPrinters: {},
+        fleetDaemonOvens: {},
         fleetDaemonConnected: false,
     }
 }
@@ -42,6 +43,10 @@ export const farm: Module<FarmState, RootState> = {
         },
         getFleetDaemonPrinters: (state) => {
             return state.fleetDaemonPrinters || {}
+        },
+        // Ovens (device_type === 'oven' frames) - kept apart from fleetDaemonPrinters
+        getFleetDaemonOvens: (state): { [hostname: string]: OvenFrame } => {
+            return state.fleetDaemonOvens || {}
         },
     },
     actions: {
@@ -122,6 +127,23 @@ export const farm: Module<FarmState, RootState> = {
         // Clear all fleet daemon printers
         CLEAR_FLEET_DAEMON_PRINTERS(state) {
             Vue.set(state, 'fleetDaemonPrinters', {});
+        },
+
+        // ---- Ovens: separate map, never merged into fleetDaemonPrinters ----
+        SET_FLEET_DAEMON_OVEN(state, payload: { hostname: string; data: OvenFrame }) {
+            const { hostname, data } = payload
+            if (!state.fleetDaemonOvens) Vue.set(state, 'fleetDaemonOvens', {})
+            Vue.set(state.fleetDaemonOvens, hostname, { ...data, hostname, device_type: 'oven' })
+        },
+
+        REMOVE_FLEET_DAEMON_OVEN(state, hostname: string) {
+            if (state.fleetDaemonOvens && hostname in state.fleetDaemonOvens) {
+                Vue.delete(state.fleetDaemonOvens, hostname)
+            }
+        },
+
+        CLEAR_FLEET_DAEMON_OVENS(state) {
+            Vue.set(state, 'fleetDaemonOvens', {})
         },
 
         // Track fleet daemon WebSocket connection state

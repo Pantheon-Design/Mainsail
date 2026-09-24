@@ -142,6 +142,9 @@
                         </template>
                         <template #item.loaded_on_printer="{ item }">
                             <v-chip v-if="item.loaded_on_printer" x-small color="success" dark>{{ item.loaded_on_printer }}</v-chip>
+                            <v-chip v-else-if="item.in_oven" x-small :color="item.is_ready ? 'light-blue darken-1' : 'amber darken-2'" dark>
+                                {{ (item.in_oven || '').replace(/\.local$/i, '') }}<template v-if="item.oven_row != null"> · R{{ item.oven_row }}S{{ item.oven_slot }}</template>
+                            </v-chip>
                             <span v-else>—</span>
                         </template>
                     </v-data-table>
@@ -199,7 +202,7 @@ export default class AddSpoolScanMode extends Vue {
         { text: 'Initial', value: 'initial_weight', sortable: true },
         { text: 'Remaining', value: 'remaining_weight', sortable: true },
         { text: 'Lot #', value: 'lot_nr', sortable: true },
-        { text: 'Loaded On', value: 'loaded_on_printer', sortable: true },
+        { text: 'Placement', value: 'loaded_on_printer', sortable: true },
     ]
 
     created() {

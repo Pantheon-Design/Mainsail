@@ -55,7 +55,8 @@
                 {{ qrResult.material }} ({{ qrResult.vendor_name || 'No vendor' }}),
                 Remaining: {{ qrResult.remaining_weight != null ? qrResult.remaining_weight.toFixed(0) + ' g' : '—' }},
                 Location: {{ qrResult.location || '—' }},
-                Loaded on: {{ qrResult.loaded_on_printer || 'None' }}
+                Loaded on: {{ qrResult.loaded_on_printer || 'None' }} /
+                In oven: {{ qrResult.in_oven ? ovenPlacement(qrResult) + ' (' + readiness(qrResult) + ')' : 'None' }}
             </v-alert>
         </v-card-text>
         <v-card-text v-if="qrError" class="pt-0 pb-2">
@@ -73,7 +74,7 @@
                         clearable dense outlined hide-details
                         @change="reloadSpools" />
                 </v-col>
-                <v-col cols="12" sm="3">
+                <v-col cols="12" sm="2">
                     <v-text-field
                         v-model="filterLocation"
                         label="Location"
@@ -81,13 +82,20 @@
                         @input="reloadSpoolsDebounced"
                         @click:clear="filterLocation = ''; reloadSpools()" />
                 </v-col>
-                <v-col cols="12" sm="3">
+                <v-col cols="12" sm="2">
                     <v-text-field
                         v-model="filterLotNr"
                         label="Lot #"
                         clearable dense outlined hide-details
                         @input="reloadSpoolsDebounced"
                         @click:clear="filterLotNr = ''; reloadSpools()" />
+                </v-col>
+                <v-col cols="12" sm="2">
+                    <v-select
+                        v-model="filterPlacement"
+                        :items="placementOptions"
+                        label="Placement"
+                        dense outlined hide-details />
                 </v-col>
                 <v-col cols="12" sm="3">
                     <v-checkbox
@@ -136,6 +144,18 @@
             </template>
             <template #item.loaded_on_printer="{ item }">
                 <v-chip v-if="item.loaded_on_printer" x-small color="success" dark>{{ item.loaded_on_printer }}</v-chip>
+                <v-tooltip v-else-if="item.in_oven" bottom>
+                    <template #activator="{ on, attrs }">
+                        <v-chip
+                            x-small dark
+                            :color="item.is_ready ? 'light-blue darken-1' : 'amber darken-2'"
+                            v-bind="attrs"
+                            v-on="on">
+                            {{ ovenPlacement(item) }}
+                        </v-chip>
+                    </template>
+                    <span>{{ readiness(item) }}<template v-if="item.ready_at"> · ready {{ formatDateTime(item.ready_at) }}</template></span>
+                </v-tooltip>
                 <span v-else>—</span>
             </template>
             <template #item.last_used="{ item }">
@@ -191,6 +211,23 @@
                             <tr><td class="font-weight-bold">Loaded On</td><td>
                                 <v-chip v-if="detailSpool.loaded_on_printer" x-small color="success" dark>{{ detailSpool.loaded_on_printer }}</v-chip>
                                 <span v-else>Not loaded</span>
+                            </td></tr>
+                            <tr><td class="font-weight-bold">In oven</td><td>
+                                <v-chip
+                                    v-if="detailSpool.in_oven"
+                                    x-small dark
+                                    :color="detailSpool.is_ready ? 'light-blue darken-1' : 'amber darken-2'">
+                                    {{ ovenPlacement(detailSpool) }}
+                                </v-chip>
+                                <span v-else>—</span>
+                            </td></tr>
+                            <tr v-if="detailSpool.in_oven"><td class="font-weight-bold">Drying since</td><td>
+                                {{ formatDateTime(detailSpool.oven_loaded_at) }}
+                                <span v-if="detailSpool.dry_time_hours != null" class="grey--text"> · dry time {{ detailSpool.dry_time_hours }} h</span>
+                            </td></tr>
+                            <tr v-if="detailSpool.in_oven"><td class="font-weight-bold">Ready</td><td>
+                                <strong v-if="readiness(detailSpool) === 'READY'" class="light-blue--text">READY</strong>
+                                <template v-else>{{ formatDateTime(detailSpool.ready_at) }} ({{ readiness(detailSpool) }})</template>
                             </td></tr>
                             <tr><td class="font-weight-bold">Last Printer</td><td>{{ detailSpool.last_printer || '—' }}</td></tr>
                             <tr><td class="font-weight-bold">Last Used</td><td>{{ formatDate(detailSpool.last_used) }}</td></tr>
@@ -375,6 +412,7 @@ import Component from 'vue-class-component'
 import { mdiPlus, mdiPencil, mdiArchive, mdiDelete, mdiBug, mdiCog, mdiClose, mdiQrcodeScan } from '@mdi/js'
 import { FleetSpool, FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
+import { formatReadiness, ovenPlacementText } from '@/components/panels/farmOvenStatus'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 import { mdiSpool } from '@/plugins/customIcons'
 import AddSpoolScanMode from '@/components/scan/AddSpoolScanMode.vue'
@@ -415,6 +453,13 @@ export default class SpoolListPanel extends Vue {
     filterMaterial: string | null = null
     filterLocation: string | null = null
     filterLotNr: string | null = null
+    filterPlacement: 'any' | 'printer' | 'oven' | 'free' = 'any'
+    readonly placementOptions = [
+        { text: 'Placement: any', value: 'any' },
+        { text: 'On printer', value: 'printer' },
+        { text: 'In oven', value: 'oven' },
+        { text: 'Free', value: 'free' },
+    ]
     showArchived = false
 
     qrSearch = ''
@@ -450,7 +495,9 @@ export default class SpoolListPanel extends Vue {
         { text: 'Remaining', value: 'remaining_weight', sortable: true },
         { text: 'Location', value: 'location', sortable: true },
         { text: 'Lot #', value: 'lot_nr', sortable: true },
-        { text: 'Loaded On', value: 'loaded_on_printer', sortable: true },
+        // Placement: printer chip (loaded_on_printer) or oven chip (in_oven). The column key
+        // stays 'loaded_on_printer' so saved column-visibility settings keep working.
+        { text: 'Placement', value: 'loaded_on_printer', sortable: true },
         { text: 'Last Printer', value: 'last_printer', sortable: true },
         { text: 'Last Used', value: 'last_used', sortable: true },
         { text: '', value: 'archived', sortable: false },
@@ -485,6 +532,7 @@ export default class SpoolListPanel extends Vue {
     mounted() {
         this.$nextTick(() => this.attachResizeHandles())
         fleetDaemonEvents.$on('spool_updated', this.onSpoolUpdated)
+        fleetDaemonEvents.$on('ovens_updated', this.onSpoolUpdated)
     }
 
     updated() {
@@ -493,6 +541,7 @@ export default class SpoolListPanel extends Vue {
 
     beforeDestroy() {
         fleetDaemonEvents.$off('spool_updated', this.onSpoolUpdated)
+        fleetDaemonEvents.$off('ovens_updated', this.onSpoolUpdated)
         this.cleanupResizeListeners()
     }
 
@@ -544,10 +593,21 @@ export default class SpoolListPanel extends Vue {
         })
     }
 
+    matchesPlacement(s: FleetSpool): boolean {
+        switch (this.filterPlacement) {
+            case 'printer': return !!s.loaded_on_printer
+            case 'oven': return !!s.in_oven
+            case 'free': return !s.loaded_on_printer && !s.in_oven
+            default: return true
+        }
+    }
+
     get filteredSpools(): FleetSpool[] {
-        if (this.devMode) return this.spools
+        // Placement is always client-side (the API only filters by a specific oven hostname)
+        if (this.devMode) return this.spools.filter((s) => this.matchesPlacement(s))
         // Client-side filters when not in dev mode
         return this.spools.filter((s) => {
+            if (!this.matchesPlacement(s)) return false
             if (this.filterMaterial && s.material !== this.filterMaterial) return false
             if (this.filterLocation && !(s.location || '').toLowerCase().includes(this.filterLocation.toLowerCase())) return false
             if (this.filterLotNr && !(s.lot_nr || '').toLowerCase().includes(this.filterLotNr.toLowerCase())) return false
@@ -667,6 +727,23 @@ export default class SpoolListPanel extends Vue {
     formatDate(iso: string | null): string {
         if (!iso) return '—'
         return new Date(iso).toLocaleDateString()
+    }
+
+    formatDateTime(iso: string | null | undefined): string {
+        if (!iso) return '—'
+        const d = new Date(iso)
+        if (isNaN(d.getTime())) return '—'
+        return d.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' } as any)
+    }
+
+    /** `oven1 · R1S3` */
+    ovenPlacement(spool: FleetSpool): string {
+        return ovenPlacementText(spool.in_oven, spool.oven_row, spool.oven_slot)
+    }
+
+    /** `READY` or `3h 12m left`, from ready_at (client clock) with is_ready as fallback */
+    readiness(spool: FleetSpool): string {
+        return formatReadiness(spool.ready_at, spool.is_ready)
     }
 
     remainingClass(item: FleetSpool): string {

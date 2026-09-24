@@ -1,6 +1,7 @@
 import store from '@/store'
 import Vue from 'vue'
 import { PrinterModel } from '@/store/gui/remoteprinters/types'
+import { OvenFrame } from '@/store/farm/types'
 
 /**
  * Singleton WebSocket client for fleet_daemon.
@@ -73,10 +74,27 @@ class FleetDaemonClient {
 
                     const message = JSON.parse(event.data)
 
-                    // Oven frames ({hostname, device_type: 'oven', update|removed}) are not
-                    // printers: the farm store is printer-only in Phase 1, so drop them here
-                    // instead of letting an oven appear as an offline printer.
-                    if (message.device_type === 'oven') return
+                    // Oven frames ({hostname, device_type: 'oven', update|removed}) go to their
+                    // own store map (farm.fleetDaemonOvens): printer counters, the worker list and
+                    // status derivation read fleetDaemonPrinters and must stay printer-only.
+                    if (message.device_type === 'oven') {
+                        if (!message.hostname) return
+                        if (message.removed) {
+                            store.commit('farm/REMOVE_FLEET_DAEMON_OVEN', message.hostname)
+                        } else if (message.update) {
+                            const ovenData: OvenFrame = {
+                                ...message.update,
+                                hostname: message.hostname,
+                                device_type: 'oven',
+                                received_at: Date.now(),
+                            }
+                            store.commit('farm/SET_FLEET_DAEMON_OVEN', {
+                                hostname: message.hostname,
+                                data: ovenData,
+                            })
+                        }
+                        return
+                    }
 
                     if (message.removed && message.hostname) {
                         store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname)
@@ -110,6 +128,9 @@ class FleetDaemonClient {
                     }
                     if (message.event === 'spool_updated') {
                         fleetDaemonEvents.$emit('spool_updated')
+                    }
+                    if (message.event === 'ovens_updated') {
+                        fleetDaemonEvents.$emit('ovens_updated')
                     }
                     if (message.event === 'gcodes_updated') {
                         fleetDaemonEvents.$emit('gcodes_updated')

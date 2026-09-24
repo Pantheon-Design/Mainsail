@@ -17,6 +17,14 @@
                               :style="{ backgroundColor: s.color }"></span>
                         {{ s.label }} {{ s.count }}
                     </span>
+                    <!-- Ovens: separate count, never mixed into the printer statuses above -->
+                    <span
+                        v-if="totalOvenCount"
+                        class="status-counter status-counter--oven"
+                        :title="ovenLegendTitle">
+                        <span class="status-dot oven" :style="{ borderColor: OVEN_LEGEND.color }"></span>
+                        {{ OVEN_LEGEND.label }}{{ totalOvenCount === 1 ? '' : 's' }} {{ totalOvenCount }}
+                    </span>
                 </div>
             </div>
         </div>
@@ -58,6 +66,8 @@ import {
     getPrinterStatus as getPrinterStatusUtil,
     PrinterStatus,
 } from '@/components/panels/farmPrinterStatus'
+import { getOvenStatus, OvenStatus, OVEN_LEGEND, OVEN_STATUS_META } from '@/components/panels/farmOvenStatus'
+import { OvenFrame } from '@/store/farm/types'
 
 @Component({
     components: {
@@ -143,6 +153,47 @@ export default class PageFarm extends Mixins(BaseMixin) {
         disconnected: { color: '#8a8a8a', label: 'Offline' },
     }
     readonly STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+    // Oven legend entry (shared with FarmMapSection through farmOvenStatus.ts)
+    readonly OVEN_LEGEND = OVEN_LEGEND
+
+    // ---- Ovens: roster entries with deviceType === 'oven' (both floors), status from farm.fleetDaemonOvens ----
+    get ovenHostnames(): string[] {
+        const roster = this.$store.state.gui?.remoteprinters?.printers || {}
+        const seen = new Set<string>()
+        const out: string[] = []
+        Object.values(roster).forEach((e: any) => {
+            if (e?.deviceType !== 'oven' || !e.hostname) return
+            const key = e.hostname.toLowerCase()
+            if (seen.has(key)) return
+            seen.add(key)
+            out.push(e.hostname)
+        })
+        return out
+    }
+
+    get totalOvenCount(): number {
+        return this.ovenHostnames.length
+    }
+
+    ovenFrame(hostname: string): OvenFrame | null {
+        const ovens: Record<string, OvenFrame> = this.$store.state.farm.fleetDaemonOvens || {}
+        const key = hostname.toLowerCase()
+        for (const [h, frame] of Object.entries(ovens)) {
+            if (h.toLowerCase() === key) return frame
+        }
+        return null
+    }
+
+    get ovenLegendTitle(): string {
+        const c: Record<OvenStatus, number> = { drying: 0, ready: 0, empty: 0, error: 0, disconnected: 0 }
+        this.ovenHostnames.forEach((h) => {
+            c[getOvenStatus(this.ovenFrame(h), this.$store.state.farm.fleetDaemonConnected)]++
+        })
+        return (Object.keys(c) as OvenStatus[])
+            .filter((k) => c[k] > 0)
+            .map((k) => `${OVEN_STATUS_META[k].label} ${c[k]}`)
+            .join(' · ')
+    }
 
     get fleetDaemonPrinters() {
         const all = this.$store.state.farm.fleetDaemonPrinters || {}
@@ -215,5 +266,18 @@ export default class PageFarm extends Mixins(BaseMixin) {
 }
 .status-dot.square {
     border-radius: 2px;
+}
+/* Oven legend dot: hollow rounded square with a thick border, like the map marker */
+.status-dot.oven {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: rgba(30, 27, 22, 0.9);
+    border: 2px solid;
+    box-sizing: border-box;
+}
+.status-counter--oven {
+    padding-left: 12px;
+    border-left: 1px solid rgba(128, 128, 128, 0.4);
 }
 </style>
