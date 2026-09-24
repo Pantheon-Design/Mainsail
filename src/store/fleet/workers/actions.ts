@@ -70,6 +70,28 @@ export const actions: ActionTree<FleetWorkersState, RootState> = {
         }
     },
 
+    /**
+     * POST /printer/{hostname}/gcode — run a G-code script on one printer.
+     * The daemon forwards it to Moonraker's `printer.gcode.script` and only
+     * answers once Klipper has finished the script (a G28 waits for homing).
+     */
+    async sendGcode(
+        { rootGetters },
+        payload: { hostname: string; script: string }
+    ): Promise<{ hostname: string; script: string; result: string }> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.post(
+                `${baseUrl}/printer/${encodeURIComponent(payload.hostname)}/gcode`,
+                { script: payload.script },
+                { timeout: 190_000 }
+            )
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
     /** POST /scheduler/tick — wakes the scheduler loop. */
     async triggerTick({ rootGetters }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
