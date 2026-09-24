@@ -47,7 +47,7 @@
                 class="status-counter status-counter--oven"
                 :title="ovenLegendTitle">
                 <span class="status-dot oven" :style="{ borderColor: OVEN_LEGEND.color }"></span>
-                {{ OVEN_LEGEND.label }}{{ ovenCount === 1 ? '' : 's' }} {{ ovenCount }}
+                {{ OVEN_LEGEND.label }}{{ ovenCount === 1 ? '' : 's' }} {{ ovenCount }}<span v-if="ovenSpoolTotals"> · {{ ovenSpoolTotals }}</span>
             </span>
         </div>
 
@@ -113,7 +113,10 @@
                 </div>
 
                 <!-- Ovens (roster deviceType === 'oven'), placed by gridPosition like printers.
-                     Rounded square with a thick border + "OVEN" tag so they never read as a printer. -->
+                     Rounded square with a thick status border so they never read as a printer.
+                     Two text rows: top material (most spools, ellipsized) over `count/max`,
+                     plus a fill bar along the bottom edge (full + red count when over capacity).
+                     One markup for both modes ('map' and 'workers' render this same loop). -->
                 <div
                     v-for="o in ovenEntries"
                     :key="'oven-' + o.hostname"
@@ -127,9 +130,16 @@
                     @mouseleave="hideTooltip">
                     <div class="oven-dot" :style="ovenDotStyle(o.hostname)">
                         <span class="oven-tag">OVEN</span>
-                        <span class="oven-glyph" :style="{ fontSize: ovenGlyphText(o.hostname).length > 3 ? '10px' : '13px' }">
-                            {{ ovenGlyphText(o.hostname) }}
+                        <span class="oven-material" :title="ovenTopMaterialText(o.hostname)">
+                            {{ ovenTopMaterialText(o.hostname) }}
                         </span>
+                        <span
+                            class="oven-count"
+                            :class="{ 'oven-count--over': ovenIsOverCapacity(o.hostname) }"
+                            :style="{ fontSize: ovenCountLabel(o.hostname).length > 5 ? '9px' : '11px' }">
+                            {{ ovenCountLabel(o.hostname) }}
+                        </span>
+                        <span class="oven-fill" :style="ovenFillStyle(o.hostname)"></span>
                     </div>
                 </div>
 
@@ -144,8 +154,10 @@
                     <p v-for="t in hoveredOvenTemps" :key="'t-' + t">{{ t }}</p>
                     <p v-if="hoveredOvenFrame && hoveredOvenLayout">Layout: {{ hoveredOvenLayout }}</p>
                     <p v-if="hoveredOvenFrame">
-                        Spools: {{ hoveredOvenReady }}/{{ hoveredOvenTotal }} ready
+                        Spools: {{ hoveredOvenReady }}/{{ hoveredOvenTotal }} ready · capacity {{ hoveredOvenCapacityText }}
+                        <span v-if="hoveredOven && ovenIsOverCapacity(hoveredOven.hostname)" class="oven-over">(over capacity)</span>
                     </p>
+                    <p v-if="hoveredOvenFrame && hoveredOvenTotal">Top material: {{ ovenTopMaterialText(hoveredOven.hostname) }}</p>
                     <p v-for="line in hoveredOvenSpoolLines" :key="'s-' + line" class="oven-spool-line">{{ line }}</p>
                     <p
                         v-if="hoveredOvenFrame && hoveredOvenFrame.webhooks && hoveredOvenFrame.webhooks.state_message"
@@ -194,12 +206,16 @@ import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from 
 import { OvenFrame } from '@/store/farm/types'
 import {
     getOvenStatus,
-    ovenGlyph,
+    ovenCountText,
+    ovenFillFraction,
     ovenLabel,
+    ovenMaxSpools,
+    ovenOverCapacity,
     ovenReadyCount,
     ovenSpoolCount,
     ovenSpoolLine,
     ovenTemperatureLines,
+    ovenTopMaterial,
     OvenStatus,
     OVEN_LEGEND,
     OVEN_STATUS_META,
@@ -400,6 +416,26 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
             .join(' · ')
     }
 
+    /** Legend suffix `5/24 spools` (sum over ovens with a frame; max only when every one is known). */
+    get ovenSpoolTotals(): string {
+        let spools = 0
+        let max = 0
+        let allMaxKnown = true
+        let anyFrame = false
+        this.ovenEntries.forEach((o) => {
+            const frame = this.ovenFrame(o.hostname)
+            if (frame) {
+                anyFrame = true
+                spools += ovenSpoolCount(frame)
+            }
+            const m = this.ovenMax(o.hostname)
+            if (m === null) allMaxKnown = false
+            else max += m
+        })
+        if (!anyFrame) return ''
+        return allMaxKnown ? `${spools}/${max} spools` : `${spools} spools`
+    }
+
     ovenFrame(hostname: string): OvenFrame | null {
         const key = hostname.toLowerCase()
         for (const [h, frame] of Object.entries(this.fleetDaemonOvens)) {
@@ -412,10 +448,36 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return getOvenStatus(this.ovenFrame(hostname), this.$store.state.farm.fleetDaemonConnected)
     }
 
-    ovenGlyphText(hostname: string): string {
-        const frame = this.ovenFrame(hostname)
-        if (!frame) return '—'
-        return ovenGlyph(frame)
+    /** Soft capacity: roster `maxSpools` → daemon `max_spools` → rows × slots → null. */
+    ovenMax(hostname: string): number | null {
+        const rosterMax = this.$store.getters['gui/remoteprinters/getMaxSpools'](hostname) as number | null
+        return ovenMaxSpools(this.ovenFrame(hostname), rosterMax)
+    }
+
+    /** Marker top row: most common material (`EMPTY` when the oven holds nothing). */
+    ovenTopMaterialText(hostname: string): string {
+        return ovenTopMaterial(this.ovenFrame(hostname))
+    }
+
+    /** Marker bottom row: `5/12` (`5/?` when no capacity is known, `?/12` without a frame). */
+    ovenCountLabel(hostname: string): string {
+        return ovenCountText(this.ovenFrame(hostname), this.ovenMax(hostname))
+    }
+
+    ovenIsOverCapacity(hostname: string): boolean {
+        return ovenOverCapacity(this.ovenFrame(hostname), this.ovenMax(hostname))
+    }
+
+    /** Thin bar along the marker's bottom edge, width = min(count/max, 1). */
+    ovenFillStyle(hostname: string) {
+        const status = this.ovenStatus(hostname)
+        const off = status === 'disconnected'
+        const over = this.ovenIsOverCapacity(hostname)
+        const fraction = ovenFillFraction(this.ovenFrame(hostname), this.ovenMax(hostname))
+        return {
+            width: Math.round(fraction * 100) + '%',
+            backgroundColor: over ? OVEN_STATUS_META.error.color : off ? '#c4c4c4' : OVEN_STATUS_META[status].color,
+        }
     }
 
     ovenDotStyle(hostname: string) {
@@ -835,6 +897,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return ovenReadyCount(this.hoveredOvenFrame)
     }
 
+    get hoveredOvenCapacityText(): string {
+        const max = this.hoveredOven ? this.ovenMax(this.hoveredOven.hostname) : null
+        return max === null ? 'unknown' : String(max)
+    }
+
     get hoveredOvenSpoolLines(): string[] {
         const spools = [...(this.hoveredOvenFrame?.oven?.spools ?? [])]
         spools.sort((a, b) => a.row - b.row || a.slot - b.slot)
@@ -1087,7 +1154,8 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     line-height: 1;
 }
 
-/* Oven markers: rounded square, thick colored border, "OVEN" tag + spool counter */
+/* Oven markers: rounded square, thick colored border, "OVEN" tag, top material over
+   count/max, fill bar along the bottom edge */
 .marker.highlighted >>> .oven-dot {
     animation: highlight-pulse 0.9s ease-in-out infinite;
     transform: scale(1.12);
@@ -1098,19 +1166,47 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1px;
+    gap: 0;
     box-sizing: border-box;
+    /* keep the fill bar inside the rounded corners */
+    overflow: hidden;
+    /* leave room for the fill bar below the text rows */
+    padding: 0 2px 3px;
 }
 .oven-tag {
-    font-size: 6.5px;
+    font-size: 6px;
     font-weight: 800;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     line-height: 1;
-    opacity: 0.85;
+    opacity: 0.7;
 }
-.oven-glyph {
+.oven-material {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+}
+.oven-count {
     font-weight: 800;
     line-height: 1;
+    white-space: nowrap;
+}
+.oven-count--over {
+    color: #d32f2f;
+}
+.oven-fill {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    max-width: 100%;
+    transition: width 0.3s ease;
+    pointer-events: none;
 }
 
 /* Tooltip */
@@ -1141,5 +1237,8 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 .tooltip .oven-hint {
     opacity: 0.6;
     font-style: italic;
+}
+.tooltip .oven-over {
+    color: #ff8a80;
 }
 </style>

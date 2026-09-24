@@ -101,6 +101,25 @@
                         hide-details="auto"
                         @change="onDeviceTypeChange" />
                 </settings-row>
+                <!-- NEW: Max spools (ovens only) — soft capacity shown as count/max on the map
+                     marker; nothing blocks adding spools beyond it -->
+                <template v-if="isOven">
+                    <v-divider class="my-2"></v-divider>
+                    <settings-row
+                        :title="$t('Settings.RemotePrintersTab.MaxSpools')"
+                        :sub-title="$t('Settings.RemotePrintersTab.MaxSpoolsDescription')">
+                        <v-text-field
+                            v-model="form.maxSpools"
+                            type="number"
+                            min="1"
+                            step="1"
+                            :rules="[maxSpoolsRule]"
+                            hide-details="auto"
+                            dense
+                            outlined
+                            clearable></v-text-field>
+                    </settings-row>
+                </template>
             </v-card-text>
             <v-card-actions class="d-flex justify-end">
                 <v-btn text @click="form.bool = false">{{ $t('Settings.Cancel') }}</v-btn>
@@ -138,6 +157,8 @@ interface printerForm {
     printerModel: PrinterModel
     location: 'farm' | 'ground'
     deviceType: DeviceType
+    // NEW: ovens only; held as the raw input (string/number/null) until submit
+    maxSpools: string | number | null
 }
 
 @Component({
@@ -185,6 +206,23 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         return this.isOven ? OVEN_PRINTER_MODEL : this.form.printerModel
     }
 
+    // NEW: maxSpools as persisted — integer >= 1 for ovens, undefined otherwise / when blank
+    get formMaxSpools(): number | undefined {
+        if (!this.isOven) return undefined
+        return this.parseMaxSpools(this.form.maxSpools) ?? undefined
+    }
+
+    parseMaxSpools(value: string | number | null | undefined): number | null {
+        if (value === null || value === undefined || String(value).trim() === '') return null
+        const n = Number(value)
+        return Number.isInteger(n) && n >= 1 ? n : null
+    }
+
+    maxSpoolsRule(value: string | number | null): boolean | string {
+        if (value === null || value === undefined || String(value).trim() === '') return true
+        return this.parseMaxSpools(value) !== null || (this.$t('Settings.RemotePrintersTab.MaxSpoolsInvalid') as string)
+    }
+
     get fleetDaemonUrl() {
         return this.$store.getters['gui/fleetDaemonUrl']
     }
@@ -215,6 +253,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         printerModel: 'HS-Pro',
         location: 'farm',
         deviceType: 'printer',
+        maxSpools: null,
     }
 
     get printers() {
@@ -242,7 +281,10 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
     deviceSubtitle(printer: GuiRemoteprintersStatePrinter) {
         const location = this.locationLabel(printer.location)
         if ((printer.deviceType ?? 'printer') === 'oven') {
-            return `${this.$t('Settings.RemotePrintersTab.DeviceTypeOven')} · ${location}`
+            const parts = [this.$t('Settings.RemotePrintersTab.DeviceTypeOven'), location]
+            const max = this.parseMaxSpools(printer.maxSpools)
+            if (max !== null) parts.push(this.$t('Settings.RemotePrintersTab.MaxSpoolsShort', { n: max }))
+            return parts.join(' · ')
         }
         return location
     }
@@ -255,6 +297,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
         this.form.deviceType = 'printer'
+        this.form.maxSpools = null
         this.form.bool = true
     }
 
@@ -266,6 +309,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
             printerModel: this.formPrinterModel,
             location: this.form.location,
             deviceType: this.form.deviceType,
+            maxSpools: this.formMaxSpools,
         }
 
         this.$store.dispatch('gui/remoteprinters/store', { values: printer })
@@ -277,6 +321,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
         this.form.deviceType = 'printer'
+        this.form.maxSpools = null
 
         this.refreshPrinterList()
     }
@@ -291,6 +336,8 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         // NEW: default legacy entries (no deviceType key) to printers
         this.form.deviceType = printer.deviceType ?? 'printer'
         if (this.form.deviceType === 'oven') this.form.printerModel = OVEN_PRINTER_MODEL
+        // NEW: soft spool capacity (ovens only; blank when unset)
+        this.form.maxSpools = this.parseMaxSpools(printer.maxSpools)
         this.form.bool = true
     }
 
@@ -301,6 +348,9 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
             printerModel: this.formPrinterModel,
             location: this.form.location,
             deviceType: this.form.deviceType,
+            // undefined clears a previous value (the update mutation merges keys, so a
+            // stale maxSpools would otherwise survive switching an oven back to a printer)
+            maxSpools: this.formMaxSpools,
         }
 
         this.$store.dispatch('gui/remoteprinters/update', { id: this.form.id, values })
@@ -312,6 +362,7 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         this.form.printerModel = 'HS-Pro'
         this.form.location = 'farm'
         this.form.deviceType = 'printer'
+        this.form.maxSpools = null
         this.refreshPrinterList()
     }
 

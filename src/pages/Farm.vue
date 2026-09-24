@@ -23,7 +23,7 @@
                         class="status-counter status-counter--oven"
                         :title="ovenLegendTitle">
                         <span class="status-dot oven" :style="{ borderColor: OVEN_LEGEND.color }"></span>
-                        {{ OVEN_LEGEND.label }}{{ totalOvenCount === 1 ? '' : 's' }} {{ totalOvenCount }}
+                        {{ OVEN_LEGEND.label }}{{ totalOvenCount === 1 ? '' : 's' }} {{ totalOvenCount }}<span v-if="ovenSpoolTotals"> · {{ ovenSpoolTotals }}</span>
                     </span>
                 </div>
             </div>
@@ -66,7 +66,14 @@ import {
     getPrinterStatus as getPrinterStatusUtil,
     PrinterStatus,
 } from '@/components/panels/farmPrinterStatus'
-import { getOvenStatus, OvenStatus, OVEN_LEGEND, OVEN_STATUS_META } from '@/components/panels/farmOvenStatus'
+import {
+    getOvenStatus,
+    ovenMaxSpools,
+    ovenSpoolCount,
+    OvenStatus,
+    OVEN_LEGEND,
+    OVEN_STATUS_META,
+} from '@/components/panels/farmOvenStatus'
 import { OvenFrame } from '@/store/farm/types'
 
 @Component({
@@ -193,6 +200,27 @@ export default class PageFarm extends Mixins(BaseMixin) {
             .filter((k) => c[k] > 0)
             .map((k) => `${OVEN_STATUS_META[k].label} ${c[k]}`)
             .join(' · ')
+    }
+
+    /** Legend suffix `5/24 spools` across all ovens (max only when every oven's capacity is known). */
+    get ovenSpoolTotals(): string {
+        let spools = 0
+        let max = 0
+        let allMaxKnown = true
+        let anyFrame = false
+        this.ovenHostnames.forEach((h) => {
+            const frame = this.ovenFrame(h)
+            if (frame) {
+                anyFrame = true
+                spools += ovenSpoolCount(frame)
+            }
+            const rosterMax = this.$store.getters['gui/remoteprinters/getMaxSpools'](h) as number | null
+            const m = ovenMaxSpools(frame, rosterMax)
+            if (m === null) allMaxKnown = false
+            else max += m
+        })
+        if (!anyFrame) return ''
+        return allMaxKnown ? `${spools}/${max} spools` : `${spools} spools`
     }
 
     get fleetDaemonPrinters() {

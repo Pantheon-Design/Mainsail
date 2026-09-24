@@ -40,4 +40,8 @@ export interface GuiRemoteprintersStatePrinter {
     // NEW: 'printer' (default) or 'oven'. fleet_daemon routes ovens into its own
     // connection dict; Fleet Mainsail keeps them off the printer map in Phase 1.
     deviceType?: DeviceType
+    // NEW: ovens only — soft spool capacity (integer >= 1). Shown as `count/max` on the
+    // map marker and mirrored by fleet_daemon as `max_spools`; nothing blocks adding
+    // spools beyond it. Absent/null = unknown (the map falls back to the oven layout).
+    maxSpools?: number
 }

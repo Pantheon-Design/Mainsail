@@ -35,6 +35,11 @@ export interface OvenFrame {
         spool_count?: number
         ready_count?: number
         spools?: OvenSpoolFrame[]
+        /** Soft capacity mirrored from the roster's `maxSpools` (newer daemons only) */
+        max_spools?: number | null
+        /** Material with the most spools in the oven, null when empty (newer daemons only).
+         *  The UI recomputes this from `spools[].material` and only uses it as a fallback. */
+        top_material?: string | null
     }
     /** false while the daemon has no websocket to the oven's Moonraker */
     fleet_to_printer_ws?: boolean

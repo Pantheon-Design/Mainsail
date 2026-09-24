@@ -51,6 +51,75 @@ export function ovenGlyph(frame: OvenFrame | null | undefined): string {
     return ready === total ? String(total) : `${ready}/${total}`
 }
 
+/**
+ * Material with the most spools in the oven (ties -> alphabetical), computed from
+ * `oven.spools[].material`; falls back to the daemon's `top_material` when the frame has
+ * no spool list. `EMPTY` for an empty oven, `—` when there is no frame at all.
+ */
+export const OVEN_EMPTY_MATERIAL = 'EMPTY'
+export function ovenTopMaterial(frame: OvenFrame | null | undefined): string {
+    if (!frame) return '—'
+    const spools = frame.oven?.spools
+    if (Array.isArray(spools)) {
+        if (spools.length === 0) return OVEN_EMPTY_MATERIAL
+        const counts = new Map<string, number>()
+        spools.forEach((s) => {
+            const m = (s.material || '').trim() || 'unknown'
+            counts.set(m, (counts.get(m) ?? 0) + 1)
+        })
+        let best = ''
+        let bestN = -1
+        counts.forEach((n, m) => {
+            if (n > bestN || (n === bestN && m.localeCompare(best) < 0)) {
+                best = m
+                bestN = n
+            }
+        })
+        return best
+    }
+    if (ovenSpoolCount(frame) === 0) return OVEN_EMPTY_MATERIAL
+    const top = frame.oven?.top_material
+    return top && String(top).trim() ? String(top).trim() : 'unknown'
+}
+
+/**
+ * Soft spool capacity: the roster's `maxSpools` first, then the daemon's `max_spools`,
+ * then `shelf_rows * slots_per_row` from the oven config; null when none is known.
+ */
+export function ovenMaxSpools(frame: OvenFrame | null | undefined, rosterMax: number | null | undefined): number | null {
+    const valid = (v: unknown): number | null => {
+        const n = Number(v)
+        return Number.isInteger(n) && n >= 1 ? n : null
+    }
+    const fromRoster = valid(rosterMax)
+    if (fromRoster !== null) return fromRoster
+    const fromFrame = valid(frame?.oven?.max_spools)
+    if (fromFrame !== null) return fromFrame
+    const cfg = frame?.oven?.config
+    const rows = valid(cfg?.shelf_rows)
+    const slots = valid(cfg?.slots_per_row)
+    if (rows !== null && slots !== null) return rows * slots
+    return null
+}
+
+/** Marker bottom row: `5/12`, `5/?` when the capacity is unknown, `?/12` without a frame. */
+export function ovenCountText(frame: OvenFrame | null | undefined, max: number | null): string {
+    const count = frame ? String(ovenSpoolCount(frame)) : '?'
+    return `${count}/${max ?? '?'}`
+}
+
+/** Fullness 0..1 for the marker fill bar (clamped; 0 when the capacity is unknown). */
+export function ovenFillFraction(frame: OvenFrame | null | undefined, max: number | null): number {
+    if (!frame || !max) return 0
+    return Math.min(ovenSpoolCount(frame) / max, 1)
+}
+
+/** True when the oven holds more spools than its soft capacity (allowed, just highlighted). */
+export function ovenOverCapacity(frame: OvenFrame | null | undefined, max: number | null): boolean {
+    if (!frame || !max) return false
+    return ovenSpoolCount(frame) > max
+}
+
 /** Display label: configured `oven.config.label`, else the hostname without `.local`. */
 export function ovenLabel(frame: OvenFrame | null | undefined, hostname: string): string {
     const label = frame?.oven?.config?.label

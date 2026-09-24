@@ -27,4 +27,18 @@ export const getters: GetterTree<GuiRemoteprintersState, any> = {
             }
             return 'printer'
         },
+
+    // Soft spool capacity of the oven roster entry with this hostname; null when the
+    // entry is missing, is a printer, or has no valid (integer >= 1) maxSpools.
+    getMaxSpools:
+        (state) =>
+        (hostname: string): number | null => {
+            const key = hostname.toLowerCase()
+            for (const printer of Object.values(state.printers)) {
+                if (printer.hostname?.toLowerCase() !== key) continue
+                const n = Number(printer.maxSpools)
+                return Number.isInteger(n) && n >= 1 ? n : null
+            }
+            return null
+        },
 }

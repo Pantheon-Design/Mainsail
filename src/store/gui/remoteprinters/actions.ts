@@ -64,6 +64,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     location: state.printers[id].location ?? 'farm',
                     // NEW: default legacy entries to printers
                     deviceType: state.printers[id].deviceType ?? 'printer',
+                    // NEW: oven soft spool capacity (null = unknown / not an oven)
+                    maxSpools: state.printers[id].maxSpools ?? null,
                 })
             })
 
@@ -81,6 +83,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 location: state.printers[id].location ?? 'farm',
                 // NEW: default legacy entries to printers
                 deviceType: state.printers[id].deviceType ?? 'printer',
+                // NEW: oven soft spool capacity (null = unknown / not an oven)
+                maxSpools: state.printers[id].maxSpools ?? null,
             }
 
             Vue.$socket.emit('server.database.post_item', {
@@ -104,6 +108,7 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 position: payload.values.position,
                 printerModel: payload.values.printerModel ?? 'HS-3',
                 deviceType: payload.values.deviceType ?? 'printer',
+                maxSpools: payload.values.maxSpools ?? null,
             },
             { root: true }
         )
