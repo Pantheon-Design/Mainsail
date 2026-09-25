@@ -17,6 +17,16 @@ export interface FleetAutoExtruderTempResult {
     result?: string
 }
 
+export interface FleetServiceEventResult {
+    hostname: string
+    service_type: string
+    /** True when the printer's Moonraker did not know the preset and it was filed as "other" + label. */
+    fallback_other: boolean
+    event: Record<string, any> | null
+    /** True when the record was already pulled into fleet_printer_activity. */
+    collected: boolean
+}
+
 export const actions: ActionTree<FleetWorkersState, RootState> = {
     /** GET /workers — one row per connected printer (workers and non-workers). */
     async loadWorkers({ commit, rootGetters }) {
@@ -121,6 +131,37 @@ export const actions: ActionTree<FleetWorkersState, RootState> = {
                 `${baseUrl}/printer/${encodeURIComponent(payload.hostname)}/auto_extruder_temp`,
                 {},
                 { timeout: 190_000 }
+            )
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
+    /**
+     * POST /printer/{hostname}/service — add a manual maintenance (service)
+     * record to one printer's timeline. Only service_type is required; time
+     * defaults to now and the other fields stay empty (Scanner Lite MACROS).
+     */
+    async addServiceEvent(
+        { rootGetters },
+        payload: {
+            hostname: string
+            service_type: string
+            service_type_label?: string
+            service_type_other?: string
+            operator?: string
+            comment?: string
+            service_time?: number
+        }
+    ): Promise<FleetServiceEventResult> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const { hostname, ...body } = payload
+        try {
+            const response = await axios.post(
+                `${baseUrl}/printer/${encodeURIComponent(hostname)}/service`,
+                body,
+                { timeout: 60_000 }
             )
             return response.data
         } catch (error) {

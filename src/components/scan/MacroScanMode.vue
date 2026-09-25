@@ -172,7 +172,11 @@
                             {{ sending ? `Sending to ${sendingTo}…` : 'Ready — scan a printer hostname' }}
                         </p>
                         <p class="caption grey--text text-center">
-                            Every scan runs <code>{{ currentGcode }}</code> on that printer.<br />
+                            <template v-if="selectedMacro.kind === 'service'">
+                                Every scan adds a <strong>{{ selectedMacro.label }}</strong> maintenance record to that printer's timeline (time: now).
+                            </template>
+                            <template v-else>Every scan runs <code>{{ currentGcode }}</code> on that printer.</template>
+                            <br />
                             Printer QR codes end with .local
                         </p>
                     </div>
@@ -247,6 +251,11 @@
  * lower-case parameter names, which Klipper treats identically). The chamber
  * on HS3/HSPro is a `[temperature_fan chamber]` object.
  *
+ * Two entries are not G-code at all: "Lubrication" and "Desiccant change"
+ * add a manual maintenance record to the scanned printer's timeline
+ * (`POST /printer/{hostname}/service` → Moonraker `POST /server/activity/service`),
+ * timestamped now with operator/comment left empty.
+ *
  * Open it with v-model; the host must call `warmScanKeyboard()` synchronously
  * inside the tap that opens it. Needs the `fleet/workers` store module.
  */
@@ -270,10 +279,12 @@ import {
     mdiSend,
     mdiTimerSand,
     mdiAutoFix,
+    mdiOil,
+    mdiWaterOff,
 } from '@mdi/js'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
 import { flashScreen } from '@/plugins/scanFlash'
-import { FleetAutoExtruderTempResult } from '@/store/fleet/workers/actions'
+import { FleetAutoExtruderTempResult, FleetServiceEventResult } from '@/store/fleet/workers/actions'
 
 export interface ScanMacro {
     id: string
@@ -285,8 +296,12 @@ export interface ScanMacro {
      * 'auto_extruder': ask the daemon to look up the printer's filament type in the
      * fleet filament database and send SET_HEATER_TEMPERATURE only if that filament
      * has an extrude_temp (POST /printer/{hostname}/auto_extruder_temp).
+     * 'service': add a manual maintenance record of `serviceType` to the printer's
+     * timeline at the current time (POST /printer/{hostname}/service).
      */
-    kind: 'gcode' | 'auto_extruder'
+    kind: 'gcode' | 'auto_extruder' | 'service'
+    /** Moonraker activity service_type id (kind 'service' only). */
+    serviceType?: string
     /** Short explanation shown under the label in the macro list. */
     hint?: string
     /** When true the macro takes a target temperature (default DEFAULT_TEMP). */
@@ -331,6 +346,30 @@ export const SCAN_MACROS: ScanMacro[] = [
         gcode: () => 'SET_HEATER_TEMPERATURE HEATER=extruder TARGET=<filament extrude temp>',
     },
     {
+        id: 'lubrication',
+        label: 'Lubrication',
+        icon: mdiOil,
+        color: 'blue-grey',
+        kind: 'service',
+        serviceType: 'lubrication',
+        hint: 'adds a Lubrication maintenance record to the printer timeline (now)',
+        hasTemp: false,
+        presets: [],
+        gcode: () => 'timeline service: Lubrication',
+    },
+    {
+        id: 'desiccant_change',
+        label: 'Desiccant Change',
+        icon: mdiWaterOff,
+        color: 'cyan',
+        kind: 'service',
+        serviceType: 'desiccant_change',
+        hint: 'adds a Desiccant change maintenance record to the printer timeline (now)',
+        hasTemp: false,
+        presets: [],
+        gcode: () => 'timeline service: Desiccant change',
+    },
+    {
         id: 'extruder_temp',
         label: 'Set Extruder Temp',
         icon: mdiPrinter3dNozzleHeat,
@@ -368,6 +407,8 @@ const MACRO_COLORS: Record<string, string> = {
     orange: '#EF6C00',
     purple: '#7B1FA2',
     teal: '#00796B',
+    'blue-grey': '#455A64',
+    cyan: '#0097A7',
 }
 
 @Component
@@ -595,6 +636,10 @@ export default class MacroScanMode extends Vue {
                 await this.runAutoExtruderTemp(hostname, macro)
                 return
             }
+            if (macro.kind === 'service') {
+                await this.runServiceEvent(hostname, macro)
+                return
+            }
             await this.$store.dispatch('fleet/workers/sendGcode', { hostname, script: gcode })
             this.feedback('success', `${hostname}: ${macro.label} sent (${gcode})`)
             this.log.push({ hostname, macro: macro.label, gcode, ok: true, detail: 'ok', time: new Date().toLocaleTimeString() })
@@ -632,6 +677,34 @@ export default class MacroScanMode extends Vue {
             const msg = err?.message || 'request failed'
             this.feedback('error', `${hostname}: ${msg}`)
             this.log.push({ hostname, macro: macro.label, gcode: '—', ok: false, detail: msg, time: time() })
+        } finally {
+            this.sending = false
+            this.sendingTo = ''
+        }
+    }
+
+    /**
+     * Lubrication / Desiccant change: add a manual maintenance record to the
+     * printer's timeline. The daemon creates it on the printer (time = now,
+     * every other field empty) and collects it into the fleet timeline.
+     */
+    async runServiceEvent(hostname: string, macro: ScanMacro) {
+        const time = () => new Date().toLocaleTimeString()
+        const serviceType = macro.serviceType || 'other'
+        try {
+            const res: FleetServiceEventResult = await this.$store.dispatch('fleet/workers/addServiceEvent', {
+                hostname,
+                service_type: serviceType,
+                service_type_label: macro.label,
+            })
+            const when = new Date().toLocaleString()
+            const note = res.fallback_other ? ' (filed as "Other" — printer Moonraker predates this preset)' : ''
+            this.feedback('success', `${hostname}: ${macro.label} recorded on timeline at ${when}${note}`)
+            this.log.push({ hostname, macro: macro.label, gcode: serviceType, ok: true, detail: `recorded${note}`, time: time() })
+        } catch (err: any) {
+            const msg = err?.message || 'request failed'
+            this.feedback('error', `${hostname}: ${msg}`)
+            this.log.push({ hostname, macro: macro.label, gcode: serviceType, ok: false, detail: msg, time: time() })
         } finally {
             this.sending = false
             this.sendingTo = ''
