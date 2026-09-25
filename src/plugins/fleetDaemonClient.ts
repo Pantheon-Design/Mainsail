@@ -145,6 +145,9 @@ class FleetDaemonClient {
                     if (message.event === 'workers_updated') {
                         fleetDaemonEvents.$emit('workers_updated')
                     }
+                    if (message.event === 'activity_updated') {
+                        fleetDaemonEvents.$emit('activity_updated', message.hostname ?? null)
+                    }
                     if (message.event === 'toast') {
                         fleetDaemonEvents.$emit('toast', {
                             level: message.level ?? 'info',
