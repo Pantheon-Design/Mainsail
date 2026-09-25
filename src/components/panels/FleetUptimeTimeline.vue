@@ -162,8 +162,13 @@ export default class FleetUptimeTimeline extends Vue {
     @Prop({ type: Array, default: () => [] }) declare readonly segments: UptimeSegment[]
     @Prop({ type: Array, default: () => [] }) declare readonly outages: SyncOutage[]
     @Prop({ type: Number, default: 90 }) declare readonly days: number
-    /** Treat cloud-sync outages as full downtime (the "Cloud sync" row) instead of degraded. */
+    /** Treat the dependency outages as full downtime (the "Cloud sync" / "NAS" rows) instead of degraded. */
     @Prop({ type: Boolean, default: false }) declare readonly outagesAreDowntime: boolean
+    /** Label for the outages passed in (default "Cloud sync interrupted"). */
+    @Prop({ type: String, default: 'Cloud sync interrupted' }) declare readonly outageLabel: string
+    /** Label for gaps between daemon segments when this row is about a dependency whose
+     *  state is unknown while the daemon itself is down (e.g. "Fleet daemon down — NAS unknown"). */
+    @Prop({ type: String, default: '' }) declare readonly downLabel: string
 
     hoverIndex = -1
     showAllIncidents = false
@@ -247,7 +252,8 @@ export default class FleetUptimeTimeline extends Vue {
     }
 
     incidentLabel(inc: Interval): string {
-        if (inc.kind === 'sync') return 'Cloud sync interrupted'
+        if (inc.kind === 'sync') return this.outageLabel
+        if (this.downLabel) return this.downLabel
         if (inc.ongoing) return inc.reason === 'shutdown' ? 'Stopped' : 'Unreachable'
         return inc.reason === 'shutdown' ? 'Stopped (clean shutdown)' : 'Down (crash or power loss)'
     }
@@ -329,7 +335,7 @@ export default class FleetUptimeTimeline extends Vue {
             // Up, but a sync outage may still be open (the "Cloud sync" row).
             if (last && last.kind === 'sync' && last.ongoing) {
                 return this.outagesAreDowntime
-                    ? { kind: 'major', label: `Interrupted since ${fmtDateTime(last.start)}` }
+                    ? { kind: 'major', label: `Down since ${fmtDateTime(last.start)}` }
                     : { kind: 'minor', label: 'Cloud sync degraded' }
             }
             return { kind: 'ok', label: 'Operational' }

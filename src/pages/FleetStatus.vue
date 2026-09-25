@@ -30,7 +30,9 @@
                     :segments="row.segments"
                     :outages="row.outages"
                     :days="days"
-                    :outages-are-downtime="row.outagesAreDowntime" />
+                    :outages-are-downtime="row.outagesAreDowntime"
+                    :outage-label="row.outageLabel"
+                    :down-label="row.downLabel" />
                 <div v-if="fetchedAt" class="caption text--secondary mt-3">
                     {{ $t('FleetStatus.Updated', { time: fetchedAt }) }}
                 </div>
@@ -63,6 +65,16 @@ interface StatusRow {
     segments: UptimeSegment[]
     outages: SyncOutage[]
     outagesAreDowntime: boolean
+    outageLabel: string
+    downLabel: string
+}
+
+const NAS_DOWN_LABEL = 'Fleet daemon down — NAS state unknown'
+
+function withOpen(closed: SyncOutage[], openSince: string | null | undefined, now: string, error?: string | null): SyncOutage[] {
+    const out = [...closed]
+    if (openSince) out.push({ started_at: openSince, ended_at: now, error: error ?? null, ongoing: true })
+    return out
 }
 
 const REFRESH_MS = 60_000
@@ -127,40 +139,55 @@ export default class FleetStatus extends Mixins(BaseMixin) {
     private async loadLocal() {
         const { data } = await axios.get(`${this.baseUrl}/daemon/uptime`, { params: { days: this.days } })
         this.now = data.now
-        const segments: UptimeSegment[] = data.segments ?? []
-        const outages: SyncOutage[] = [...(data.outages ?? [])]
-        if (data.cloud_sync_fail_since) {
-            outages.push({
-                started_at: data.cloud_sync_fail_since,
-                ended_at: data.now,
-                error: data.cloud_sync_error ?? null,
-                ongoing: true,
-            })
-        }
-        const rows: StatusRow[] = [
-            {
-                key: 'daemon',
-                title: `Fleet daemon — ${data.site}`,
-                subtitle: data.host_name ?? '',
-                online: true,
-                segments,
-                outages: [],
-                outagesAreDowntime: false,
-            },
-        ]
-        if (data.cloud_sync_enabled) {
-            rows.push({
-                key: 'cloudsync',
-                title: 'Cloud sync (Neon)',
-                subtitle: 'Live status + history mirrored to the cloud dashboard',
-                online: true,
-                segments,
-                outages,
-                outagesAreDowntime: true,
-            })
-        }
-        this.rows = rows
+        this.rows = localRows(data)
     }
+}
+
+/** Rows for one daemon's own snapshot (GET /daemon/uptime). */
+function localRows(data: any): StatusRow[] {
+    const segments: UptimeSegment[] = data.segments ?? []
+    const outages = data.outages ?? {}
+    const open = data.open_outages ?? {}
+    const rows: StatusRow[] = [
+        {
+            key: 'daemon',
+            title: `Fleet daemon — ${data.site}`,
+            subtitle: data.host_name ?? '',
+            online: true,
+            segments,
+            outages: [],
+            outagesAreDowntime: false,
+            outageLabel: '',
+            downLabel: '',
+        },
+    ]
+    if (data.cloud_sync_enabled) {
+        rows.push({
+            key: 'cloudsync',
+            title: 'Cloud sync (Neon)',
+            subtitle: 'Live status + history mirrored to the cloud dashboard',
+            online: true,
+            segments,
+            outages: withOpen(outages.cloud_sync ?? [], open.cloud_sync?.started_at, data.now, open.cloud_sync?.error),
+            outagesAreDowntime: true,
+            outageLabel: 'Cloud sync interrupted',
+            downLabel: 'Fleet daemon down — cloud sync off',
+        })
+    }
+    if (data.nas_enabled) {
+        rows.push({
+            key: 'nas',
+            title: 'NAS',
+            subtitle: (data.nas_paths ?? []).join(' · ') || 'Archive storage mount',
+            online: true,
+            segments,
+            outages: withOpen(outages.nas ?? [], open.nas?.started_at, data.now, open.nas?.error),
+            outagesAreDowntime: true,
+            outageLabel: 'NAS unreachable',
+            downLabel: NAS_DOWN_LABEL,
+        })
+    }
+    return rows
 }
 </script>
 
