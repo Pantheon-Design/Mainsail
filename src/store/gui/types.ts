@@ -161,6 +161,9 @@ export interface GuiState {
             scaleGradient: boolean
             scaleZMax: number
         }
+        timeline: {
+            lastOperator: string
+        }
         history: {
             countPerPage: number
             toggleChartCol2: 'chart' | 'table'

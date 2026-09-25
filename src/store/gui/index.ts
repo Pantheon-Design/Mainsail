@@ -236,6 +236,9 @@ export const getDefaultState = (): GuiState => {
                 scaleGradient: false,
                 scaleZMax: 0.5,
             },
+            timeline: {
+                lastOperator: '',
+            },
             history: {
                 countPerPage: 10,
                 toggleChartCol2: 'chart',

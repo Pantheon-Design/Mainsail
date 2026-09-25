@@ -17,6 +17,7 @@ import {
     mdiVideo3d,
     mdiHistory,
     mdiTimelapse,
+    mdiTimelineClockOutline,
     mdiWrench,
 } from '@mdi/js'
 
@@ -105,6 +106,17 @@ const routes: AppRoute[] = [
         showInNavi: true,
         moonrakerComponent: 'history',
         position: 70,
+    },
+    {
+        name: 'timeline',
+        title: 'Timeline',
+        path: '/timeline',
+        icon: mdiTimelineClockOutline,
+        component: () => import('../pages/Timeline.vue'),
+        alwaysShow: true,
+        showInNavi: true,
+        moonrakerComponent: 'activity',
+        position: 75,
     },
     {
         name: 'timelapse',
