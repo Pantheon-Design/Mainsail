@@ -173,6 +173,7 @@ import { FleetSpool, FleetFilament } from '@/store/fleet/spools/types'
 import { ScanBurstDetector, takeScanInput, resolveScanInputEl } from '@/plugins/scanBurstDetector'
 import { isTouchDevice } from '@/plugins/scanFocus'
 import { flashScreen } from '@/plugins/scanFlash'
+import { FleetApiError } from '@/store/fleet/utils'
 
 @Component
 export default class AddSpoolScanMode extends Vue {
@@ -371,6 +372,29 @@ export default class AddSpoolScanMode extends Vue {
     }
 
     /**
+     * Ask fleet_daemon whether a just-scanned QR is still free (same check as
+     * spool creation: fleet_spool + print history). Runs in the background
+     * after the QR is armed. On a 409 the pending QR is dropped (if it is still
+     * this one) and the user is warned so they don't scan the batch label for
+     * nothing. Any other failure (daemon unreachable) is ignored: creation
+     * validates again server-side, so this is only an early warning.
+     */
+    async verifyPendingQr(qrCode: string) {
+        try {
+            await this.$store.dispatch('fleet/spools/checkQrAvailable', qrCode)
+        } catch (err: any) {
+            if (!(err instanceof FleetApiError) || err.status !== 409) return
+            // Stale by now: a different QR was armed, or the pair was already submitted
+            if (this.addSpoolPendingQr !== qrCode || this.addSpoolSaving) return
+            this.addSpoolPendingQr = null
+            this.addSpoolStatusMessage = `Duplicate QR — ${err.message}. Scan a different spool QR code`
+            this.addSpoolStatusType = 'warning'
+            this.flashAddSpool('error')
+            this.focusAddSpoolScanInput()
+        }
+    }
+
+    /**
      * Two-step scan flow:
      *   1. A plain scan (no ':') is the spool QR. It becomes the pending QR,
      *      replacing any earlier pending QR that was never paired with a lot#.
@@ -381,6 +405,9 @@ export default class AddSpoolScanMode extends Vue {
      * After any add-spool attempt (created or rejected) input is accepted but
      * ignored for ADD_SPOOL_COOLDOWN_MS, and the field is cleared when the
      * window ends.
+     *
+     * Each QR scan is also sent to fleet_daemon (see verifyPendingQr) so a
+     * duplicate is reported right away rather than after the batch label.
      */
     async processAddSpoolScan() {
         this.addSpoolBurst?.reset()
@@ -402,12 +429,16 @@ export default class AddSpoolScanMode extends Vue {
         const isLotScan = colonIdx >= 0
 
         if (!isLotScan) {
-            // QR scan: (re)arm the pending QR and wait for the batch label
+            // QR scan: (re)arm the pending QR and wait for the batch label.
+            // Armed immediately so the batch label can follow without waiting
+            // on the network; the daemon check below only steps in on a
+            // duplicate, so a valid QR shows nothing extra.
             this.addSpoolPendingQr = scanned
             this.addSpoolStatusMessage = `QR ${scanned} captured — now scan the batch/lot label`
             this.addSpoolStatusType = 'info'
             flashScreen('success')
             this.focusAddSpoolScanInput()
+            this.verifyPendingQr(scanned)
             return
         }
 

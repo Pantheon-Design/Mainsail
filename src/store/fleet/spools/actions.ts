@@ -198,6 +198,21 @@ export const actions: ActionTree<FleetSpoolsState, RootState> = {
         }
     },
 
+    /**
+     * GET /spool/qr-available/{qr} — Scanner Lite Add Spool pre-flight.
+     * Resolves when the QR is free; throws FleetApiError with status 409 when
+     * it is already assigned (message names the owner). Other statuses mean
+     * the check itself failed (daemon down etc.), not that the QR is taken.
+     */
+    async checkQrAvailable({ rootGetters }, qrCode: string): Promise<void> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.get(`${baseUrl}/spool/qr-available/${encodeURIComponent(qrCode)}`)
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
     // ---- Scanner Lite "Load Spool" relay (see FleetScanRelayRecord) ----
 
     /** POST /spool/scan-relay — hand a spool scan to a printer's KlipperScreen. 404: unknown spool or printer. */
