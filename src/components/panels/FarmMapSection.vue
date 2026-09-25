@@ -195,24 +195,16 @@
                 </div>
 
                 <!-- Tooltip -->
-                <div v-if="hoveredPrinter" ref="tooltipEl" class="tooltip" :style="tooltipStyle">
-                    <p>{{ hoveredPrinter.socket.hostname }}: {{ hoveredPrinter.print_stats?.state || 'Unknown' }}</p>
-                    <p v-if="workersVisible">
-                        Fleet worker: {{ isWorker(hoveredPrinter.socket.hostname) ? 'yes' : 'no' }}<span v-if="mode === 'workers'"> (click to toggle)</span>
-                    </p>
-                    <p v-if="workersVisible && needsAttention(hoveredPrinter.socket.hostname)" class="attention-reason">
-                        <strong>Needs attention:</strong> {{ attentionReason(hoveredPrinter.socket.hostname) || 'see the Workers list' }}
-                    </p>
-                    <p>IsConnected: {{ hoveredPrinter.socket.isConnected }}</p>
-                    <p>Filament: {{ hoveredPrinter.toolhead?.filament_type || 'N/A' }}</p>
-                    <p>Nozzle: {{ hoveredPrinter.toolhead?.nozzle_size || 'N/A' }}</p>
-                    <p>Remaining: {{ hoveredRemainingG !== null ? Math.round(hoveredRemainingG) + 'g' : 'N/A' }}</p>
-                    <p>CurrentFile: {{ hoveredPrinter.current_file?.filename || 'None' }}</p>
-                    <p>Progress: {{ getPrinterPrintPercent(hoveredPrinter) }}%</p>
-                    <p v-if="hoveredPrinter.webhooks?.state_message" style="white-space: pre-wrap; max-width: 300px;">
-                        <strong>Webhook:</strong><br>{{ hoveredPrinter.webhooks.state_message }}
-                    </p>
-                </div>
+                <farm-printer-tooltip
+                    v-if="hoveredPrinter"
+                    ref="tooltipEl"
+                    :printer="hoveredPrinter"
+                    :show-worker="workersVisible"
+                    :is-worker="isWorker(hoveredPrinter.socket.hostname)"
+                    :needs-attention="needsAttention(hoveredPrinter.socket.hostname)"
+                    :attention-reason="attentionReason(hoveredPrinter.socket.hostname)"
+                    :toggle-hint="mode === 'workers'"
+                    :style="tooltipStyle" />
             </div>
         </div>
     </div>
@@ -223,13 +215,10 @@ import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue'
 import MapDrawingToolbar from '@/components/panels/MapDrawingToolbar.vue'
+import FarmPrinterTooltip from '@/components/panels/FarmPrinterTooltip.vue'
 import Vue from 'vue'
 import { hostKey } from '@/plugins/hostKey'
-import {
-    getPrinterStatus as getPrinterStatusUtil,
-    computeRemainingFilamentG,
-    PrinterStatus,
-} from '@/components/panels/farmPrinterStatus'
+import { getPrinterStatus as getPrinterStatusUtil, PrinterStatus } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import { OvenFrame } from '@/store/farm/types'
 import { FleetSpool } from '@/store/fleet/spools/types'
@@ -269,6 +258,7 @@ interface OvenEntry {
     components: {
         MapDrawingOverlay,
         MapDrawingToolbar,
+        FarmPrinterTooltip,
     },
 })
 export default class FarmMapSection extends Mixins(BaseMixin) {
@@ -885,11 +875,6 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     // ---------- tooltip ----------
-    get hoveredRemainingG(): number | null {
-        if (!this.hoveredPrinter) return null
-        return computeRemainingFilamentG(this.hoveredPrinter)
-    }
-
     showTooltip(printer: any, hostname: string, _event: MouseEvent) {
         if (this.isEditing) return
         this.hoveredOven = null
@@ -914,7 +899,9 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     clampTooltipToCanvas() {
-        const el = this.$refs.tooltipEl as HTMLElement | undefined
+        // The printer tooltip is a component (use its root element); the oven tooltip is a plain div.
+        const ref = this.$refs.tooltipEl as Vue | HTMLElement | undefined
+        const el = ref && '$el' in ref ? (ref.$el as HTMLElement) : ref
         if (!el) return
         const margin = 4
         const canvasH = this.gridH + this.CELL

@@ -323,6 +323,7 @@
         "Loaded": "{loaded} of {total} loaded",
         "NoEvents": "No activity recorded for this printer",
         "NoHistoryRecord": "No fleet history record found for this job yet",
+        "NoLiveData": "not reporting to the fleet daemon",
         "Printers": "Printers",
         "SelectPrinters": "Select one or more printers to show their timelines side by side.",
         "Title": "Fleet Timeline"

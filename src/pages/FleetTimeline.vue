@@ -44,7 +44,26 @@
                     <div class="fleet-lanes">
                         <div class="fleet-lanes-header">
                             <div v-for="lane of lanes" :key="lane.printer" class="fleet-lane fleet-lane-head">
-                                <v-chip small color="primary" outlined class="mr-2">{{ lane.printer }}</v-chip>
+                                <v-menu
+                                    open-on-hover
+                                    offset-y
+                                    nudge-bottom="4"
+                                    :close-on-content-click="false"
+                                    transition="fade-transition">
+                                    <template #activator="{ on, attrs }">
+                                        <v-chip small color="primary" outlined class="mr-2" v-bind="attrs" v-on="on">
+                                            {{ lane.printer }}
+                                        </v-chip>
+                                    </template>
+                                    <farm-printer-tooltip
+                                        :printer="laneFrame(lane.printer)"
+                                        :hostname="lane.printer"
+                                        :offline-text="$t('FleetTimeline.NoLiveData')"
+                                        show-worker
+                                        :is-worker="isWorker(lane.printer)"
+                                        :needs-attention="needsAttention(lane.printer)"
+                                        :attention-reason="attentionReason(lane.printer)" />
+                                </v-menu>
                                 <span class="caption text--secondary">
                                     {{
                                         $t('FleetTimeline.Loaded', {
@@ -99,9 +118,16 @@ import Panel from '@/components/ui/Panel.vue'
 import ActivityTimeline from '@/components/timeline/ActivityTimeline.vue'
 import ActivityTimelineFilters from '@/components/timeline/ActivityTimelineFilters.vue'
 import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
+import FarmPrinterTooltip from '@/components/panels/FarmPrinterTooltip.vue'
 import { ActivityEvent, ActivityFilterValue } from '@/components/timeline/types'
 import { FleetActivityFilters, FleetActivityLane } from '@/store/fleet/activity/types'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
+import { FleetWorker } from '@/store/fleet/jobs/types'
+import {
+    attentionWorkerHostnames,
+    attentionWorkerReasons,
+    enabledWorkerHostnames,
+} from '@/components/panels/fleetWorkerAttention'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { hostKey } from '@/plugins/hostKey'
 import { mdiPrinter3d, mdiRefresh, mdiTimelineClockOutline } from '@mdi/js'
@@ -126,7 +152,7 @@ interface DayRow {
 }
 
 @Component({
-    components: { Panel, ActivityTimeline, ActivityTimelineFilters, FleetHistoryRecordDialog },
+    components: { Panel, ActivityTimeline, ActivityTimelineFilters, FleetHistoryRecordDialog, FarmPrinterTooltip },
 })
 export default class PageFleetTimeline extends Mixins(BaseMixin) {
     mdiPrinter3d = mdiPrinter3d
@@ -145,6 +171,7 @@ export default class PageFleetTimeline extends Mixins(BaseMixin) {
     detailDialog = false
     detailRecord: FleetHistoryRecord | null = null
     debounceTimers: Record<string, number> = {}
+    workersTimer: number | null = null
 
     get selectedPrinters(): string[] {
         const stored = this.$store.state.gui.view.fleetTimeline?.printers
@@ -271,6 +298,53 @@ export default class PageFleetTimeline extends Mixins(BaseMixin) {
         }
     }
 
+    // ---------- lane header hover card (same details as the Fleet Map tooltip) ----------
+
+    /** fleet_daemon frames keyed by canonical host key, since lanes are keyed by hostKey(). */
+    get framesByKey(): Record<string, any> {
+        const out: Record<string, any> = {}
+        Object.entries(this.$store.state.farm.fleetDaemonPrinters || {}).forEach(([hostname, frame]) => {
+            out[hostKey(hostname)] = frame
+        })
+        return out
+    }
+
+    laneFrame(printer: string): any | null {
+        return this.framesByKey[printer] ?? null
+    }
+
+    get workers(): FleetWorker[] {
+        return this.$store.getters['fleet/workers/getWorkers'] ?? []
+    }
+
+    get workerKeys(): Set<string> {
+        return new Set(enabledWorkerHostnames(this.workers).map(hostKey))
+    }
+
+    get attentionKeys(): Set<string> {
+        return new Set(attentionWorkerHostnames(this.workers).map(hostKey))
+    }
+
+    get attentionReasonsByKey(): Record<string, string> {
+        const out: Record<string, string> = {}
+        Object.entries(attentionWorkerReasons(this.workers)).forEach(([hostname, reason]) => {
+            out[hostKey(hostname)] = reason
+        })
+        return out
+    }
+
+    isWorker(printer: string): boolean {
+        return this.workerKeys.has(printer)
+    }
+
+    needsAttention(printer: string): boolean {
+        return this.attentionKeys.has(printer)
+    }
+
+    attentionReason(printer: string): string | null {
+        return this.attentionReasonsByKey[printer] ?? null
+    }
+
     matchesSearch(event: ActivityEvent): boolean {
         const haystack = [event.summary, event.type, event.filename ?? ''].join(' ').toLowerCase()
         return haystack.includes(this.searchNeedle)
@@ -279,12 +353,17 @@ export default class PageFleetTimeline extends Mixins(BaseMixin) {
     mounted() {
         this.$store.dispatch('fleet/activity/loadTypes')
         this.$store.dispatch('fleet/activity/loadPrinters')
+        // Worker state only feeds the hover card, so a failed load just hides those lines.
+        this.$store.dispatch('fleet/workers/loadWorkers').catch(() => {})
         this.reloadAll()
         fleetDaemonEvents.$on('activity_updated', this.onActivityUpdated)
+        fleetDaemonEvents.$on('workers_updated', this.onWorkersUpdated)
     }
 
     beforeDestroy() {
         fleetDaemonEvents.$off('activity_updated', this.onActivityUpdated)
+        fleetDaemonEvents.$off('workers_updated', this.onWorkersUpdated)
+        if (this.workersTimer) window.clearTimeout(this.workersTimer)
         Object.values(this.debounceTimers).forEach((t) => window.clearTimeout(t))
     }
 
@@ -311,6 +390,15 @@ export default class PageFleetTimeline extends Mixins(BaseMixin) {
                     filters: this.apiFilters,
                 })
             )
+    }
+
+    /** Debounced: the daemon broadcasts several events per scheduler step. */
+    onWorkersUpdated() {
+        if (this.workersTimer) window.clearTimeout(this.workersTimer)
+        this.workersTimer = window.setTimeout(() => {
+            this.workersTimer = null
+            this.$store.dispatch('fleet/workers/loadWorkers').catch(() => {})
+        }, 500)
     }
 
     onActivityUpdated(hostname: string | null) {
