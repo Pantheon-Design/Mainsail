@@ -79,6 +79,15 @@ function withOpen(closed: SyncOutage[], openSince: string | null | undefined, no
 
 const REFRESH_MS = 60_000
 
+/** Human-readable cause for the error banner: HTTP status + detail, or the JS error. */
+function describeError(e: any): string {
+    if (e?.isAxiosError && e.response) {
+        const detail = e.response.data?.detail ?? e.response.data?.error
+        return `HTTP ${e.response.status}${detail ? ` — ${detail}` : ''}`
+    }
+    return String(e?.message ?? e)
+}
+
 @Component({
     components: { Panel, FleetUptimeTimeline },
 })
@@ -127,10 +136,17 @@ export default class FleetStatus extends Mixins(BaseMixin) {
             this.error = null
             this.fetchedAt = new Date().toLocaleTimeString()
         } catch (e: any) {
-            // The daemon serves its own timeline: an unreachable endpoint IS the outage.
-            this.error = `fleet_daemon is not reachable at ${this.baseUrl} — showing the last known timeline.`
-            this.now = new Date().toISOString()
-            this.rows = this.rows.map((r) => ({ ...r, online: false }))
+            if (e?.isAxiosError && !e.response) {
+                // No HTTP response at all: the daemon serves its own timeline, so an
+                // unreachable endpoint IS the outage.
+                this.error = `fleet_daemon is not reachable at ${this.baseUrl} — showing the last known timeline.`
+                this.now = new Date().toISOString()
+                this.rows = this.rows.map((r) => ({ ...r, online: false }))
+            } else {
+                // The daemon answered but the reply could not be used (HTTP error, or a
+                // response shape this build does not understand — daemon newer than Mainsail?).
+                this.error = `Could not read the uptime timeline from ${this.baseUrl}: ${describeError(e)}`
+            }
         } finally {
             this.loading = false
         }
