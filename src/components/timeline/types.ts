@@ -27,6 +27,8 @@ export interface ActivityEvent {
     printer_hostname?: string
 }
 
+export type { NozzleHealth } from '@/components/timeline/nozzleHealth'
+
 export interface ActivityDayGroup {
     date: Date
     key: string

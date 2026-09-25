@@ -19,6 +19,14 @@ export interface FleetActivityRecord {
     deleted: boolean
     collected_at: string
     updated_at: string
+    /** Nozzle health at a nozzle change, flattened by fleet_activity_collector.py */
+    nozzle_life?: number | null
+    remaining_nozzle_life?: number | null
+    nozzle_health_pct?: number | null
+    nozzle_size?: string | null
+    nozzle_type?: string | null
+    /** 'printer' | 'daemon' (estimated from a daily snapshot) | 'none' */
+    nozzle_health_source?: string | null
 }
 
 export interface FleetActivityTypeCount {

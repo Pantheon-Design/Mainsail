@@ -10,6 +10,31 @@ function isoToSeconds(value: string | null | undefined): number {
     return Number.isFinite(ms) ? ms / 1000 : 0
 }
 
+/**
+ * details.nozzle_health as the printer recorded it, or one synthesised from
+ * the daemon's flattened columns (source 'daemon' = estimated from the last
+ * daily service-tracker snapshot because the printer's fork predates the
+ * snapshot).
+ */
+function withNozzleHealth(record: FleetActivityRecord): Record<string, any> | null {
+    const details = record.details ?? null
+    if (details && details.nozzle_health) return details
+    const source = record.nozzle_health_source
+    if (!source || source === 'none' || record.nozzle_health_pct == null) return details
+
+    return {
+        ...(details ?? {}),
+        nozzle_health: {
+            nozzle_life: record.nozzle_life ?? null,
+            remaining_nozzle_life: record.remaining_nozzle_life ?? null,
+            health_pct: record.nozzle_health_pct,
+            nozzle_size: record.nozzle_size ?? null,
+            nozzle_type: record.nozzle_type ?? null,
+            source,
+        },
+    }
+}
+
 /** Normalise a daemon row to the shared ActivityEvent shape. */
 export function toActivityEvent(record: FleetActivityRecord): ActivityEvent {
     return {
@@ -24,7 +49,7 @@ export function toActivityEvent(record: FleetActivityRecord): ActivityEvent {
         client: record.client,
         ip: record.ip,
         summary: record.summary ?? '',
-        details: record.details ?? null,
+        details: withNozzleHealth(record),
         job_id: record.moonraker_job_id,
         filename: record.filename,
         deleted: record.deleted,

@@ -35,6 +35,23 @@
                     <v-chip v-if="event.deleted" x-small color="error" outlined class="mr-1">
                         {{ $t('Timeline.Deleted') }}
                     </v-chip>
+                    <v-tooltip v-if="nozzleHealth" top>
+                        <template #activator="{ on, attrs }">
+                            <v-chip
+                                x-small
+                                label
+                                class="mr-1"
+                                :color="nozzleHealthColor(nozzleHealth.health_pct)"
+                                :outlined="nozzleHealth.source === 'daemon'"
+                                v-bind="attrs"
+                                v-on="on">
+                                <v-icon x-small left>{{ mdiPrinter3dNozzleHeat }}</v-icon>
+                                {{ formatPct(nozzleHealth.health_pct) }}
+                                <span v-if="nozzleHealthAfter" class="ml-1">→ {{ formatPct(nozzleHealthAfter.health_pct) }}</span>
+                            </v-chip>
+                        </template>
+                        <span>{{ nozzleChipTooltip }}</span>
+                    </v-tooltip>
                     <v-spacer />
                     <v-btn v-if="isEditableService" icon x-small class="mr-1" @click="$emit('edit-service', event)">
                         <v-icon small>{{ mdiPencil }}</v-icon>
@@ -71,6 +88,37 @@
                                     <td class="font-weight-bold" width="160">{{ row.label }}</td>
                                     <td class="activity-details-value">{{ row.value }}</td>
                                 </tr>
+                                <tr v-for="block of nozzleHealthBlocks" :key="block.key">
+                                    <td class="font-weight-bold" width="160">{{ block.label }}</td>
+                                    <td class="activity-details-value">
+                                        <div class="d-flex align-center flex-wrap">
+                                            <v-progress-linear
+                                                :value="block.health.health_pct ?? 0"
+                                                :color="nozzleHealthColor(block.health.health_pct)"
+                                                height="8"
+                                                rounded
+                                                class="activity-nozzle-bar mr-3" />
+                                            <span class="font-weight-medium mr-2">
+                                                {{ formatPct(block.health.health_pct) }}
+                                            </span>
+                                            <span class="text--secondary">
+                                                {{ formatKg(block.health.remaining_nozzle_life) }} /
+                                                {{ formatKg(block.health.nozzle_life) }}
+                                            </span>
+                                        </div>
+                                        <div class="caption text--secondary">
+                                            <span v-if="formatNozzle(block.health)">{{ formatNozzle(block.health) }}</span>
+                                            <span v-if="block.health.filament_type"> · {{ block.health.filament_type }}</span>
+                                            <span v-if="block.health.odometer_e != null">
+                                                · {{ $t('Timeline.NozzleHealth.OdometerE') }}
+                                                {{ (block.health.odometer_e / 1000).toFixed(1) }} m
+                                            </span>
+                                            <span v-if="block.health.source === 'daemon'">
+                                                · {{ $t('Timeline.NozzleHealth.Estimated') }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </v-simple-table>
                     </div>
@@ -83,9 +131,19 @@
 <script lang="ts">
 import { Component, Mixins, Prop } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
-import { mdiChevronDown, mdiChevronUp, mdiDelete, mdiOpenInNew, mdiPencil } from '@mdi/js'
+import { mdiChevronDown, mdiChevronUp, mdiDelete, mdiOpenInNew, mdiPencil, mdiPrinter3dNozzleHeat } from '@mdi/js'
 import { ActivityEvent } from '@/components/timeline/types'
 import { getActivityTypeMeta, getSourceColor } from '@/components/timeline/activityTypes'
+import {
+    NozzleHealth,
+    formatKg,
+    formatNozzle,
+    formatPct,
+    getNozzleHealth,
+    getNozzleHealthAfter,
+    nozzleHealthColor,
+    nozzleHealthDetailKeys,
+} from '@/components/timeline/nozzleHealth'
 
 @Component
 export default class ActivityTimelineItem extends Mixins(BaseMixin) {
@@ -94,6 +152,12 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
     mdiDelete = mdiDelete
     mdiOpenInNew = mdiOpenInNew
     mdiPencil = mdiPencil
+    mdiPrinter3dNozzleHeat = mdiPrinter3dNozzleHeat
+
+    formatKg = formatKg
+    formatPct = formatPct
+    formatNozzle = formatNozzle
+    nozzleHealthColor = nozzleHealthColor
 
     expanded = false
 
@@ -133,11 +197,50 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
         return this.canEditService && this.event.type === 'service' && !this.event.deleted
     }
 
+    /** Health of the nozzle at the moment of the change (before a reset). */
+    get nozzleHealth(): NozzleHealth | null {
+        return getNozzleHealth(this.event)
+    }
+
+    /** Health right after a nozzle_life_reset (null for other events). */
+    get nozzleHealthAfter(): NozzleHealth | null {
+        return getNozzleHealthAfter(this.event)
+    }
+
+    get nozzleChipTooltip(): string {
+        const h = this.nozzleHealth
+        if (!h) return ''
+        const parts = [
+            this.$t('Timeline.NozzleHealth.AtChange').toString(),
+            `${formatKg(h.remaining_nozzle_life)} / ${formatKg(h.nozzle_life)}`,
+        ]
+        const nozzle = formatNozzle(h)
+        if (nozzle) parts.push(nozzle)
+        if (h.source === 'daemon') parts.push(this.$t('Timeline.NozzleHealth.Estimated').toString())
+
+        return parts.join(' · ')
+    }
+
+    get nozzleHealthBlocks(): { key: string; label: string; health: NozzleHealth }[] {
+        const blocks: { key: string; label: string; health: NozzleHealth }[] = []
+        const before = this.nozzleHealth
+        const after = this.nozzleHealthAfter
+        if (before) {
+            const labelKey = after ? 'Timeline.NozzleHealth.Before' : 'Timeline.NozzleHealth.AtChange'
+            blocks.push({ key: 'nozzle_health', label: this.$t(labelKey).toString(), health: before })
+        }
+        if (after) blocks.push({ key: 'nozzle_health_after', label: this.$t('Timeline.NozzleHealth.After').toString(), health: after })
+
+        return blocks
+    }
+
     get detailRows(): { key: string; label: string; value: string }[] {
         const details = this.event.details
         if (!details || typeof details !== 'object') return []
 
-        return Object.keys(details).map((key) => {
+        return Object.keys(details)
+            .filter((key) => !nozzleHealthDetailKeys.includes(key))
+            .map((key) => {
             const raw = details[key]
             let value: string
             if (raw === null || raw === undefined) value = '—'
@@ -153,7 +256,7 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
     }
 
     get hasDetails(): boolean {
-        return this.detailRows.length > 0 || !!this.event.filename
+        return this.detailRows.length > 0 || this.nozzleHealthBlocks.length > 0 || !!this.event.filename
     }
 }
 </script>
@@ -162,5 +265,9 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
 .activity-details-value {
     white-space: pre-wrap;
     word-break: break-word;
+}
+.activity-nozzle-bar {
+    max-width: 140px;
+    min-width: 80px;
 }
 </style>
