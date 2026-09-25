@@ -190,6 +190,10 @@ export default class AddSpoolScanMode extends Vue {
     addSpoolPendingQr: string | null = null
     addSpoolFlash: 'success' | 'error' | null = null
     addSpoolFlashTimer: ReturnType<typeof setTimeout> | null = null
+    /** How long the result flash holds and scan input is ignored after an add-spool attempt. */
+    readonly ADD_SPOOL_COOLDOWN_MS = 2000
+    /** True while scan input is being swallowed after an add-spool attempt. */
+    addSpoolCooldown = false
     addSpoolForm = this.emptyAddSpoolForm()
     /** Auto-submits scanner bursts that arrive without a trailing Enter (set in created). */
     addSpoolBurst: ScanBurstDetector | null = null
@@ -277,14 +281,31 @@ export default class AddSpoolScanMode extends Vue {
         })
     }
 
+    /**
+     * Show the add-spool result and start the cooldown. The flash and the
+     * cooldown are one window: input typed while it is active is ignored, and
+     * whatever landed in the field is discarded when the window ends so a
+     * scanner double-trigger cannot prefix the next scan.
+     */
     flashAddSpool(kind: 'success' | 'error') {
-        flashScreen(kind)
+        flashScreen(kind, this.ADD_SPOOL_COOLDOWN_MS)
         this.addSpoolFlash = kind
+        this.addSpoolCooldown = true
         if (this.addSpoolFlashTimer) clearTimeout(this.addSpoolFlashTimer)
         this.addSpoolFlashTimer = setTimeout(() => {
             this.addSpoolFlash = null
+            this.addSpoolCooldown = false
             this.addSpoolFlashTimer = null
-        }, 1500)
+            this.discardAddSpoolScanInput()
+            this.focusAddSpoolScanInput()
+        }, this.ADD_SPOOL_COOLDOWN_MS)
+    }
+
+    /** Wipe the scan field, model and any pending burst without processing the value. */
+    discardAddSpoolScanInput() {
+        this.addSpoolBurst?.reset()
+        takeScanInput(this.$refs.addSpoolScanInput, null)
+        this.addSpoolScanBuffer = ''
     }
 
     onAddSpoolScanInput(event: Event) {
@@ -301,6 +322,7 @@ export default class AddSpoolScanMode extends Vue {
         this.addSpoolStatusMessage = ''
         this.addSpoolPendingQr = null
         this.addSpoolFlash = null
+        this.addSpoolCooldown = false
         if (this.addSpoolFlashTimer) {
             clearTimeout(this.addSpoolFlashTimer)
             this.addSpoolFlashTimer = null
@@ -355,11 +377,17 @@ export default class AddSpoolScanMode extends Vue {
      *   2. A scan containing ':' (e.g. "Batch No:12345") is the batch label.
      *      Everything up to and including the first ':' is stripped; the rest
      *      is the lot#. The pending QR + lot# create the spool.
+     *
+     * After any add-spool attempt (created or rejected) input is accepted but
+     * ignored for ADD_SPOOL_COOLDOWN_MS, and the field is cleared when the
+     * window ends.
      */
     async processAddSpoolScan() {
         this.addSpoolBurst?.reset()
         const scanned = takeScanInput(this.$refs.addSpoolScanInput, this.addSpoolScanBuffer)
         this.addSpoolScanBuffer = ''
+        // Cooldown: the field has already been consumed above, so the input is swallowed
+        if (this.addSpoolCooldown) return
         if (!scanned) return
 
         if (!this.addSpoolReady) {
