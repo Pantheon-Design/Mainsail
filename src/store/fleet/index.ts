@@ -7,6 +7,7 @@ import { jobs } from './jobs'
 import { customers } from './customers'
 import { workers } from './workers'
 import { activity } from './activity'
+import { maintenance } from './maintenance'
 
 const state = {}
 const getters = {}
@@ -28,5 +29,6 @@ export const fleet: Module<any, any> = {
         customers,
         workers,
         activity,
+        maintenance,
     },
 }

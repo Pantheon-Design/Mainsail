@@ -6,6 +6,7 @@
                 <v-btn-toggle v-model="analyticsView" dense mandatory>
                     <v-btn small value="jobs">Job Analytics</v-btn>
                     <v-btn small value="parts">Part Analytics</v-btn>
+                    <v-btn small value="maintenance">Maintenance Analytics</v-btn>
                 </v-btn-toggle>
             </v-col>
             <v-spacer></v-spacer>
@@ -333,6 +334,11 @@
             </v-alert>
         </template>
 
+        <!-- ======================== MAINTENANCE ANALYTICS ======================== -->
+        <template v-else-if="analyticsView === 'maintenance'">
+            <fleet-maintenance-analytics :days="analyticsDays" />
+        </template>
+
         <!-- ======================== PART ANALYTICS ======================== -->
         <template v-else>
             <v-progress-linear v-if="partAnalyticsLoading" indeterminate color="primary" class="mb-4" />
@@ -513,8 +519,11 @@ import {
 } from '@/store/fleet/history/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { mdiDatabaseExportOutline } from '@mdi/js'
+import FleetMaintenanceAnalytics from '@/components/panels/FleetMaintenanceAnalytics.vue'
 
-@Component
+@Component({
+    components: { FleetMaintenanceAnalytics },
+})
 export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
     mdiDatabaseExportOutline = mdiDatabaseExportOutline
 
@@ -560,6 +569,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
     }
 
     onHistoryUpdated() {
+        if (this.analyticsView === 'maintenance') return
         if (this.analyticsView === 'parts') {
             this.$store.dispatch('fleet/history/loadPartAnalytics', this.analyticsDays)
         } else {
@@ -568,6 +578,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
     }
 
     onDateRangeChange() {
+        if (this.analyticsView === 'maintenance') return
         if (this.analyticsView === 'parts') {
             this.$store.dispatch('fleet/history/loadPartAnalytics', this.analyticsDays)
         } else {
@@ -587,6 +598,7 @@ export default class FleetAnalyticsPanel extends Mixins(BaseMixin, ThemeMixin) {
 
     @Watch('analyticsView')
     onAnalyticsViewChange(val: string) {
+        if (val === 'maintenance') return
         if (val === 'parts') {
             this.$store.dispatch('fleet/history/loadPartAnalytics', this.analyticsDays)
         } else {
