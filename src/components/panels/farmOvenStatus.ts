@@ -212,8 +212,10 @@ export function ovenFire(
 }
 
 /**
- * Soft spool capacity: the roster's `maxSpools` first, then the daemon's `max_spools`,
- * then `shelf_rows * slots_per_row` from the oven config; null when none is known.
+ * Soft spool capacity for the map display only: the roster's `maxSpools` first, then the
+ * daemon's mirrored `max_spools`; null when neither is set (shown as `count/?`).
+ * Deliberately independent of the oven's shelf layout (`shelf_rows` x `slots_per_row`),
+ * which is the screen's grid and is never used to gate or estimate capacity here.
  */
 export function ovenMaxSpools(frame: OvenFrame | null | undefined, rosterMax: number | null | undefined): number | null {
     const valid = (v: unknown): number | null => {
@@ -222,13 +224,7 @@ export function ovenMaxSpools(frame: OvenFrame | null | undefined, rosterMax: nu
     }
     const fromRoster = valid(rosterMax)
     if (fromRoster !== null) return fromRoster
-    const fromFrame = valid(frame?.oven?.max_spools)
-    if (fromFrame !== null) return fromFrame
-    const cfg = frame?.oven?.config
-    const rows = valid(cfg?.shelf_rows)
-    const slots = valid(cfg?.slots_per_row)
-    if (rows !== null && slots !== null) return rows * slots
-    return null
+    return valid(frame?.oven?.max_spools)
 }
 
 /** Marker bottom row: `5/12`, `5/?` when the capacity is unknown, `?/12` without a frame. */

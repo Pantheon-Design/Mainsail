@@ -483,7 +483,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return getOvenStatus(this.ovenFrame(hostname), this.$store.state.farm.fleetDaemonConnected)
     }
 
-    /** Soft capacity: roster `maxSpools` → daemon `max_spools` → rows × slots → null. */
+    /** Soft capacity (display only): roster `maxSpools` → daemon `max_spools` → null. Never derived from the shelf layout. */
     ovenMax(hostname: string): number | null {
         const rosterMax = this.$store.getters['gui/remoteprinters/getMaxSpools'](hostname) as number | null
         return ovenMaxSpools(this.ovenFrame(hostname), rosterMax)
