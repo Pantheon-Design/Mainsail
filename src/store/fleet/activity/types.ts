@@ -33,7 +33,6 @@ export interface FleetActivityPrinterCount {
 }
 
 export interface FleetActivityFilters {
-    printer?: string | null
     types?: string[]
     /** ISO */
     since?: string | null
@@ -44,11 +43,18 @@ export interface FleetActivityFilters {
     offset?: number
 }
 
-export interface FleetActivityState {
+/** One printer's independently paged slice of the activity table. */
+export interface FleetActivityLane {
     records: FleetActivityRecord[]
     total: number
-    types: FleetActivityTypeCount[]
-    printers: FleetActivityPrinterCount[]
+    hasMore: boolean
     loading: boolean
     loadingMore: boolean
+}
+
+export interface FleetActivityState {
+    /** keyed by hostKey(printer) */
+    lanes: Record<string, FleetActivityLane>
+    types: FleetActivityTypeCount[]
+    printers: FleetActivityPrinterCount[]
 }

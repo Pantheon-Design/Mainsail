@@ -10,6 +10,7 @@
                 :group="group"
                 :show-printer="showPrinter"
                 :can-edit-service="canEditService"
+                :hide-day-header="hideDayHeader"
                 @edit-service="$emit('edit-service', $event)"
                 @delete-service="$emit('delete-service', $event)"
                 @open-job="$emit('open-job', $event)" />
@@ -39,6 +40,8 @@ export default class ActivityTimeline extends Mixins(BaseMixin) {
     @Prop({ default: false }) readonly loadingMore!: boolean
     @Prop({ default: false }) readonly canEditService!: boolean
     @Prop({ default: '' }) readonly emptyText!: string
+    /** Omit the per-day headings (used by the fleet lane view, which draws one per row). */
+    @Prop({ default: false }) readonly hideDayHeader!: boolean
 
     /** Input is assumed newest-first; the store controls ordering, we only group. */
     get groupedByDay(): ActivityDayGroup[] {

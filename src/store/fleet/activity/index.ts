@@ -1,18 +1,23 @@
 import { Module } from 'vuex'
-import { FleetActivityState } from './types'
+import { FleetActivityLane, FleetActivityState } from './types'
 import { actions } from './actions'
 import { mutations } from './mutations'
 import { getters } from './getters'
 
 export const FLEET_ACTIVITY_PAGE_LIMIT = 100
 
-export const getDefaultState = (): FleetActivityState => ({
+export const getDefaultLane = (): FleetActivityLane => ({
     records: [],
     total: 0,
-    types: [],
-    printers: [],
+    hasMore: false,
     loading: false,
     loadingMore: false,
+})
+
+export const getDefaultState = (): FleetActivityState => ({
+    lanes: {},
+    types: [],
+    printers: [],
 })
 
 const state = getDefaultState()

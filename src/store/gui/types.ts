@@ -142,6 +142,9 @@ export interface GuiState {
             showFirmwareRetraction: boolean
             showExtruderControl: boolean
         }
+        fleetTimeline: {
+            printers: string[]
+        }
         gcodefiles: {
             countPerPage: number
             sortBy: string

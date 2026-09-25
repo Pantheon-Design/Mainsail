@@ -1,6 +1,7 @@
 import { GetterTree } from 'vuex'
-import { FleetActivityRecord, FleetActivityState } from './types'
+import { FleetActivityLane, FleetActivityRecord, FleetActivityState } from './types'
 import { ActivityEvent, ActivityTier } from '@/components/timeline/types'
+import { getDefaultLane } from './index'
 import i18n from '@/plugins/i18n'
 
 function isoToSeconds(value: string | null | undefined): number {
@@ -32,27 +33,22 @@ export function toActivityEvent(record: FleetActivityRecord): ActivityEvent {
 }
 
 export const getters: GetterTree<FleetActivityState, any> = {
-    getRecords(state): FleetActivityRecord[] {
-        return state.records
-    },
+    getLane:
+        (state) =>
+        (printer: string): FleetActivityLane =>
+            state.lanes[printer] ?? getDefaultLane(),
 
-    getTotal(state): number {
-        return state.total
-    },
+    /** Non-deleted events of one lane, newest first, in the shared ActivityEvent shape. */
+    getLaneEvents:
+        (state) =>
+        (printer: string): ActivityEvent[] =>
+            (state.lanes[printer]?.records ?? [])
+                .filter((r) => !r.deleted)
+                .map(toActivityEvent)
+                .sort((a, b) => b.ts - a.ts),
 
-    isLoading(state): boolean {
-        return state.loading
-    },
-
-    isLoadingMore(state): boolean {
-        return state.loadingMore
-    },
-
-    getEvents(state): ActivityEvent[] {
-        return state.records
-            .filter((r) => !r.deleted)
-            .map(toActivityEvent)
-            .sort((a, b) => b.ts - a.ts)
+    isAnyLaneLoading(state): boolean {
+        return Object.values(state.lanes).some((lane) => lane.loading)
     },
 
     getTypeItems(state): { text: string; value: string }[] {

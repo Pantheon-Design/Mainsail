@@ -1,33 +1,54 @@
 import Vue from 'vue'
 import { MutationTree } from 'vuex'
-import { FleetActivityPrinterCount, FleetActivityRecord, FleetActivityState, FleetActivityTypeCount } from './types'
-import { getDefaultState } from './index'
+import {
+    FleetActivityLane,
+    FleetActivityPrinterCount,
+    FleetActivityRecord,
+    FleetActivityState,
+    FleetActivityTypeCount,
+} from './types'
+import { getDefaultLane, getDefaultState } from './index'
+
+function ensureLane(state: FleetActivityState, printer: string): FleetActivityLane {
+    if (!state.lanes[printer]) Vue.set(state.lanes, printer, getDefaultLane())
+    return state.lanes[printer]
+}
 
 export const mutations: MutationTree<FleetActivityState> = {
     reset(state) {
         Object.assign(state, getDefaultState())
     },
 
-    setLoading(state, loading: boolean) {
-        Vue.set(state, 'loading', loading)
+    resetLanes(state) {
+        Vue.set(state, 'lanes', {})
     },
 
-    setLoadingMore(state, loading: boolean) {
-        Vue.set(state, 'loadingMore', loading)
+    setLaneLoading(state, payload: { printer: string; loading: boolean }) {
+        const lane = ensureLane(state, payload.printer)
+        Vue.set(lane, 'loading', payload.loading)
     },
 
-    setRecords(state, records: FleetActivityRecord[]) {
-        Vue.set(state, 'records', records)
+    setLaneLoadingMore(state, payload: { printer: string; loading: boolean }) {
+        const lane = ensureLane(state, payload.printer)
+        Vue.set(lane, 'loadingMore', payload.loading)
     },
 
-    appendRecords(state, records: FleetActivityRecord[]) {
-        const existing = new Set(state.records.map((r) => r.id))
-        const novel = records.filter((r) => !existing.has(r.id))
-        Vue.set(state, 'records', [...state.records, ...novel])
+    setLaneRecords(state, payload: { printer: string; records: FleetActivityRecord[]; total: number }) {
+        const lane = ensureLane(state, payload.printer)
+        Vue.set(lane, 'records', payload.records)
+        Vue.set(lane, 'total', payload.total)
+        Vue.set(lane, 'hasMore', payload.records.length < payload.total)
     },
 
-    setTotal(state, total: number) {
-        Vue.set(state, 'total', total)
+    appendLaneRecords(state, payload: { printer: string; records: FleetActivityRecord[]; total: number }) {
+        const lane = ensureLane(state, payload.printer)
+        const existing = new Set(lane.records.map((r) => r.id))
+        const novel = payload.records.filter((r) => !existing.has(r.id))
+        const records = [...lane.records, ...novel]
+        Vue.set(lane, 'records', records)
+        Vue.set(lane, 'total', payload.total)
+        // A page that added nothing new means the server has nothing further for us.
+        Vue.set(lane, 'hasMore', novel.length > 0 && records.length < payload.total)
     },
 
     setTypes(state, types: FleetActivityTypeCount[]) {

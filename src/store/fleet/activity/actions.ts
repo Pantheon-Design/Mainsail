@@ -4,9 +4,9 @@ import { FleetActivityFilters, FleetActivityState } from './types'
 import { RootState } from '@/store/types'
 import { FLEET_ACTIVITY_PAGE_LIMIT } from './index'
 
-function buildParams(filters: FleetActivityFilters): URLSearchParams {
+function buildParams(printer: string, filters: FleetActivityFilters): URLSearchParams {
     const params = new URLSearchParams()
-    if (filters.printer) params.set('printer', filters.printer)
+    params.set('printer', printer)
     if (filters.types && filters.types.length) params.set('type', filters.types.join(','))
     if (filters.since) params.set('since', filters.since)
     if (filters.until) params.set('until', filters.until)
@@ -18,38 +18,52 @@ function buildParams(filters: FleetActivityFilters): URLSearchParams {
 }
 
 export const actions: ActionTree<FleetActivityState, RootState> = {
-    async loadActivity({ commit, rootGetters }, filters: FleetActivityFilters = {}) {
+    resetLanes({ commit }) {
+        commit('resetLanes')
+    },
+
+    /** (Re)load the first page of one printer's lane. */
+    async loadLane({ commit, rootGetters }, payload: { printer: string; filters?: FleetActivityFilters }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
-        commit('setLoading', true)
+        const printer = payload.printer
+        commit('setLaneLoading', { printer, loading: true })
         try {
-            const params = buildParams({ ...filters, offset: 0 })
+            const params = buildParams(printer, { ...(payload.filters ?? {}), offset: 0 })
             const response = await axios.get(`${baseUrl}/activity?${params}`)
-            commit('setRecords', response.data.records ?? [])
-            commit('setTotal', response.data.total ?? 0)
+            commit('setLaneRecords', {
+                printer,
+                records: response.data.records ?? [],
+                total: response.data.total ?? 0,
+            })
         } catch (error) {
-            console.error('Failed to load fleet activity:', error)
-            commit('setRecords', [])
-            commit('setTotal', 0)
+            console.error(`Failed to load fleet activity for ${printer}:`, error)
+            commit('setLaneRecords', { printer, records: [], total: 0 })
         } finally {
-            commit('setLoading', false)
+            commit('setLaneLoading', { printer, loading: false })
         }
     },
 
-    async loadMoreActivity({ commit, rootGetters, state }, filters: FleetActivityFilters = {}) {
+    /** Load the next page of one printer's lane (offset = records loaded so far). */
+    async loadMoreLane(
+        { commit, rootGetters, state },
+        payload: { printer: string; filters?: FleetActivityFilters }
+    ): Promise<number> {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
-        commit('setLoadingMore', true)
+        const printer = payload.printer
+        const lane = state.lanes[printer]
+        if (!lane || !lane.hasMore || lane.loadingMore) return 0
+        commit('setLaneLoadingMore', { printer, loading: true })
         try {
-            const params = buildParams({ ...filters, offset: filters.offset ?? state.records.length })
+            const params = buildParams(printer, { ...(payload.filters ?? {}), offset: lane.records.length })
             const response = await axios.get(`${baseUrl}/activity?${params}`)
             const records = response.data.records ?? []
-            commit('appendRecords', records)
-            commit('setTotal', response.data.total ?? 0)
+            commit('appendLaneRecords', { printer, records, total: response.data.total ?? 0 })
             return records.length
         } catch (error) {
-            console.error('Failed to load more fleet activity:', error)
+            console.error(`Failed to load more fleet activity for ${printer}:`, error)
             return 0
         } finally {
-            commit('setLoadingMore', false)
+            commit('setLaneLoadingMore', { printer, loading: false })
         }
     },
 

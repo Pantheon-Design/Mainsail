@@ -193,6 +193,9 @@ export const getDefaultState = (): GuiState => {
                 showFirmwareRetraction: true,
                 showExtruderControl: true,
             },
+            fleetTimeline: {
+                printers: [],
+            },
             gcodefiles: {
                 countPerPage: -1,
                 sortBy: 'modified',

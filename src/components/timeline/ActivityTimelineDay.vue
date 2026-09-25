@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-timeline-item small class="activity-timeline-day">
+        <v-timeline-item v-if="!hideDayHeader" small class="activity-timeline-day">
             <v-row class="pt-0">
                 <v-col class="pr-6">
                     <h3 class="caption">
@@ -34,6 +34,8 @@ export default class ActivityTimelineDay extends Mixins(BaseMixin) {
     @Prop({ required: true }) readonly group!: ActivityDayGroup
     @Prop({ default: false }) readonly showPrinter!: boolean
     @Prop({ default: false }) readonly canEditService!: boolean
+    /** Omit the per-day heading (the fleet lane view renders one heading per row of lanes). */
+    @Prop({ default: false }) readonly hideDayHeader!: boolean
 
     get groupDate() {
         return new Date(this.group.date).toLocaleDateString(this.browserLocale, {

@@ -271,8 +271,11 @@
         "View3D": "View 3D"
     },
     "FleetTimeline": {
-        "NoEvents": "No fleet activity recorded yet",
+        "Loaded": "{loaded} of {total} loaded",
+        "NoEvents": "No activity recorded for this printer",
         "NoHistoryRecord": "No fleet history record found for this job yet",
+        "Printers": "Printers",
+        "SelectPrinters": "Select one or more printers to show their timelines side by side.",
         "Title": "Fleet Timeline"
     },
     "FullscreenUpload": {
