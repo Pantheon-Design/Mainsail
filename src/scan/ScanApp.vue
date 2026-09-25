@@ -37,6 +37,10 @@
                     <v-icon left large>{{ mdiScriptTextOutline }}</v-icon>
                     Macros
                 </v-btn>
+                <v-btn block x-large color="green darken-2" dark class="mb-4 scan-mode-btn" :disabled="loading" @click="openLoadSpool">
+                    <v-icon left large>{{ mdiTrayArrowDown }}</v-icon>
+                    Load Spool
+                </v-btn>
 
                 <p class="caption grey--text text-center mt-6 mb-1">
                     Daemon: {{ daemonUrl }}
@@ -53,6 +57,7 @@
         <add-spool-scan-mode v-model="addSpoolMode" :dev-mode="devMode" @closed="loadSpools" />
         <add-part-scan-mode v-model="addPartMode" :dev-mode="devMode" :is-mobile="isMobile" :known-printers="knownPrinters" @closed="loadHistory" />
         <macro-scan-mode v-model="macroMode" :dev-mode="devMode" :is-mobile="isMobile" />
+        <load-spool-scan-mode v-model="loadSpoolMode" :dev-mode="devMode" :is-mobile="isMobile" @closed="loadSpools" />
 
         <!-- Daemon URL settings -->
         <v-dialog v-model="settingsOpen" max-width="420">
@@ -88,18 +93,19 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiQrcodeScan, mdiBug, mdiCog, mdiPackageVariantClosed, mdiScriptTextOutline } from '@mdi/js'
+import { mdiQrcodeScan, mdiBug, mdiCog, mdiPackageVariantClosed, mdiScriptTextOutline, mdiTrayArrowDown } from '@mdi/js'
 import { mdiMagnifyCheck, mdiSpool } from '@/plugins/customIcons'
 import QcScanMode from '@/components/scan/QcScanMode.vue'
 import AddSpoolScanMode from '@/components/scan/AddSpoolScanMode.vue'
 import AddPartScanMode from '@/components/scan/AddPartScanMode.vue'
 import MacroScanMode from '@/components/scan/MacroScanMode.vue'
+import LoadSpoolScanMode from '@/components/scan/LoadSpoolScanMode.vue'
 import { warmScanKeyboard } from '@/plugins/scanFocus'
 import { defaultDaemonUrl, saveDaemonUrl } from './store'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import { FleetSpool, FleetFilament } from '@/store/fleet/spools/types'
 
-@Component({ components: { QcScanMode, AddSpoolScanMode, AddPartScanMode, MacroScanMode } })
+@Component({ components: { QcScanMode, AddSpoolScanMode, AddPartScanMode, MacroScanMode, LoadSpoolScanMode } })
 export default class ScanApp extends Vue {
     mdiQrcodeScan = mdiQrcodeScan
     mdiBug = mdiBug
@@ -108,11 +114,13 @@ export default class ScanApp extends Vue {
     mdiSpool = mdiSpool
     mdiPackageVariantClosed = mdiPackageVariantClosed
     mdiScriptTextOutline = mdiScriptTextOutline
+    mdiTrayArrowDown = mdiTrayArrowDown
 
     qcMode = false
     addSpoolMode = false
     addPartMode = false
     macroMode = false
+    loadSpoolMode = false
     devMode = false
 
     loading = false
@@ -206,6 +214,11 @@ export default class ScanApp extends Vue {
     openMacros() {
         warmScanKeyboard() // must be first: synchronous, inside the tap gesture
         this.macroMode = true
+    }
+
+    openLoadSpool() {
+        warmScanKeyboard() // must be first: synchronous, inside the tap gesture
+        this.loadSpoolMode = true
     }
 
     openSettings() {

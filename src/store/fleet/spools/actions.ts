@@ -1,5 +1,6 @@
 import { ActionTree } from 'vuex'
-import { FleetSpoolsState } from './types'
+import { FleetSpoolsState, FleetSpoolLookup, FleetScanRelayRecord } from './types'
+import { toApiError } from '../utils'
 import { RootState } from '@/store/types'
 import axios from 'axios'
 
@@ -187,13 +188,50 @@ export const actions: ActionTree<FleetSpoolsState, RootState> = {
         }
     },
 
-    async lookupByQr({ rootGetters }, qrCode: string) {
+    async lookupByQr({ rootGetters }, qrCode: string): Promise<FleetSpoolLookup> {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
             const response = await axios.get(`${baseUrl}/spool/lookup/${encodeURIComponent(qrCode)}`)
             return response.data.spool
         } catch (error) {
-            throw new Error(extractError(error))
+            throw toApiError(error)
+        }
+    },
+
+    // ---- Scanner Lite "Load Spool" relay (see FleetScanRelayRecord) ----
+
+    /** POST /spool/scan-relay — hand a spool scan to a printer's KlipperScreen. 404: unknown spool or printer. */
+    async relayLoadScan(
+        { rootGetters },
+        payload: { qr_code: string; printer_hostname: string }
+    ): Promise<FleetScanRelayRecord> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.post(`${baseUrl}/spool/scan-relay`, payload)
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
+    /** GET /spool/scan-relay/{hostname} — outcome of the last relayed scan for that printer. */
+    async getLoadScanStatus({ rootGetters }, hostname: string): Promise<FleetScanRelayRecord> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.get(`${baseUrl}/spool/scan-relay/${encodeURIComponent(hostname)}`)
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
+    /** DELETE /spool/scan-relay/{hostname} — withdraw a relayed scan that was not confirmed. */
+    async cancelLoadScan({ rootGetters }, hostname: string): Promise<void> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.delete(`${baseUrl}/spool/scan-relay/${encodeURIComponent(hostname)}`)
+        } catch (error) {
+            throw toApiError(error)
         }
     },
 }

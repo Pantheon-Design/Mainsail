@@ -73,3 +73,51 @@ export interface FleetSpoolsState {
     spools: FleetSpool[]
     loading: boolean
 }
+
+/** Nested spool shape returned by GET /spool/lookup/{qr} and the scan relay. */
+export interface FleetSpoolLookup {
+    id: number
+    qr_code: string | null
+    initial_weight: number | null
+    used_weight: number
+    remaining_weight: number | null
+    location: string | null
+    lot_nr: string | null
+    loaded_on_printer: string | null
+    loaded_at: string | null
+    in_oven: string | null
+    oven_row: number | null
+    oven_slot: number | null
+    is_ready: boolean | null
+    filament: {
+        id: number
+        name: string | null
+        material: string
+        density: number
+        diameter: number
+        color_hex: string | null
+        extrude_temp: number | null
+        vendor: { id: number; name: string } | null
+    }
+}
+
+export type FleetScanRelayStatus = 'none' | 'pending' | 'delivered' | 'loaded' | 'cancelled'
+
+/**
+ * Scanner Lite "Load Spool" relay record (POST/GET /spool/scan-relay).
+ * `pending`   — waiting for the printer's KlipperScreen to pick it up
+ * `delivered` — shown on the printer, operator must confirm there
+ * `loaded`    — confirmed (the printer called POST /spool/load)
+ * `cancelled` — dismissed on the printer or by the scanner
+ */
+export interface FleetScanRelayRecord {
+    status: FleetScanRelayStatus
+    printer: string
+    /** True when KlipperScreen polled within the last few seconds (its waiting dialog is open). */
+    printer_listening: boolean
+    qr_code?: string
+    printer_hostname?: string
+    created_at?: string
+    updated_at?: string
+    spool?: FleetSpoolLookup
+}
