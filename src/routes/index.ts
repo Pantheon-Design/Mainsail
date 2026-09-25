@@ -21,6 +21,7 @@ import {
     mdiTimelineClockOutline,
     mdiWrench,
     mdiPrinter3dNozzle,
+    mdiHeartPulse,
     mdiBriefcaseOutline,
 } from '@mdi/js'
 
@@ -128,6 +129,16 @@ const routes: AppRoute[] = [
         alwaysShow: true,
         showInNavi: true,
         position: 67,
+    },
+    {
+        name: 'fleet-status',
+        title: 'Fleet Status',
+        path: '/fleet-status',
+        icon: mdiHeartPulse,
+        component: () => import('../pages/FleetStatus.vue'),
+        alwaysShow: true,
+        showInNavi: true,
+        position: 68,
     },
     {
         name: 'spool-management',
