@@ -75,6 +75,8 @@ import {
 import {
     getPrinterStatus as getPrinterStatusUtil,
     PrinterStatus,
+    STATUS_META,
+    STATUS_ORDER,
 } from '@/components/panels/farmPrinterStatus'
 import {
     getOvenStatus,
@@ -167,15 +169,9 @@ export default class PageFarm extends Mixins(BaseMixin) {
         return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
     }
 
-    // Status color/label vocabulary (matches farmPrinterStatus + FarmPrinterGridPanel)
-    readonly STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
-        printing: { color: '#2196f3', label: 'Printing' },
-        ready: { color: 'hsl(90, 100%, 32%)', label: 'Ready' },
-        complete: { color: '#1976d2', label: 'Complete' },
-        error: { color: '#d32f2f', label: 'Error' },
-        disconnected: { color: '#8a8a8a', label: 'Offline' },
-    }
-    readonly STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+    // Status colour/label vocabulary shared with the other fleet views (farmPrinterStatus.ts)
+    readonly STATUS_META = STATUS_META
+    readonly STATUS_ORDER = STATUS_ORDER
     // Oven legend entry (shared with FarmMapSection through farmOvenStatus.ts)
     readonly OVEN_LEGEND = OVEN_LEGEND
 

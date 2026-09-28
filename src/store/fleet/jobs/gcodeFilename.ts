@@ -21,6 +21,8 @@ export interface ParsedGcodeFilename {
     /** only from an explicit token such as `0.6n`, `n0.6`, `0.6nozzle`, `nozzle0.6` */
     nozzle_diameter: number | null
     quantity: number | null
+    /** slicer print time per run in seconds, from a `12h0m` / `1d2h30m` / `45m` token */
+    print_time_secs: number | null
 }
 
 /** Known filament tokens, longest first so PETG-CF wins over PETG. */
@@ -92,6 +94,61 @@ export function parseQuantity(filename: string): number | null {
     return null
 }
 
+const PRINT_TIME_TOKEN = /^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?$/i
+
+/**
+ * Seconds from a `NdNhNm` token (any subset, at least one part) such as `12h0m`,
+ * `1d2h30m` or `45m`. Mirrors parse_print_time_from_name in fleet_daemon.
+ */
+export function parsePrintTimeSecs(filename: string | null | undefined): number | null {
+    if (!filename) return null
+    const tokens = stem(filename).split(/[_\s]+/)
+    for (const t of tokens) {
+        if (!t) continue
+        const m = t.match(PRINT_TIME_TOKEN)
+        if (!m || (m[1] === undefined && m[2] === undefined && m[3] === undefined)) continue
+        const secs = (parseInt(m[1] ?? '0', 10) || 0) * 86400 + (parseInt(m[2] ?? '0', 10) || 0) * 3600 + (parseInt(m[3] ?? '0', 10) || 0) * 60
+        if (secs > 0) return secs
+    }
+    return null
+}
+
+/** Free text typed by an operator (`1d 2h 30m`, `12h0m`, `90m`, `2.5h`) -> seconds, or null. */
+export function parsePrintTimeInput(text: string | null | undefined): number | null {
+    if (!text) return null
+    const s = text.trim().toLowerCase()
+    if (!s) return null
+    let secs = 0
+    let matched = false
+    const re = /(\d+(?:\.\d+)?)\s*(d|h|m)/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(s)) !== null) {
+        matched = true
+        const v = parseFloat(m[1])
+        secs += m[2] === 'd' ? v * 86400 : m[2] === 'h' ? v * 3600 : v * 60
+    }
+    if (!matched) {
+        // bare number = hours
+        const v = parseFloat(s)
+        if (!isNaN(v)) secs = v * 3600
+    }
+    secs = Math.round(secs)
+    return secs > 0 ? secs : null
+}
+
+/** Seconds -> `1d 2h 30m` style text for the job form (empty string for null / 0). */
+export function formatPrintTimeInput(secs: number | null | undefined): string {
+    if (!secs || secs <= 0) return ''
+    const d = Math.floor(secs / 86400)
+    const h = Math.floor((secs % 86400) / 3600)
+    const m = Math.round((secs % 3600) / 60)
+    const parts: string[] = []
+    if (d) parts.push(`${d}d`)
+    if (h || d) parts.push(`${h}h`)
+    parts.push(`${m}m`)
+    return parts.join(' ')
+}
+
 export function parseGcodeFilename(filename: string): ParsedGcodeFilename {
     return {
         printer_model: parsePrinterModel(filename),
@@ -99,5 +156,6 @@ export function parseGcodeFilename(filename: string): ParsedGcodeFilename {
         filament_grams: parseFilamentGrams(filename),
         nozzle_diameter: parseNozzle(filename),
         quantity: parseQuantity(filename),
+        print_time_secs: parsePrintTimeSecs(filename),
     }
 }

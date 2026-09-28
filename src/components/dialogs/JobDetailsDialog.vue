@@ -73,6 +73,7 @@
                         <v-chip x-small class="mr-1">{{ item.filament_type || 'any filament' }}</v-chip>
                         <v-chip x-small class="mr-1">{{ item.nozzle_diameter ? item.nozzle_diameter + ' mm nozzle' : 'any nozzle' }}</v-chip>
                         <v-chip v-if="item.filament_grams" x-small class="mr-1">{{ item.filament_grams }} g</v-chip>
+                        <v-chip v-if="item.print_time_secs" x-small class="mr-1" title="print time per run (from the file name or the job form)">{{ formatHoursDh(item.print_time_secs) }} / run</v-chip>
                         <v-spacer />
                         <span class="text-caption">
                             {{ item.success_count }} / {{ item.total_runs }} done
@@ -194,6 +195,7 @@ import { Prop } from 'vue-property-decorator'
 import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil, mdiPlay } from '@mdi/js'
 import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
+import { formatHoursDh } from '@/store/fleet/forecast'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
 
@@ -309,6 +311,8 @@ export default class JobDetailsDialog extends Vue {
     formatDateTime(iso: string | null) {
         return iso ? new Date(iso).toLocaleString() : '—'
     }
+
+    formatHoursDh = formatHoursDh
 
     formatDuration(secs: number | null) {
         if (secs == null) return '—'

@@ -1,6 +1,6 @@
 import Vue from 'vue'
 import { MutationTree } from 'vuex'
-import { FleetJobsState, FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun } from './types'
+import { FleetJobsState, FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, FleetJobForecast } from './types'
 import { getDefaultState } from './index'
 
 export const mutations: MutationTree<FleetJobsState> = {
@@ -58,5 +58,13 @@ export const mutations: MutationTree<FleetJobsState> = {
 
     setRuns(state, runs: FleetJobRun[]) {
         Vue.set(state, 'runs', runs)
+    },
+
+    setForecast(state, forecast: FleetJobForecast[]) {
+        Vue.set(state, 'forecast', forecast)
+    },
+
+    setForecastError(state, error: string | null) {
+        Vue.set(state, 'forecastError', error)
     },
 }

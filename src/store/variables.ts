@@ -82,21 +82,6 @@ export const allowedMetadata = [
 export const maxEventHistory = 500
 export const maxGcodeHistory = 50
 
-/*
- * List of generic dashboard panels
- */
-export const allDashboardPanels = [
-    'toolhead-control',
-    'extruder-control',
-    'macros',
-    'machine-settings',
-    'miniconsole',
-    'miscellaneous',
-    'spoolman',
-    'temperature',
-    'webcam',
-]
-
 export const thumbnailSmallMin = 30
 export const thumbnailSmallMax = 64
 export const thumbnailBigMin = 128

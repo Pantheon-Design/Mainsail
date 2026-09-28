@@ -1,8 +1,7 @@
 import Vue from 'vue'
 import { ActionTree } from 'vuex'
-import { GuiState, GuiStateLayoutoption } from '@/store/gui/types'
+import { GuiState } from '@/store/gui/types'
 import { RootState } from '@/store/types'
-import { getDefaultState } from './index'
 import { themeDir } from '@/store/variables'
 
 export const actions: ActionTree<GuiState, RootState> = {
@@ -77,36 +76,6 @@ export const actions: ActionTree<GuiState, RootState> = {
             delete payload.value.dashboard.nonExpandPanels
         }
 
-        //update tools to temperatures panel from V2.1.x to V2.2.0
-        if ('dashboard' in payload.value) {
-            const dashboard = payload.value.dashboard
-            const layouts = [
-                'mobileLayout',
-                'tabletLayout1',
-                'tabletLayout2',
-                'desktopLayout1',
-                'desktopLayout2',
-                'widescreenLayout1',
-                'widescreenLayout2',
-                'widescreenLayout3',
-            ]
-
-            layouts.forEach((layout) => {
-                if (layout in dashboard) {
-                    const index = dashboard[layout].findIndex((entry: GuiStateLayoutoption) => entry.name === 'tools')
-
-                    if (index !== -1) {
-                        dashboard[layout][index].name = 'temperature'
-
-                        dispatch('saveSetting', {
-                            name: 'dashboard.' + layout,
-                            value: dashboard[layout],
-                        })
-                    }
-                }
-            })
-        }
-
         await commit('setData', payload.value)
         await dispatch('socket/removeInitModule', 'gui/init', { root: true })
     },
@@ -169,6 +138,18 @@ export const actions: ActionTree<GuiState, RootState> = {
         })
 
         dispatch('init')
+    },
+
+    /**
+     * Use a backup fleet_daemon for this page load only (Settings > General > Connect).
+     * Nothing is written to the Moonraker DB, so a reload returns to the printers URL.
+     * Frames from the previous daemon are dropped; the WS client reconnects on its own
+     * (it watches gui/fleetDaemonUrl) and the pages re-poll their HTTP data.
+     */
+    setFleetDaemonUrlOverride({ commit }, url: string | null) {
+        commit('farm/CLEAR_FLEET_DAEMON_PRINTERS', null, { root: true })
+        commit('farm/CLEAR_FLEET_DAEMON_OVENS', null, { root: true })
+        commit('setFleetDaemonUrlOverride', url || null)
     },
 
     saveSetting({ commit }, payload) {
@@ -432,17 +413,6 @@ export const actions: ActionTree<GuiState, RootState> = {
                 newVal: array,
             })
         }
-    },
-
-    resetLayout({ dispatch }, name) {
-        const defaultState = getDefaultState()
-        // @ts-ignore
-        const newVal: any = defaultState.dashboard[name] ?? []
-
-        dispatch('saveSetting', {
-            name: 'dashboard.' + name,
-            value: newVal,
-        })
     },
 
     updateGcodeviewerCache({ dispatch, state }, payload) {

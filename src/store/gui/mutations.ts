@@ -13,6 +13,10 @@ export const mutations: MutationTree<GuiState> = {
         setDataDeep(state, payload)
     },
 
+    setFleetDaemonUrlOverride(state, url: string | null) {
+        Vue.set(state, 'fleetDaemonUrlOverride', url)
+    },
+
     saveSetting(state, payload) {
         // eslint-disable-next-line
         const deepSet = (obj: any, is: string[] | string, value: any): any => {

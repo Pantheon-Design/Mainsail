@@ -35,6 +35,8 @@ const routes: AppRoute[] = [
         alwaysShow: true,
         showInNavi: true,
         position: 10,
+        // fleet overview fills the viewport (no 1800px cap, no page scroll on desktop)
+        fullscreen: true,
     },
     {
         name: 'farm',

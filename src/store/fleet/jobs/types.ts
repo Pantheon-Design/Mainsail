@@ -76,6 +76,8 @@ export interface FleetJobItem {
     filament_type: string | null
     filament_grams: number | null
     nozzle_diameter: number | null
+    /** slicer print time per run (seconds): file-name token or operator input; null = unknown */
+    print_time_secs: number | null
     notes: string | null
     created_at: string
     updated_at: string
@@ -161,6 +163,10 @@ export interface FleetWorker {
     print_state: string | null
     filename: string | null
     progress: number | null
+    /** print_stats.print_duration (seconds); newer daemons only */
+    print_duration?: number | null
+    /** slicer time for the running file (item print_time_secs or file-name token); newer daemons only */
+    estimated_time?: number | null
     filament_type: string | null
     remaining_weight: number | null
     nozzle_size: number | null
@@ -211,6 +217,31 @@ export interface FleetSchedulerStatus {
     db_error?: string
 }
 
+/** One row of GET /jobs/forecast (open jobs: in_progress + pending). */
+export interface FleetJobForecast {
+    job_id: number
+    name: string
+    customer_name: string | null
+    status: JobStatus
+    priority: JobPriority
+    due_date: string | null
+    hold_reason: string | null
+    qty_total: number
+    qty_done: number
+    qty_active: number
+    /** printers with an active run on this job */
+    workers: string[]
+    workers_active: number
+    secs_done: number
+    secs_left: number
+    /** false when an item with runs left has no print_time_secs (totals are short) */
+    time_complete: boolean
+    grams_done: number
+    grams_left: number
+    weight_complete: boolean
+    materials: { filament_type: string; grams_done: number; grams_left: number }[]
+}
+
 /** GET /gcodes/{filename}/meta */
 export interface FleetGcodeMeta {
     filename: string
@@ -232,6 +263,8 @@ export interface JobItemCreatePayload {
     filament_grams?: number | null
     /** mm; must equal the worker's toolhead.nozzle_size */
     nozzle_diameter?: number | null
+    /** seconds per run; null = the daemon parses the `12h0m` file-name token */
+    print_time_secs?: number | null
     notes?: string | null
     /** false = the daemon must NOT read the gcode footer to fill blanks (UI prefills from the file name only) */
     autofill_from_gcode?: boolean
@@ -243,6 +276,7 @@ export interface JobItemUpdatePayload {
     filament_type?: string | null
     filament_grams?: number | null
     nozzle_diameter?: number | null
+    print_time_secs?: number | null
     notes?: string | null
     autofill_from_gcode?: boolean
 }
@@ -298,6 +332,10 @@ export interface FleetJobsState {
     runs: FleetJobRun[]
     loading: boolean
     includeClosed: boolean
+    /** GET /jobs/forecast for the dashboard */
+    forecast: FleetJobForecast[]
+    /** why the forecast is unavailable (older daemon / request failed); null = fine */
+    forecastError: string | null
 }
 
 export interface FleetCustomersState {

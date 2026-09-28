@@ -48,14 +48,8 @@ export interface GuiState {
         nonExpandPanels: {
             [index: string]: string[]
         }
-        mobileLayout: GuiStateLayoutoption[]
-        tabletLayout1: GuiStateLayoutoption[]
-        tabletLayout2: GuiStateLayoutoption[]
-        desktopLayout1: GuiStateLayoutoption[]
-        desktopLayout2: GuiStateLayoutoption[]
-        widescreenLayout1: GuiStateLayoutoption[]
-        widescreenLayout2: GuiStateLayoutoption[]
-        widescreenLayout3: GuiStateLayoutoption[]
+        /** fleet dashboard forecast marks in hours, ascending (default [1, 2]) */
+        finishIntervalsHours: number[]
     }
     editor: {
         escToClose: boolean
@@ -207,6 +201,8 @@ export interface GuiState {
         }
     }
     fleetDaemonUrl: string | null
+    /** backup daemon URL in use for this page load only (not persisted) */
+    fleetDaemonUrlOverride: string | null
     mapdrawing: {
         farmStrokes: GuiStateMapDrawingStroke[]
         groundStrokes: GuiStateMapDrawingStroke[]
@@ -220,7 +216,3 @@ export interface GuiStateMapDrawingStroke {
     points: { x: number; y: number }[]
 }
 
-export interface GuiStateLayoutoption {
-    name: string
-    visible: boolean
-}

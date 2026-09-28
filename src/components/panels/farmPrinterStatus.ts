@@ -2,6 +2,29 @@ import { PrinterModel, SQUARE_PRINTER_MODELS } from '@/store/gui/remoteprinters/
 
 export type PrinterStatus = 'disconnected' | 'error' | 'printing' | 'complete' | 'ready'
 
+/** Status colour/label vocabulary shared by the Fleet Map, Workers map and the dashboard. */
+export const STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
+    printing: { color: '#2196f3', label: 'Printing' },
+    ready: { color: 'hsl(90, 100%, 32%)', label: 'Ready' },
+    complete: { color: '#1976d2', label: 'Complete' },
+    error: { color: '#d32f2f', label: 'Error' },
+    disconnected: { color: '#8a8a8a', label: 'Offline' },
+}
+export const STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+
+export function emptyStatusCounts(): Record<PrinterStatus, number> {
+    return { printing: 0, ready: 0, complete: 0, error: 0, disconnected: 0 }
+}
+
+/** Count fleet_daemon printer frames per status (callers filter ovens / workers first). */
+export function countPrinterStatuses(printers: any[], fleetDaemonConnected: boolean): Record<PrinterStatus, number> {
+    const counts = emptyStatusCounts()
+    printers.forEach((printer) => {
+        counts[getPrinterStatus(printer, fleetDaemonConnected)]++
+    })
+    return counts
+}
+
 export function getPrinterStatus(printer: any, fleetDaemonConnected: boolean): PrinterStatus {
     if (printer?.fleet_to_printer_ws === false) return 'disconnected'
     if (!fleetDaemonConnected || !printer?.socket?.isConnected) return 'disconnected'

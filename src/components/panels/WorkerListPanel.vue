@@ -231,7 +231,7 @@ import Component from 'vue-class-component'
 import { Watch } from 'vue-property-decorator'
 import { mdiAlertCircle, mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
-import { getPrinterStatus, PrinterStatus } from '@/components/panels/farmPrinterStatus'
+import { getPrinterStatus, PrinterStatus, STATUS_META, STATUS_ORDER } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 import {
     workerNeedsAttention,
@@ -445,15 +445,9 @@ export default class WorkerListPanel extends Vue {
         return this.enabledHostnames.length
     }
 
-    // Status color/label vocabulary (matches Farm.vue + FarmMapSection)
-    readonly STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
-        printing: { color: '#2196f3', label: 'Printing' },
-        ready: { color: 'hsl(90, 100%, 32%)', label: 'Ready' },
-        complete: { color: '#1976d2', label: 'Complete' },
-        error: { color: '#d32f2f', label: 'Error' },
-        disconnected: { color: '#8a8a8a', label: 'Offline' },
-    }
-    readonly STATUS_ORDER: PrinterStatus[] = ['printing', 'ready', 'complete', 'error', 'disconnected']
+    // Status colour/label vocabulary shared with the other fleet views (farmPrinterStatus.ts)
+    readonly STATUS_META = STATUS_META
+    readonly STATUS_ORDER = STATUS_ORDER
 
     get fleetDaemonPrinters(): Record<string, any> {
         return this.$store.state.farm.fleetDaemonPrinters || {}

@@ -10,6 +10,8 @@ export const getDefaultState = (): FleetJobsState => ({
     runs: [],
     loading: false,
     includeClosed: false,
+    forecast: [],
+    forecastError: null,
 })
 
 const state = getDefaultState()

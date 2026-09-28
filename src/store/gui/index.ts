@@ -61,54 +61,8 @@ export const getDefaultState = (): GuiState => {
                 desktop: [],
                 widescreen: [],
             },
-            mobileLayout: [
-                { name: 'webcam', visible: false },
-                { name: 'toolhead-control', visible: true },
-                { name: 'extruder-control', visible: true },
-                { name: 'macros', visible: true },
-                { name: 'machine-settings', visible: false },
-                { name: 'miscellaneous', visible: true },
-                { name: 'temperature', visible: true },
-                { name: 'miniconsole', visible: false },
-            ],
-            tabletLayout1: [
-                { name: 'webcam', visible: true },
-                { name: 'toolhead-control', visible: true },
-                { name: 'extruder-control', visible: true },
-                { name: 'macros', visible: true },
-                { name: 'machine-settings', visible: false },
-                { name: 'miscellaneous', visible: true },
-            ],
-            tabletLayout2: [
-                { name: 'temperature', visible: true },
-                { name: 'miniconsole', visible: true },
-            ],
-            desktopLayout1: [
-                { name: 'toolhead-control', visible: true },
-                { name: 'extruder-control', visible: true },
-                { name: 'macros', visible: true },
-                { name: 'miniconsole', visible: true },
-                { name: 'machine-settings', visible: false },
-            ],
-            desktopLayout2: [
-                { name: 'webcam', visible: true },
-                { name: 'temperature', visible: true },
-                { name: 'miscellaneous', visible: true },
-            ],
-            widescreenLayout1: [
-                { name: 'toolhead-control', visible: true },
-                { name: 'miscellaneous', visible: true },
-                { name: 'machine-settings', visible: false },
-            ],
-            widescreenLayout2: [
-                { name: 'temperature', visible: true },
-                { name: 'extruder-control', visible: true },
-            ],
-            widescreenLayout3: [
-                { name: 'webcam', visible: true },
-                { name: 'macros', visible: true },
-                { name: 'miniconsole', visible: true },
-            ],
+            // Fleet dashboard: "workers finishing within N hours" marks (hours, ascending)
+            finishIntervalsHours: [1, 2],
         },
         editor: {
             escToClose: true,
@@ -293,6 +247,8 @@ export const getDefaultState = (): GuiState => {
             },
         },
         fleetDaemonUrl: null,
+        // Session-only backup daemon (Settings > General > Connect); never saved, cleared on reload
+        fleetDaemonUrlOverride: null,
         mapdrawing: {
             farmStrokes: [],
             groundStrokes: [],

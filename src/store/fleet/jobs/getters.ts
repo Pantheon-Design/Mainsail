@@ -1,5 +1,5 @@
 import { GetterTree } from 'vuex'
-import { FleetJobsState, FleetJob, FleetJobDetail, FleetJobRun, CLOSED_JOB_STATUSES } from './types'
+import { FleetJobsState, FleetJob, FleetJobDetail, FleetJobRun, FleetJobForecast, CLOSED_JOB_STATUSES } from './types'
 
 export const getters: GetterTree<FleetJobsState, any> = {
     getJobs(state): FleetJob[] {
@@ -28,5 +28,13 @@ export const getters: GetterTree<FleetJobsState, any> = {
 
     getJobById: (state) => (id: number): FleetJob | undefined => {
         return state.jobs.find((j) => j.id === id)
+    },
+
+    getForecast(state): FleetJobForecast[] {
+        return state.forecast
+    },
+
+    getForecastError(state): string | null {
+        return state.forecastError
     },
 }

@@ -7,6 +7,7 @@ import {
     FleetJobDetail,
     FleetJobItem,
     FleetGcodeMeta,
+    FleetJobForecast,
     JobCreatePayload,
     JobUpdatePayload,
     JobItemCreatePayload,
@@ -189,6 +190,34 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
         } catch (error) {
             const err = toApiError(error)
             throw new Error(`Load runs failed: ${err.message}`)
+        }
+    },
+
+    /**
+     * GET /jobs/forecast — open jobs with workers + print-time / filament totals
+     * for the dashboard. A 404 means the daemon predates the endpoint: the list
+     * is cleared and forecastError explains it instead of throwing.
+     */
+    async loadForecast({ commit, rootGetters }): Promise<FleetJobForecast[]> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.get(`${baseUrl}/jobs/forecast`)
+            const rows: FleetJobForecast[] = Array.isArray(response.data) ? response.data : []
+            commit('setForecast', rows)
+            commit('setForecastError', null)
+            return rows
+        } catch (error: any) {
+            const err = toApiError(error)
+            // Older daemons route /jobs/forecast to /jobs/{job_id} and answer 422
+            // ("forecast" is not an int); a 404 means no /jobs API at all.
+            const status = error?.isAxiosError ? error.response?.status : undefined
+            if (status === 404 || status === 422) {
+                commit('setForecast', [])
+                commit('setForecastError', 'fleet_daemon update needed (no /jobs/forecast)')
+            } else {
+                commit('setForecastError', err.message)
+            }
+            throw new Error(`Load forecast failed: ${err.message}`)
         }
     },
 

@@ -89,10 +89,10 @@
                                 <v-col cols="6" md="2">
                                     <v-text-field v-model.number="it.quantity" type="number" min="1" label="Runs / copy" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="6" md="3">
+                                <v-col cols="6" md="2">
                                     <v-select v-model="it.printer_model" :items="modelOptions" label="Printer" dense outlined hide-details />
                                 </v-col>
-                                <v-col cols="6" md="3">
+                                <v-col cols="6" md="2">
                                     <v-combobox v-model="it.filament_type" :items="filamentSuggestions" label="Filament" dense outlined hide-details />
                                 </v-col>
                                 <v-col cols="6" md="2">
@@ -105,8 +105,33 @@
                                         hide-details
                                         :error="!nozzleValid(it)" />
                                 </v-col>
+                                <!-- Grams + print time come from the file NAME (`..._PA-CF_12h0m_869.363g.gcode`);
+                                     when the name has no token the field is empty and the operator types it. -->
                                 <v-col cols="6" md="2">
-                                    <v-text-field v-model.number="it.filament_grams" type="number" min="0" label="Grams" dense outlined hide-details />
+                                    <v-text-field
+                                        v-model.number="it.filament_grams"
+                                        type="number"
+                                        min="0"
+                                        label="Grams / run"
+                                        dense
+                                        outlined
+                                        hide-details="auto"
+                                        :hint="it.filament_grams > 0 ? '' : 'not in file name — enter grams'"
+                                        :persistent-hint="!(it.filament_grams > 0)"
+                                        :color="it.filament_grams > 0 ? undefined : 'warning'" />
+                                </v-col>
+                                <v-col cols="6" md="2">
+                                    <v-text-field
+                                        v-model="it.print_time"
+                                        label="Print time / run"
+                                        placeholder="12h 30m"
+                                        dense
+                                        outlined
+                                        hide-details="auto"
+                                        :hint="printTimeHint(it)"
+                                        :persistent-hint="printTimeSecs(it) === null"
+                                        :color="printTimeSecs(it) === null ? 'warning' : undefined"
+                                        :error="!!it.print_time && printTimeSecs(it) === null" />
                                 </v-col>
                             </v-row>
                         </v-card>
@@ -153,7 +178,7 @@ import {
     JobItemCreatePayload,
     ItemPrinterModelChoice,
 } from '@/store/fleet/jobs/types'
-import { parseGcodeFilename } from '@/store/fleet/jobs/gcodeFilename'
+import { parseGcodeFilename, parsePrintTimeInput, formatPrintTimeInput } from '@/store/fleet/jobs/gcodeFilename'
 
 interface ItemRow {
     key: string
@@ -165,6 +190,8 @@ interface ItemRow {
     filament_grams: number | null
     /** mm; required — the worker's nozzle must match */
     nozzle_diameter: number | string | null
+    /** print time per run as typed (`12h 30m`); parsed to seconds on save */
+    print_time: string
     saving: boolean
     /** JSON of the payload as last persisted (edit mode); used to detect changes on Save. */
     persisted: string | null
@@ -216,6 +243,15 @@ export default class JobFormDialog extends Vue {
 
     get allNozzlesValid(): boolean {
         return this.items.every((r) => this.nozzleValid(r))
+    }
+
+    printTimeSecs(row: ItemRow): number | null {
+        return parsePrintTimeInput(row.print_time)
+    }
+
+    printTimeHint(row: ItemRow): string {
+        if (!row.print_time) return 'not in file name — enter e.g. 12h 30m'
+        return this.printTimeSecs(row) === null ? 'use d / h / m, e.g. 1d 2h 30m' : ''
     }
 
     get isEdit() {
@@ -280,6 +316,7 @@ export default class JobFormDialog extends Vue {
             filament_type: i.filament_type,
             filament_grams: i.filament_grams,
             nozzle_diameter: i.nozzle_diameter,
+            print_time: formatPrintTimeInput(i.print_time_secs),
             saving: false,
             persisted: null,
         }
@@ -291,7 +328,8 @@ export default class JobFormDialog extends Vue {
             if (this.items.some((it) => it.gcode_filename === p)) continue
             // Prefill from the FILE NAME only (never from file contents):
             // leading HS-Pro / HS-3 / Tallboi -> printer, a PETG-CF-style token
-            // -> filament, a 258.879g token -> grams. Missing = left blank.
+            // -> filament, a 258.879g token -> grams, a 12h0m token -> print time.
+            // Missing = left blank so the operator fills it in.
             const hint = parseGcodeFilename(p)
             const row: ItemRow = {
                 key: `new-${++rowSeq}`,
@@ -302,6 +340,7 @@ export default class JobFormDialog extends Vue {
                 filament_type: hint.filament_type,
                 filament_grams: hint.filament_grams,
                 nozzle_diameter: hint.nozzle_diameter,
+                print_time: formatPrintTimeInput(hint.print_time_secs),
                 saving: false,
                 persisted: null,
             }
@@ -321,6 +360,9 @@ export default class JobFormDialog extends Vue {
             filament_type: row.filament_type ? String(row.filament_type).trim() : null,
             filament_grams: row.filament_grams != null && row.filament_grams > 0 ? Number(row.filament_grams) : null,
             nozzle_diameter: this.nozzleValue(row),
+            // 0 / blank -> null: the daemon then keeps the stored value (edit) or
+            // parses the `12h0m` token from the file name (create); still never the contents.
+            print_time_secs: this.printTimeSecs(row),
             // Blank fields stay blank; the daemon must not read the gcode footer.
             autofill_from_gcode: false,
         }

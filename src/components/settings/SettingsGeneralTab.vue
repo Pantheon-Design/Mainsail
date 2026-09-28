@@ -42,6 +42,38 @@
                     <v-select v-model="calcEtaTime" :items="calcEtaTimeItems" multiple hide-details dense outlined />
                 </settings-row>
                 <v-divider class="my-2" />
+                <settings-row
+                    :title="$t('Settings.GeneralTab.BackupFleetDaemonUrl')"
+                    :sub-title="$t('Settings.GeneralTab.BackupFleetDaemonUrlDescription')"
+                    :dynamic-slot-width="true">
+                    <div class="d-flex align-center flex-wrap" style="gap: 8px">
+                        <v-text-field
+                            v-model="backupUrlInput"
+                            placeholder="http://backup-host:8090"
+                            hide-details="auto"
+                            dense
+                            outlined
+                            style="min-width: 260px"
+                            :error-messages="backupUrlError"
+                            @keyup.enter="connectBackup" />
+                        <v-btn small color="primary" :disabled="!backupUrlInput.trim()" @click="connectBackup">
+                            <v-icon left small>{{ mdiLanConnect }}</v-icon>
+                            {{ $t('Settings.GeneralTab.BackupFleetDaemonConnect') }}
+                        </v-btn>
+                        <v-btn v-if="backupActive" small outlined @click="revertBackup">
+                            {{ $t('Settings.GeneralTab.BackupFleetDaemonRevert') }}
+                        </v-btn>
+                    </div>
+                    <div v-if="backupActive" class="text-caption warning--text mt-1">
+                        {{
+                            $t('Settings.GeneralTab.BackupFleetDaemonActive', {
+                                url: backupActive,
+                                primary: primaryFleetDaemonUrl,
+                            })
+                        }}
+                    </div>
+                </settings-row>
+                <v-divider class="my-2" />
                 <settings-row :title="$t('Settings.GeneralTab.MainsailSettingsMoonrakerDb')" :dynamic-slot-width="true">
                     <settings-general-tab-backup-database />
                     <settings-general-tab-restore-database />
@@ -66,6 +98,7 @@ import SettingsGeneralTabBackupDatabase from '@/components/settings/General/Gene
 import SettingsGeneralTabRestoreDatabase from '@/components/settings/General/GeneralRestore.vue'
 import SettingsGeneralTabResetDatabase from '@/components/settings/General/GeneralReset.vue'
 import SettingsGeneralDatabase from '@/components/mixins/settingsGeneralDatabase'
+import { mdiLanConnect } from '@mdi/js'
 
 @Component({
     components: {
@@ -79,8 +112,47 @@ import SettingsGeneralDatabase from '@/components/mixins/settingsGeneralDatabase
 })
 export default class SettingsGeneralTab extends Mixins(BaseMixin, SettingsGeneralDatabase) {
     availableLanguages: { text: string; value: string }[] = []
+    mdiLanConnect = mdiLanConnect
+
+    // ---- backup fleet daemon (session only; see gui/setFleetDaemonUrlOverride) ----
+    backupUrlInput = ''
+    backupUrlError = ''
+
+    /** Backup URL currently in use, or null when the printers URL is active. */
+    get backupActive(): string | null {
+        return this.$store.getters['gui/fleetDaemonUrlOverride']
+    }
+
+    /** The URL from Settings > Printers (or the same-host default) that a reload returns to. */
+    get primaryFleetDaemonUrl(): string {
+        return this.$store.state.gui.fleetDaemonUrl || `http://${window.location.hostname}:8090`
+    }
+
+    connectBackup() {
+        let url = this.backupUrlInput.trim().replace(/\/+$/, '')
+        // A bare "host:port" is not a valid origin for XHR; assume http (same rule as Settings > Printers).
+        if (url && !/^([a-z][a-z0-9+.-]*:)?\/\//i.test(url)) url = `http://${url}`
+        try {
+            if (!url) throw new Error('empty')
+            new URL(url)
+        } catch (e) {
+            this.backupUrlError = this.$t('Settings.GeneralTab.BackupFleetDaemonUrlInvalid') as string
+            return
+        }
+        this.backupUrlError = ''
+        this.backupUrlInput = url
+        this.$store.dispatch('gui/setFleetDaemonUrlOverride', url)
+    }
+
+    revertBackup() {
+        this.backupUrlError = ''
+        this.backupUrlInput = ''
+        this.$store.dispatch('gui/setFleetDaemonUrlOverride', null)
+    }
 
     async created() {
+        // Show the backup URL only while it is in use (it is never persisted).
+        this.backupUrlInput = this.backupActive ?? ''
         const locales = import.meta.glob<string>('../../locales/*.json', { import: 'title' })
         const languages: { text: string; value: string }[] = []
 
