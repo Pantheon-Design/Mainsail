@@ -100,6 +100,17 @@
                         fill="none"
                         :stroke="STATUS_META.printing.color"
                         stroke-width="2.5" />
+                    <!-- printing: the shape doubles as a clip so the wavy blue level fills it bottom-up -->
+                    <clipPath v-if="p.progress !== null" :id="clipId(p)">
+                        <rect
+                            v-if="p.square"
+                            :x="p.cx - MARK / 2"
+                            :y="p.cy - (MARK * p.hScale) / 2"
+                            :width="MARK"
+                            :height="MARK * p.hScale"
+                            :rx="MARK * 0.22" />
+                        <ellipse v-else :cx="p.cx" :cy="p.cy" :rx="MARK / 2" :ry="(MARK / 2) * p.hScale" />
+                    </clipPath>
                     <rect
                         v-if="p.square"
                         :x="p.cx - MARK / 2"
@@ -123,6 +134,14 @@
                         stroke-width="2"
                         :stroke-dasharray="p.status === 'disconnected' ? '4 3' : undefined"
                         :opacity="p.status === 'disconnected' ? 0.55 : 1" />
+                    <g v-if="p.progress !== null" :clip-path="`url(#${clipId(p)})`" pointer-events="none">
+                        <path class="dash-map__wave" :d="waveD(p)" :fill="STATUS_META.printing.color" />
+                        <path
+                            class="dash-map__wave dash-map__wave--back"
+                            :d="waveD(p, 3)"
+                            :fill="STATUS_META.printing.color"
+                            opacity="0.45" />
+                    </g>
                     <text
                         v-if="p.glyph"
                         :x="p.cx"
@@ -131,7 +150,10 @@
                         dominant-baseline="central"
                         fill="#fff"
                         font-weight="800"
-                        font-size="16"
+                        :font-size="p.progress !== null ? 12 : 16"
+                        stroke="rgba(0,0,0,0.55)"
+                        stroke-width="2"
+                        paint-order="stroke"
                         pointer-events="none">
                         {{ p.glyph }}
                     </text>
@@ -167,6 +189,19 @@
                             }) scale(${12 / 24})`" />
                     </g>
                 </g>
+
+                <!-- highlight halo for the worker hovered in the list (drawn last, above everything) -->
+                <ellipse
+                    v-if="highlighted"
+                    class="dash-map__halo"
+                    :cx="highlighted.cx"
+                    :cy="highlighted.cy"
+                    :rx="MARK / 2 + 4"
+                    :ry="(MARK / 2 + 4) * highlighted.hScale"
+                    fill="none"
+                    stroke="#ffeb3b"
+                    stroke-width="4"
+                    pointer-events="none" />
             </svg>
             <div v-else class="dash-map__empty">{{ $t('FleetDashboard.NoPrintersPlaced') }}</div>
         </div>
@@ -214,6 +249,8 @@ interface MarkerVm {
     square: boolean
     hScale: number
     glyph: string
+    /** 0..1 while printing (drives the wavy fill), else null */
+    progress: number | null
     worker: boolean
     attention: boolean
     reason: string | null
@@ -243,6 +280,8 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workerHostnames!: string[]
     @Prop({ type: Array, default: () => [] }) readonly attentionHostnames!: string[]
     @Prop({ type: Object, default: () => ({}) }) readonly attentionReasons!: Record<string, string>
+    /** Printer hovered in the workers list: its marker gets a pulsing yellow halo. */
+    @Prop({ type: String, default: '' }) readonly highlightHostname!: string
 
     mdiExclamationThick = mdiExclamationThick
     mdiHammer = mdiHammer
@@ -302,20 +341,24 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
                 const model = printerModel(this.roster, hostname)
                 const status = getPrinterStatus(printer, this.connected)
                 const attention = this.inList(this.attentionHostnames, hostname)
+                const pct = getPrinterPrintPercent(printer)
+                const progress = status === 'printing' ? Math.min(1, Math.max(0, pct / 100)) : null
                 let glyph = ''
                 if (status === 'complete') glyph = '✓'
                 else if (status === 'error') glyph = '!'
-                else if (status === 'printing') glyph = ''
+                else if (status === 'printing') glyph = `${pct}%`
                 return {
                     hostname,
                     printer,
                     cx: (pos.x - 0.5) * CELL,
                     cy: (pos.y - 0.5) * CELL,
                     status,
-                    color: STATUS_META[status].color,
+                    // printing: green body, the blue level (progress) fills it — see waveD()
+                    color: status === 'printing' ? STATUS_META.ready.color : STATUS_META[status].color,
                     square: model !== null && SQUARE_PRINTER_MODELS.includes(model),
                     hScale: (model && PRINTER_MODEL_HEIGHT_SCALE[model]) || 1,
                     glyph,
+                    progress,
                     worker: this.inList(this.workerHostnames, hostname),
                     attention,
                     reason: attention ? this.reasonFor(hostname) : null,
@@ -363,6 +406,12 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         }`
     }
 
+    get highlighted(): MarkerVm | null {
+        if (!this.highlightHostname) return null
+        const key = hostKey(this.highlightHostname)
+        return this.printers.find((p) => hostKey(p.hostname) === key) ?? null
+    }
+
     get statusList() {
         const counts = countPrinterStatuses(
             this.printers.map((p) => p.printer),
@@ -382,6 +431,35 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
             if (r) reasons[h] = r
         })
         return attentionChipTitle(this.sectionAttention, reasons)
+    }
+
+    clipId(p: MarkerVm): string {
+        return `${this.patternId}-clip-${hostKey(p.hostname).replace(/[^a-z0-9]/g, '-')}`
+    }
+
+    /**
+     * Wavy "liquid" surface for a printing marker: a path three wavelengths wide
+     * (one marker width each) whose flat top sits at the progress level and which
+     * extends past the marker on both sides so the CSS scroll of one wavelength
+     * loops seamlessly. `phase` shifts the crests for the second, fainter layer.
+     */
+    waveD(p: MarkerVm, phase = 0): string {
+        const h = this.MARK * p.hScale
+        const top = p.cy - h / 2
+        const bottom = p.cy + h / 2
+        const level = bottom - h * (p.progress ?? 0)
+        const L = this.MARK
+        const A = 2.2
+        const x0 = p.cx - L * 1.5 - phase
+        let d = `M ${x0} ${level}`
+        for (let i = 0; i < 4; i++) {
+            const x = x0 + i * L
+            d += ` Q ${x + L / 4} ${level - A * 2} ${x + L / 2} ${level}`
+            d += ` Q ${x + (3 * L) / 4} ${level + A * 2} ${x + L} ${level}`
+        }
+        d += ` L ${x0 + 4 * L} ${bottom + 2} L ${x0} ${bottom + 2} Z`
+        void top
+        return d
     }
 
     markerTitle(p: MarkerVm): string {
@@ -510,6 +588,37 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
 }
 .dash-map__sticker {
     pointer-events: none;
+}
+/* wavy progress level: slides one wavelength (= marker width, 36 user units) per cycle */
+@keyframes dash-wave {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-36px);
+    }
+}
+.dash-map__wave {
+    animation: dash-wave 2.4s linear infinite;
+}
+.dash-map__wave--back {
+    animation-duration: 3.6s;
+    animation-direction: reverse;
+}
+@keyframes dash-halo {
+    0%,
+    100% {
+        stroke-opacity: 1;
+        stroke-width: 4;
+    }
+    50% {
+        stroke-opacity: 0.45;
+        stroke-width: 8;
+    }
+}
+.dash-map__halo {
+    animation: dash-halo 0.9s ease-in-out infinite;
+    filter: drop-shadow(0 0 6px rgba(255, 235, 59, 0.9));
 }
 .dash-map__sticker--attention circle {
     animation: dash-attention-flash 0.8s ease-in-out infinite;

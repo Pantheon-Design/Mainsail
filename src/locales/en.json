@@ -265,7 +265,6 @@
         "SuccessfullyMoved": "Successfully moved {filename}.",
         "SuccessfullyRenamed": "Successfully renamed {filename}.",
         "SuccessfullyUploaded": "Upload of {filename} successful!",
-        "Total": "Total",
         "UploadNewGcode": "Upload new G-Code",
         "Used": "Used",
         "View3D": "View 3D"
@@ -869,7 +868,6 @@
         "Yes": "Yes"
     },
     "FleetDashboard": {
-        "Band": "Time left",
         "DaemonOffline": "fleet_daemon disconnected",
         "Done": "done",
         "Finishing": "Prints finishing",
@@ -879,8 +877,6 @@
         "NeedsAttention": "needs attention",
         "NoJobs": "No open fleet jobs",
         "NoPrintersPlaced": "No printers placed on this floor",
-        "OtherCol": "Other",
-        "OtherColHint": "Printers that are printing but are not enabled as fleet workers (manual prints)",
         "Ovens": "Ovens",
         "Paused": "paused",
         "Printers": "Printers",
@@ -891,10 +887,15 @@
         "UnknownHint": "Printing without a time estimate: name the file ..._PA-CF_12h0m_869g.gcode or enter the print time in the job",
         "WeightIncomplete": "Some items have no filament weight (file name without a 869g token and nothing typed in the job form) — totals are short",
         "Within": "within {hours}h",
-        "WorkerCol": "Workers",
-        "WorkerColHint": "Printers enabled as fleet workers",
         "Workers": "Workers",
-        "WorkersOn": "{n} worker | {n} worker | {n} workers"
+        "WorkersOn": "{n} worker | {n} worker | {n} workers",
+        "WorkerList": "Workers",
+        "MetricProgress": "Print progress",
+        "MetricNozzle": "Nozzle health",
+        "MetricFilament": "Filament left",
+        "AutoCycle": "Auto cycle progress / nozzle health / filament every 5 s",
+        "HoverSplit": "workers {workers} · other printers {others}",
+        "NoWorkers": "No enabled workers"
     },
     "Router": {
         "Console": "Console",

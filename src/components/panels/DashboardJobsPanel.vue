@@ -21,13 +21,13 @@
                         high
                     </v-chip>
                     <span class="dash-job__workers" :title="j.workers.join('\n')">
-                        <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
+                        <v-icon small color="orange">{{ mdiHammer }}</v-icon>
                         {{ $tc('FleetDashboard.WorkersOn', j.workers_active, { n: j.workers_active }) }}
                     </span>
                 </div>
                 <v-progress-linear
                     :value="timePercent(j)"
-                    height="18"
+                    height="36"
                     rounded
                     :color="j.time_complete ? 'blue' : 'blue-grey'"
                     background-color="rgba(128,128,128,0.25)"
@@ -48,7 +48,7 @@
                     <span
                         class="dash-job__weight"
                         :title="j.weight_complete ? '' : $t('FleetDashboard.WeightIncomplete')">
-                        <v-icon x-small class="mr-1">{{ mdiWeight }}</v-icon>
+                        <v-icon small class="mr-1">{{ mdiWeight }}</v-icon>
                         {{ j.weight_complete ? '' : '~' }}{{ formatGrams(j.grams_done) }}
                         {{ $t('FleetDashboard.Done') }} · {{ j.weight_complete ? '' : '~'
                         }}{{ formatGrams(j.grams_left) }} {{ $t('FleetDashboard.Left') }}
@@ -138,7 +138,7 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: 24px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -146,7 +146,7 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     flex: 0 0 auto;
 }
 .dash-jobs__pill {
-    font-size: 11px;
+    font-size: 22px;
     font-weight: 700;
     padding: 1px 7px;
     border-radius: 9px;
@@ -160,10 +160,10 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     letter-spacing: 0;
 }
 .dash-jobs__alert {
-    font-size: 12px;
+    font-size: 24px;
 }
 .dash-jobs__empty {
-    font-size: 12px;
+    font-size: 24px;
     opacity: 0.6;
     padding: 6px 0;
 }
@@ -188,18 +188,18 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: 24px;
     min-width: 0;
 }
 .dash-job__row--sub {
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 22px;
     opacity: 0.85;
     flex-wrap: wrap;
 }
 .dash-job__name {
     font-weight: 700;
-    font-size: 13px;
+    font-size: 26px;
     min-width: 0;
 }
 .dash-job__customer {
@@ -220,7 +220,7 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     font-variant-numeric: tabular-nums;
 }
 .dash-job__bar-text {
-    font-size: 11px;
+    font-size: 22px;
     font-weight: 700;
     color: #fff;
     text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
@@ -246,7 +246,7 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     margin-left: auto;
 }
 .dash-job__material {
-    font-size: 10px;
+    font-size: 20px;
     padding: 0 6px;
     border-radius: 8px;
     border: 1px solid rgba(128, 128, 128, 0.45);

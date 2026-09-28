@@ -93,7 +93,9 @@ export function getStatusBorderStyle(
         return {
             ...base,
             background: `conic-gradient(transparent 0%, lightgreen 100%, transparent 90%), ${blueColor}`,
-            mask: `radial-gradient(farthest-side, transparent calc(100% - ${borderEm + 0.05}em), black calc(100% - ${borderEm + 0.05}em))`,
+            mask: `radial-gradient(farthest-side, transparent calc(100% - ${borderEm + 0.05}em), black calc(100% - ${
+                borderEm + 0.05
+            }em))`,
             animation: 'spin 1s linear infinite',
         }
     }
@@ -128,6 +130,20 @@ export function displayFilamentType(rawType: string | null | undefined): string 
 export function getPrinterPrintPercent(printer: any): number {
     const progress = printer?.virtual_sdcard?.progress ?? 0
     return Math.floor(progress * 100)
+}
+
+/** Nozzle health 0..100 from the printer's `nozzle_life` / `remaining_nozzle_life`; null when unknown. */
+export function computeNozzleHealthPct(life: unknown, remaining: unknown): number | null {
+    if (
+        typeof life !== 'number' ||
+        typeof remaining !== 'number' ||
+        !isFinite(life) ||
+        !isFinite(remaining) ||
+        life <= 0
+    ) {
+        return null
+    }
+    return Math.max(0, Math.min(100, (remaining / life) * 100))
 }
 
 export function computeRemainingFilamentG(printer: any): number | null {

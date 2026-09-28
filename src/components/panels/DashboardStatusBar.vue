@@ -19,7 +19,7 @@
             :title="`${workerCount} of ${totalPrinterCount} printers are enabled as fleet workers`">
             <span class="dash-status__num orange--text">{{ workerCount }}</span>
             <span class="dash-status__label">
-                <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
+                <v-icon small color="orange">{{ mdiHammer }}</v-icon>
                 {{ $t('FleetDashboard.Workers') }}
             </span>
         </div>
@@ -162,7 +162,7 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
     margin-left: auto;
 }
 .dash-status__num {
-    font-size: 22px;
+    font-size: 44px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
 }
@@ -170,15 +170,15 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: 22px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     opacity: 0.8;
 }
 .dash-status__dot {
-    width: 8px;
-    height: 8px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     display: inline-block;
 }
@@ -186,9 +186,9 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
     border-radius: 2px;
 }
 .dash-status__dot.oven {
-    width: 9px;
-    height: 9px;
-    border-radius: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
     background: rgba(30, 27, 22, 0.9);
     border: 2px solid;
     box-sizing: border-box;

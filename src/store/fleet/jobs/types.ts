@@ -170,6 +170,9 @@ export interface FleetWorker {
     filament_type: string | null
     remaining_weight: number | null
     nozzle_size: number | null
+    /** toolhead.nozzle_life / remaining_nozzle_life (same units); newer daemons only */
+    nozzle_life?: number | null
+    remaining_nozzle_life?: number | null
     machine_state: FleetWorkerMachineState | null
     primed: boolean | null
     eligible: boolean

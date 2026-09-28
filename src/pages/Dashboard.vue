@@ -10,14 +10,16 @@
                 :worker-hostnames="enabledHostnames"
                 :attention-hostnames="attentionHostnames"
                 :attention-reasons="attentionReasons"
+                :highlight-hostname="hoverHost"
                 class="fleet-dashboard__map" />
         </div>
         <div class="fleet-dashboard__col fleet-dashboard__col--side">
+            <dashboard-jobs-panel class="fleet-dashboard__jobs" />
             <dashboard-workers-panel
                 :workers="workers"
                 :intervals-hours="intervalsHours"
-                class="fleet-dashboard__workers" />
-            <dashboard-jobs-panel class="fleet-dashboard__jobs" />
+                class="fleet-dashboard__workers"
+                @hover="hoverHost = $event" />
         </div>
     </div>
 </template>
@@ -60,10 +62,16 @@ export default class PageDashboard extends Mixins(BaseMixin) {
     private workersTimer: ReturnType<typeof setTimeout> | null = null
     private jobsTimer: ReturnType<typeof setTimeout> | null = null
     private pollTimer: ReturnType<typeof setInterval> | null = null
+    private snapshotTimer: ReturnType<typeof setInterval> | null = null
     private polling = false
+
+    /** Worker hovered in the workers list; its icon is highlighted on the map. */
+    hoverHost = ''
 
     /** Fallback poll period (ms); WS events refresh immediately, this covers missed events. */
     static readonly POLL_MS = 10000
+    /** Service-tracker snapshot (nozzle life fallback for older daemons) refresh period. */
+    static readonly SNAPSHOT_MS = 60000
 
     /** Class on <html> while a worker needs attention: the page background flashes red
      *  (see the unscoped style below), alternating with the banner in the workers panel. */
@@ -75,6 +83,10 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         fleetDaemonEvents.$on('jobs_updated', this.onJobsUpdated)
         document.addEventListener('visibilitychange', this.onVisibility)
         this.pollTimer = setInterval(this.poll, PageDashboard.POLL_MS)
+        this.loadSnapshot()
+        this.snapshotTimer = setInterval(() => {
+            if (document.visibilityState === 'visible') this.loadSnapshot()
+        }, PageDashboard.SNAPSHOT_MS)
         this.applyAttentionClass(this.attentionActive)
     }
 
@@ -85,7 +97,13 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         if (this.workersTimer) clearTimeout(this.workersTimer)
         if (this.jobsTimer) clearTimeout(this.jobsTimer)
         if (this.pollTimer) clearInterval(this.pollTimer)
+        if (this.snapshotTimer) clearInterval(this.snapshotTimer)
         this.applyAttentionClass(false)
+    }
+
+    /** Daily service-tracker rows: nozzle life for the worker list when the daemon frame lacks it. */
+    loadSnapshot() {
+        this.$store.dispatch('fleet/maintenance/loadPrinters').catch(() => {})
     }
 
     get attentionActive(): boolean {
@@ -221,8 +239,7 @@ html.fleet-attention #content {
     min-height: 0;
     min-width: 0;
 }
-.fleet-dashboard__status,
-.fleet-dashboard__workers {
+.fleet-dashboard__status {
     flex: 0 0 auto;
 }
 .fleet-dashboard__map {
@@ -233,16 +250,26 @@ html.fleet-attention #content {
 .fleet-dashboard__map.dash-map--empty {
     flex: 0 0 auto;
 }
+/* right column: jobs on top (grow with content, at most 40% of the column, list scrolls),
+   workers below taking the rest (its worker list scrolls) */
 .fleet-dashboard__jobs {
+    flex: 0 1 auto;
+    max-height: 34%;
+    min-height: 0;
+}
+.fleet-dashboard__workers {
     flex: 1 1 0;
     min-height: 0;
 }
-/* stacked layout (tablet / phone): give the maps and job list a sensible height */
+/* stacked layout (tablet / phone): give the maps and lists a sensible height */
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__map {
     height: 260px;
     flex: 0 0 auto;
 }
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__jobs {
-    max-height: 60vh;
+    max-height: 50vh;
+}
+.fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__workers {
+    max-height: 70vh;
 }
 </style>
