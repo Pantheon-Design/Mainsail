@@ -52,6 +52,25 @@
                         </template>
                         <span>{{ nozzleChipTooltip }}</span>
                     </v-tooltip>
+                    <v-tooltip v-if="motion" top>
+                        <template #activator="{ on, attrs }">
+                            <v-chip
+                                x-small
+                                label
+                                class="mr-1"
+                                color="info"
+                                :outlined="motionEstimated"
+                                v-bind="attrs"
+                                v-on="on">
+                                <v-icon x-small left>{{ mdiAxisArrow }}</v-icon>
+                                <span v-if="motionXyTravel !== null">
+                                    XY {{ formatDistance(motionXyTravel) }} {{ $t('Timeline.Motion.SinceLast') }}
+                                </span>
+                                <span v-else>{{ $t('Timeline.Motion.Baseline') }}</span>
+                            </v-chip>
+                        </template>
+                        <span>{{ motionChipTooltip }}</span>
+                    </v-tooltip>
                     <v-spacer />
                     <v-btn v-if="isEditableService" icon x-small class="mr-1" @click="$emit('edit-service', event)">
                         <v-icon small>{{ mdiPencil }}</v-icon>
@@ -119,6 +138,38 @@
                                         </div>
                                     </td>
                                 </tr>
+                                <tr v-if="motion">
+                                    <td class="font-weight-bold" width="160">{{ $t('Timeline.Motion.AtService') }}</td>
+                                    <td class="activity-details-value">
+                                        <div v-for="row of motionRows" :key="row.axis" class="d-flex align-center flex-wrap">
+                                            <span class="font-weight-medium activity-motion-axis">{{ row.axis }}</span>
+                                            <span class="mr-3">
+                                                {{ $t('Timeline.Motion.Odometer') }} {{ formatDistance(row.odometer) }}
+                                            </span>
+                                            <span v-if="row.since !== null" class="text--secondary">
+                                                +{{ formatDistance(row.since) }} {{ $t('Timeline.Motion.SinceLast') }}
+                                            </span>
+                                        </div>
+                                        <div class="caption text--secondary">
+                                            <span v-if="motionSince && motionSince.days !== null">
+                                                {{ $t('Timeline.Motion.Days', { days: motionSince.days }) }}
+                                            </span>
+                                            <span v-if="motionSince && motionSince.prev_ts">
+                                                ·
+                                                {{
+                                                    $t('Timeline.Motion.PreviousOn', {
+                                                        type: serviceTypeLabel,
+                                                        date: formatDateTime(motionSince.prev_ts * 1000),
+                                                    })
+                                                }}
+                                            </span>
+                                            <span v-if="!motionSince">{{ $t('Timeline.Motion.Baseline') }}</span>
+                                            <span v-if="motionTripmeter">· {{ $t('Timeline.Motion.Tripmeter') }} {{ motionTripmeter }}</span>
+                                            <span v-if="motion.basis === 'daily_snapshot'">· {{ $t('Timeline.Motion.DailyBasis') }}</span>
+                                            <span v-if="motionEstimated">· {{ $t('Timeline.Motion.Estimated') }}</span>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </v-simple-table>
                     </div>
@@ -131,7 +182,15 @@
 <script lang="ts">
 import { Component, Mixins, Prop } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
-import { mdiChevronDown, mdiChevronUp, mdiDelete, mdiOpenInNew, mdiPencil, mdiPrinter3dNozzleHeat } from '@mdi/js'
+import {
+    mdiAxisArrow,
+    mdiChevronDown,
+    mdiChevronUp,
+    mdiDelete,
+    mdiOpenInNew,
+    mdiPencil,
+    mdiPrinter3dNozzleHeat,
+} from '@mdi/js'
 import { ActivityEvent } from '@/components/timeline/types'
 import { getActivityTypeMeta, getSourceColor } from '@/components/timeline/activityTypes'
 import {
@@ -144,9 +203,20 @@ import {
     nozzleHealthColor,
     nozzleHealthDetailKeys,
 } from '@/components/timeline/nozzleHealth'
+import {
+    MotionSinceLast,
+    MotionSnapshot,
+    formatDistance,
+    getMotion,
+    getMotionSinceLast,
+    motionAxes,
+    motionDetailKeys,
+    xyTravel,
+} from '@/components/timeline/motion'
 
 @Component
 export default class ActivityTimelineItem extends Mixins(BaseMixin) {
+    mdiAxisArrow = mdiAxisArrow
     mdiChevronDown = mdiChevronDown
     mdiChevronUp = mdiChevronUp
     mdiDelete = mdiDelete
@@ -158,6 +228,7 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
     formatPct = formatPct
     formatNozzle = formatNozzle
     nozzleHealthColor = nozzleHealthColor
+    formatDistance = formatDistance
 
     expanded = false
 
@@ -234,12 +305,80 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
         return blocks
     }
 
+    /** Travel counters at a lubrication / belts service (null for other events). */
+    get motion(): MotionSnapshot | null {
+        return getMotion(this.event)
+    }
+
+    /** Travel since the previous service of the same type (null = baseline). */
+    get motionSince(): MotionSinceLast | null {
+        return getMotionSinceLast(this.event)
+    }
+
+    get motionXyTravel(): number | null {
+        return xyTravel(this.motionSince)
+    }
+
+    get motionEstimated(): boolean {
+        return this.motion?.source === 'daemon' || this.motionSince?.source === 'daemon'
+    }
+
+    get serviceTypeLabel(): string {
+        const stype = this.event.details?.service_type
+        const key = `Timeline.ServiceTypes.${stype}`
+        if (stype && this.$te(key)) return this.$t(key).toString()
+
+        return this.event.details?.service_type_label ?? stype ?? ''
+    }
+
+    get motionRows(): { axis: string; odometer: number | null; since: number | null }[] {
+        const m = this.motion
+        if (!m) return []
+        const s = this.motionSince
+
+        return motionAxes.map((axis) => ({
+            axis: axis.toUpperCase(),
+            odometer: m.odometer[axis],
+            since: s ? s[axis] : null,
+        }))
+    }
+
+    /** "X 12.3 m · Y 11.9 m · Z 150 mm · E 6.1 m" or '' */
+    get motionTripmeter(): string {
+        const t = this.motion?.tripmeter
+        if (!t) return ''
+
+        return motionAxes
+            .filter((axis) => t[axis] !== null)
+            .map((axis) => `${axis.toUpperCase()} ${formatDistance(t[axis])}`)
+            .join(' · ')
+    }
+
+    get motionChipTooltip(): string {
+        const s = this.motionSince
+        const parts: string[] = []
+        if (s) {
+            if (s.days !== null) parts.push(this.$t('Timeline.Motion.Days', { days: s.days }).toString())
+            if (s.prev_ts) {
+                parts.push(
+                    this.$t('Timeline.Motion.PreviousOn', {
+                        type: this.serviceTypeLabel,
+                        date: this.formatDateTime(s.prev_ts * 1000),
+                    }).toString()
+                )
+            }
+        } else parts.push(this.$t('Timeline.Motion.AtService').toString())
+        if (this.motionEstimated) parts.push(this.$t('Timeline.Motion.Estimated').toString())
+
+        return parts.join(' · ')
+    }
+
     get detailRows(): { key: string; label: string; value: string }[] {
         const details = this.event.details
         if (!details || typeof details !== 'object') return []
 
         return Object.keys(details)
-            .filter((key) => !nozzleHealthDetailKeys.includes(key))
+            .filter((key) => !nozzleHealthDetailKeys.includes(key) && !motionDetailKeys.includes(key))
             .map((key) => {
             const raw = details[key]
             let value: string
@@ -256,7 +395,7 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
     }
 
     get hasDetails(): boolean {
-        return this.detailRows.length > 0 || this.nozzleHealthBlocks.length > 0 || !!this.event.filename
+        return this.detailRows.length > 0 || this.nozzleHealthBlocks.length > 0 || !!this.event.filename || !!this.motion
     }
 }
 </script>
@@ -269,5 +408,9 @@ export default class ActivityTimelineItem extends Mixins(BaseMixin) {
 .activity-nozzle-bar {
     max-width: 140px;
     min-width: 80px;
+}
+.activity-motion-axis {
+    display: inline-block;
+    width: 1.5em;
 }
 </style>

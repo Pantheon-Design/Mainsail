@@ -28,6 +28,7 @@ export interface ActivityEvent {
 }
 
 export type { NozzleHealth } from '@/components/timeline/nozzleHealth'
+export type { MotionSnapshot, MotionSinceLast } from '@/components/timeline/motion'
 
 export interface ActivityDayGroup {
     date: Date

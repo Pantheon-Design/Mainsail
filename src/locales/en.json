@@ -1331,6 +1331,7 @@
             "nozzle_life": "Nozzle life",
             "nozzle_size": "Nozzle size",
             "nozzle_type": "Nozzle type",
+            "odometer": "Odometer",
             "old_type": "Previous filament",
             "operator": "Operator",
             "prev_size": "Previous nozzle size",
@@ -1363,6 +1364,17 @@
             "Types": "Event types"
         },
         "LoadMore": "Load more",
+        "Motion": {
+            "AtService": "Travel at service",
+            "Baseline": "baseline",
+            "DailyBasis": "odometer from the daily snapshot of the service day",
+            "Days": "{days} d since previous",
+            "Estimated": "estimated from daily snapshots",
+            "Odometer": "odometer",
+            "PreviousOn": "previous {type} on {date}",
+            "SinceLast": "since last",
+            "Tripmeter": "tripmeter"
+        },
         "NoEvents": "No events recorded yet",
         "NozzleHealth": {
             "After": "Nozzle health after reset",
