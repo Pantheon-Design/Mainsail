@@ -27,6 +27,19 @@ export interface FleetActivityRecord {
     nozzle_type?: string | null
     /** 'printer' | 'daemon' (estimated from a daily snapshot) | 'none' */
     nozzle_health_source?: string | null
+    /** Motion travel at a lubrication / belts service, flattened by fleet_activity_collector.py (mm) */
+    odometer_x?: number | null
+    odometer_y?: number | null
+    odometer_z?: number | null
+    odometer_e?: number | null
+    travel_since_service_x?: number | null
+    travel_since_service_y?: number | null
+    travel_since_service_z?: number | null
+    travel_since_service_e?: number | null
+    days_since_service?: number | null
+    prev_service_id?: string | null
+    /** 'printer' | 'printer+daemon' (since-last estimated by the daemon) | 'daemon' | 'none' */
+    motion_source?: string | null
 }
 
 export interface FleetActivityTypeCount {

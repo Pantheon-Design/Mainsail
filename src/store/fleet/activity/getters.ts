@@ -35,6 +35,52 @@ function withNozzleHealth(record: FleetActivityRecord): Record<string, any> | nu
     }
 }
 
+/**
+ * details.motion / details.motion_since_last as the printer recorded them, or
+ * synthesised from the daemon's flattened columns (source 'daemon'):
+ * - motion_source 'daemon': the printer's fork predates the snapshot; the
+ *   odometers come from the daily service-tracker snapshot of that day.
+ * - motion_source 'printer+daemon': the printer recorded the snapshot but
+ *   found no previous one; the daemon computed "since last" from its rows.
+ */
+function withMotion(record: FleetActivityRecord, details: Record<string, any> | null): Record<string, any> | null {
+    const source = record.motion_source
+    if (!source || source === 'none') return details
+    let out = details
+    if (!out?.motion && source === 'daemon' && record.odometer_x != null) {
+        out = {
+            ...(out ?? {}),
+            motion: {
+                odometer: {
+                    x: record.odometer_x ?? null,
+                    y: record.odometer_y ?? null,
+                    z: record.odometer_z ?? null,
+                    e: record.odometer_e ?? null,
+                },
+                source: 'daemon',
+            },
+        }
+    }
+    const hasSince = record.prev_service_id || record.travel_since_service_x != null
+    if (out?.motion && !out.motion_since_last && hasSince && source !== 'printer') {
+        out = {
+            ...out,
+            motion_since_last: {
+                x: record.travel_since_service_x ?? null,
+                y: record.travel_since_service_y ?? null,
+                z: record.travel_since_service_z ?? null,
+                e: record.travel_since_service_e ?? null,
+                days: record.days_since_service ?? null,
+                prev_event_id: record.prev_service_id ?? null,
+                prev_ts: null,
+                source: 'daemon',
+            },
+        }
+    }
+
+    return out
+}
+
 /** Normalise a daemon row to the shared ActivityEvent shape. */
 export function toActivityEvent(record: FleetActivityRecord): ActivityEvent {
     return {
@@ -49,7 +95,7 @@ export function toActivityEvent(record: FleetActivityRecord): ActivityEvent {
         client: record.client,
         ip: record.ip,
         summary: record.summary ?? '',
-        details: withNozzleHealth(record),
+        details: withMotion(record, withNozzleHealth(record)),
         job_id: record.moonraker_job_id,
         filename: record.filename,
         deleted: record.deleted,
