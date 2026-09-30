@@ -274,7 +274,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workerHostnames!: string[]
     /** Printer to highlight on the map (e.g. hovered in a side list). */
     @Prop({ type: String, default: '' }) readonly highlightHostname!: string
-    /** Workers that could run a job but are blocked by low filament / not primed:
+    /** Workers that could run a job but are blocked by low filament / not primed / worn-out or unset nozzle:
      *  they get a flashing red "!" sticker instead of the hammer. */
     @Prop({ type: Array, default: () => [] }) readonly attentionHostnames!: string[]
     /** Scheduler reason per attention hostname (e.g. "filament 350g < 400g needed …"),

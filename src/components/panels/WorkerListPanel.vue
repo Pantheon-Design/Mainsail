@@ -27,7 +27,7 @@
                 :outlined="attentionHostnames.length === 0"
                 :color="attentionHostnames.length ? 'error' : undefined"
                 :text-color="attentionHostnames.length ? 'white' : undefined"
-                title="Workers that could run a job but are blocked by low filament or not primed">
+                title="Workers that could run a job but are blocked by low filament, not primed, or a worn-out / unset nozzle">
                 <v-icon x-small left>{{ mdiExclamationThick }}</v-icon>
                 {{ attentionHostnames.length }} need{{ attentionHostnames.length === 1 ? 's' : '' }} attention
             </v-chip>

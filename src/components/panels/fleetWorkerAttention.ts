@@ -1,11 +1,18 @@
 import { FleetWorker } from '@/store/fleet/jobs/types'
 
 /** Enabled worker that could take a job but is held back by something an
- *  operator can fix on the spot: not primed, or not enough filament. */
+ *  operator can fix on the spot: not primed, not enough filament, or a
+ *  worn-out / unset nozzle. Mirrors fleet_job_scheduler.attention_category(). */
 export function workerNeedsAttention(w: FleetWorker): boolean {
     if (!w.enabled || !w.connected) return false
     const r = (w.reason || '').toLowerCase()
-    return r.startsWith('not primed') || (r.startsWith('filament') && r.includes('needed')) || r.startsWith('remaining_weight unknown')
+    return (
+        r.startsWith('not primed') ||
+        (r.startsWith('filament') && r.includes('needed')) ||
+        r.startsWith('remaining_weight unknown') ||
+        r.startsWith('nozzle worn out') ||
+        r.startsWith('nozzle life not set')
+    )
 }
 
 /** Hostnames currently enabled as fleet workers. */
@@ -29,6 +36,6 @@ export function attentionWorkerReasons(workers: FleetWorker[]): Record<string, s
 
 /** Hover text for a "N need attention" chip: `host: reason` per worker, or what the chip means when 0. */
 export function attentionChipTitle(hostnames: string[], reasons: Record<string, string>): string {
-    if (!hostnames.length) return 'Workers that could run a job but are blocked by low filament or not primed'
+    if (!hostnames.length) return 'Workers that could run a job but are blocked by low filament, not primed, or a worn-out / unset nozzle'
     return hostnames.map((h) => (reasons[h] ? `${h}: ${reasons[h]}` : h)).join('\n')
 }
