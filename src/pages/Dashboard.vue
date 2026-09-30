@@ -11,10 +11,13 @@
                 :attention-hostnames="attentionHostnames"
                 :attention-reasons="attentionReasons"
                 :highlight-hostname="hoverHost"
-                class="fleet-dashboard__map" />
+                class="fleet-dashboard__map"
+                :class="`fleet-dashboard__map--${floor.location}`" />
         </div>
-        <div class="fleet-dashboard__col fleet-dashboard__col--side">
+        <div class="fleet-dashboard__col fleet-dashboard__col--jobs">
             <dashboard-jobs-panel class="fleet-dashboard__jobs" />
+        </div>
+        <div class="fleet-dashboard__col fleet-dashboard__col--workers">
             <dashboard-workers-panel
                 :workers="workers"
                 :intervals-hours="intervalsHours"
@@ -42,9 +45,10 @@ import { MAP_LOCATIONS } from '@/components/panels/farmMapGeometry'
 import { sanitizeIntervals } from '@/store/fleet/forecast'
 
 /**
- * Fleet dashboard: everything an operator needs on one screen — both floor
- * maps (cropped to the placed printers), fleet totals, workers needing
- * attention + finish forecast, and open fleet jobs with time / filament left.
+ * Fleet dashboard: everything an operator needs on one screen, in three columns —
+ * fleet totals + both floor maps (cropped to the placed printers; the Ground Floor
+ * gets half the Print Farm's height when both have printers), open fleet jobs with
+ * time / filament left, and workers needing attention + finish forecast.
  * Desktop and wider fill the viewport without page scrolling; below that the
  * sections stack.
  */
@@ -228,7 +232,7 @@ html.fleet-attention #content {
 .fleet-dashboard.fleet-dashboard--fixed {
     height: calc(100vh - 48px - 48px);
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 5fr) minmax(0, 3fr) minmax(0, 3fr);
     gap: 12px;
     overflow: hidden;
 }
@@ -242,29 +246,35 @@ html.fleet-attention #content {
 .fleet-dashboard__status {
     flex: 0 0 auto;
 }
+/* Print Farm gets twice the Ground Floor's height when both have placed printers;
+   when one is empty (header only, below) the other takes the rest of the column */
 .fleet-dashboard__map {
     flex: 1 1 0;
     min-height: 0;
+}
+.fleet-dashboard__map--farm {
+    flex-grow: 2;
 }
 /* a floor with nothing placed only needs its header line */
 .fleet-dashboard__map.dash-map--empty {
     flex: 0 0 auto;
 }
-/* right column: jobs on top (grow with content, at most 40% of the column, list scrolls),
-   workers below taking the rest (its worker list scrolls) */
-.fleet-dashboard__jobs {
-    flex: 0 1 auto;
-    max-height: 34%;
-    min-height: 0;
-}
+/* jobs and workers each fill their own column (their lists scroll) */
+.fleet-dashboard__jobs,
 .fleet-dashboard__workers {
     flex: 1 1 0;
     min-height: 0;
 }
 /* stacked layout (tablet / phone): give the maps and lists a sensible height */
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__map {
-    height: 260px;
+    height: 320px;
     flex: 0 0 auto;
+}
+.fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__map--ground {
+    height: 160px;
+}
+.fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__map.dash-map--empty {
+    height: auto;
 }
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__jobs {
     max-height: 50vh;
