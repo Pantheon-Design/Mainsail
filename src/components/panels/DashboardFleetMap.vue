@@ -1,5 +1,5 @@
 <template>
-    <div class="dash-map" :class="{ 'dash-map--empty': !crop }">
+    <div class="dash-map" :class="{ 'dash-map--empty': !crop, 'dash-map--rainbow': allPrinting }">
         <div class="dash-map__head">
             <span class="dash-map__title">{{ name }}</span>
             <span class="dash-map__pill">{{ printers.length }}</span>
@@ -230,6 +230,7 @@ import {
     cropBox,
     gridRows,
     ovenHostnames,
+    printerHostnames,
     printerGridPosition,
     printerLocation,
     printerModel,
@@ -424,6 +425,18 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         return this.printers.filter((p) => p.attention).map((p) => p.hostname)
     }
 
+    /**
+     * Easter egg: every printer placed on this floor is printing at once → the card shines rainbow.
+     * Judged against the roster (all placed printers), not only the printers the daemon currently
+     * sends frames for: a placed printer without a frame, or with any status but printing, vetoes it.
+     */
+    get allPrinting(): boolean {
+        const placed = printerHostnames(this.roster, this.location)
+        if (!placed.length) return false
+        const byKey = new Map(this.printers.map((p) => [hostKey(p.hostname), p.status]))
+        return placed.every((h) => byKey.get(hostKey(h)) === 'printing')
+    }
+
     get sectionAttentionTitle(): string {
         const reasons: Record<string, string> = {}
         this.sectionAttention.forEach((h) => {
@@ -493,6 +506,89 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
     border: 1px solid rgba(128, 128, 128, 0.25);
     border-radius: 6px;
     padding: 6px 8px 8px;
+}
+/* Easter egg: every printer on the floor is printing (see allPrinting) → rainbow beams shoot
+   out from the card's centre and slowly rotate. The beams are a conic gradient on an oversized
+   square pseudo-element spinning behind the content while its opacity pulses; a soft white
+   glow marks the centre. The content sits above the beams so the map and text stay readable. */
+.dash-map--rainbow {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.25);
+}
+.dash-map--rainbow > * {
+    position: relative;
+    z-index: 1;
+}
+.dash-map--rainbow::before {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    top: 50%;
+    left: 50%;
+    /* a square wider than any card diagonal so the corners never show while it spins */
+    width: 200vmax;
+    height: 200vmax;
+    background: conic-gradient(
+        from 0deg,
+        rgba(255, 20, 90, 0.85) 0deg 12deg,
+        transparent 12deg 30deg,
+        rgba(255, 120, 0, 0.85) 30deg 42deg,
+        transparent 42deg 60deg,
+        rgba(255, 230, 0, 0.85) 60deg 72deg,
+        transparent 72deg 90deg,
+        rgba(0, 235, 90, 0.85) 90deg 102deg,
+        transparent 102deg 120deg,
+        rgba(0, 160, 255, 0.85) 120deg 132deg,
+        transparent 132deg 150deg,
+        rgba(170, 50, 255, 0.85) 150deg 162deg,
+        transparent 162deg 180deg,
+        rgba(255, 20, 90, 0.85) 180deg 192deg,
+        transparent 192deg 210deg,
+        rgba(255, 120, 0, 0.85) 210deg 222deg,
+        transparent 222deg 240deg,
+        rgba(255, 230, 0, 0.85) 240deg 252deg,
+        transparent 252deg 270deg,
+        rgba(0, 235, 90, 0.85) 270deg 282deg,
+        transparent 282deg 300deg,
+        rgba(0, 160, 255, 0.85) 300deg 312deg,
+        transparent 312deg 330deg,
+        rgba(170, 50, 255, 0.85) 330deg 342deg,
+        transparent 342deg 360deg
+    );
+    animation:
+        dash-map-beams 12s linear infinite,
+        dash-map-beams-pulse 3s ease-in-out infinite;
+    pointer-events: none;
+}
+/* centre glow the beams appear to shoot out of */
+.dash-map--rainbow::after {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%);
+    pointer-events: none;
+}
+@keyframes dash-map-beams {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+/* beams breathe between dim and full while they spin (the two periods are not multiples,
+   so the bright phase drifts around the circle) */
+@keyframes dash-map-beams-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 .dash-map__head {
     display: flex;

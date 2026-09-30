@@ -73,6 +73,21 @@ export function isOvenEntry(entry: any): boolean {
     return entry?.deviceType === 'oven'
 }
 
+/** Roster printers (not ovens) placed on a floor (deduplicated by hostname), sorted by hostname. */
+export function printerHostnames(roster: Roster, location: MapLocation): string[] {
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const entry of Object.values(roster)) {
+        if (isOvenEntry(entry) || !entry?.hostname) continue
+        if (((entry.location as MapLocation) ?? 'farm') !== location) continue
+        const key = hostKey(entry.hostname)
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push(entry.hostname)
+    }
+    return out.sort((a, b) => a.localeCompare(b))
+}
+
 /** Roster ovens placed on a floor (deduplicated by hostname), sorted by hostname. */
 export function ovenHostnames(roster: Roster, location: MapLocation): string[] {
     const seen = new Set<string>()
