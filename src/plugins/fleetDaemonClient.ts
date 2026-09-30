@@ -1,18 +1,49 @@
 import store from '@/store'
 import Vue from 'vue'
 import { hostKey } from '@/plugins/hostKey'
-import { PrinterModel } from '@/store/gui/remoteprinters/types'
+import { GuiRemoteprintersStatePrinter, PrinterModel } from '@/store/gui/remoteprinters/types'
 import { OvenFrame } from '@/store/farm/types'
+
+/** One printer/oven frame as the daemon sends it — standalone, or as an item of a `batch`. */
+interface FleetFrame {
+    hostname: string
+    device_type?: 'oven'
+    update?: any
+    removed?: boolean
+}
+
+/**
+ * Frames received within this window are committed to Vuex in ONE mutation. The daemon
+ * ships a batch every 0.5 s, so this mostly collapses the legacy one-message-per-printer
+ * format (and a batch that straddles the timer) — with 50 printing printers that was 50
+ * store commits, and 50 full re-renders of every map/panel, per second on a slow device.
+ * setTimeout rather than requestAnimationFrame: rAF stops in background tabs, a throttled
+ * timer still keeps the store current so the map is right when the tab comes back.
+ */
+const FLUSH_MS = 250
 
 /**
  * Singleton WebSocket client for fleet_daemon.
  * Connects once and stays connected across page navigations.
  * All printer data is committed directly to the Vuex farm store.
+ *
+ * Wire formats (both accepted, see fleet_daemon ARCHITECTURE.md "WebSocket Protocol"):
+ *   - `{"batch": [frame, ...]}` — one message per daemon flush tick, and the connect / 30 s resync dump
+ *   - a bare frame `{hostname, update}` / `{hostname, device_type: "oven", update}` /
+ *     `{hostname, removed: true}` — legacy daemons, or FLEET_WS_BATCH=0
+ *   - `{"event": ...}` messages are re-emitted on `fleetDaemonEvents` unchanged.
  */
 class FleetDaemonClient {
     private socket: WebSocket | null = null
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null
     private started = false
+
+    /** Frames waiting for the next flush, keyed `${device_type}:${hostname}`; a later frame replaces an earlier one. */
+    private pending = new Map<string, FleetFrame>()
+    /** Signature of the last printer payload committed per hostname; an identical frame is skipped
+     *  so the store entry keeps its object identity and nothing depending on it re-renders. */
+    private lastSig = new Map<string, string>()
+    private flushTimer: ReturnType<typeof setTimeout> | null = null
 
     get isConnected(): boolean {
         return this.socket !== null && this.socket.readyState === WebSocket.OPEN
@@ -75,52 +106,13 @@ class FleetDaemonClient {
 
                     const message = JSON.parse(event.data)
 
-                    // Oven frames ({hostname, device_type: 'oven', update|removed}) go to their
-                    // own store map (farm.fleetDaemonOvens): printer counters, the worker list and
-                    // status derivation read fleetDaemonPrinters and must stay printer-only.
-                    if (message.device_type === 'oven') {
-                        if (!message.hostname) return
-                        if (message.removed) {
-                            store.commit('farm/REMOVE_FLEET_DAEMON_OVEN', message.hostname)
-                        } else if (message.update) {
-                            const ovenData: OvenFrame = {
-                                ...message.update,
-                                hostname: message.hostname,
-                                device_type: 'oven',
-                                received_at: Date.now(),
-                            }
-                            store.commit('farm/SET_FLEET_DAEMON_OVEN', {
-                                hostname: message.hostname,
-                                data: ovenData,
-                            })
-                        }
+                    if (Array.isArray(message.batch)) {
+                        for (const frame of message.batch) this.queueFrame(frame)
                         return
                     }
-
-                    if (message.removed && message.hostname) {
-                        store.commit('farm/REMOVE_FLEET_DAEMON_PRINTER', message.hostname)
-                    } else if (message.hostname && message.update) {
-                        const position = this.getPrinterPosition(message.hostname)
-                        const model = this.getPrinterModel(message.hostname)
-                        const printerData = {
-                            ...message.update,
-                            socket: {
-                                hostname: message.hostname,
-                                isConnected: true,
-                                webPort: 80,
-                                position: position,
-                                printerModel: model,
-                            },
-                            current_file: {
-                                filename: message.update?.print_stats?.filename ?? '',
-                            },
-                            _namespace: message.hostname,
-                        }
-
-                        store.commit('farm/SET_FLEET_DAEMON_PRINTER', {
-                            hostname: message.hostname,
-                            data: printerData,
-                        })
+                    if (message.hostname && (message.update || message.removed)) {
+                        this.queueFrame(message)
+                        return
                     }
 
                     // Emit event for components that need to react to specific messages
@@ -163,6 +155,7 @@ class FleetDaemonClient {
             this.socket.onclose = () => {
                 console.warn('[FleetDaemon] Disconnected')
                 this.socket = null
+                this.resetBuffer()
                 store.commit('farm/SET_FLEET_DAEMON_CONNECTED', false)
 
                 if (this.started) {
@@ -191,29 +184,104 @@ class FleetDaemonClient {
             this.socket.close()
             this.socket = null
         }
+        this.resetBuffer()
         store.commit('farm/SET_FLEET_DAEMON_CONNECTED', false)
     }
 
-    private getPrinterPosition(hostname: string): { x: number; y: number } {
-        const key = hostKey(hostname)
-        const remotePrinters = store.state.gui?.remoteprinters?.printers || {}
-        for (const printer of Object.values(remotePrinters)) {
-            if (hostKey((printer as any).hostname) === key && (printer as any).position) {
-                return (printer as any).position
-            }
+    /** Drop buffered frames and forget signatures: the next connection starts with a full snapshot. */
+    private resetBuffer() {
+        if (this.flushTimer) {
+            clearTimeout(this.flushTimer)
+            this.flushTimer = null
         }
-        return { x: 400, y: 400 }
+        this.pending.clear()
+        this.lastSig.clear()
     }
 
-    private getPrinterModel(hostname: string): PrinterModel | null {
-        const key = hostKey(hostname)
-        const remotePrinters = store.state.gui?.remoteprinters?.printers || {}
-        for (const printer of Object.values(remotePrinters)) {
-            if (hostKey((printer as any).hostname) === key) {
-                return (printer as any).printerModel ?? null
+    private queueFrame(frame: FleetFrame) {
+        if (!frame || !frame.hostname) return
+        const kind = frame.device_type === 'oven' ? 'oven' : 'printer'
+        this.pending.set(kind + ':' + frame.hostname, frame)
+        if (!this.flushTimer) {
+            this.flushTimer = setTimeout(() => this.flush(), FLUSH_MS)
+        }
+    }
+
+    /** Commit everything buffered since the last flush as one store mutation. */
+    private flush() {
+        this.flushTimer = null
+        if (this.pending.size === 0) return
+
+        const roster: Record<string, GuiRemoteprintersStatePrinter> =
+            store.getters['gui/remoteprinters/byHostKey'] || {}
+        const currentPrinters = (store.state as any).farm?.fleetDaemonPrinters || {}
+
+        const printers: { [hostname: string]: any } = {}
+        const ovens: { [hostname: string]: OvenFrame } = {}
+        const removedPrinters: string[] = []
+        const removedOvens: string[] = []
+
+        for (const frame of this.pending.values()) {
+            const hostname = frame.hostname
+
+            // Oven frames ({hostname, device_type: 'oven', update|removed}) go to their
+            // own store map (farm.fleetDaemonOvens): printer counters, the worker list and
+            // status derivation read fleetDaemonPrinters and must stay printer-only.
+            if (frame.device_type === 'oven') {
+                if (frame.removed) removedOvens.push(hostname)
+                else if (frame.update) {
+                    ovens[hostname] = {
+                        ...frame.update,
+                        hostname,
+                        device_type: 'oven',
+                        received_at: Date.now(),
+                    }
+                }
+                continue
+            }
+
+            if (frame.removed) {
+                removedPrinters.push(hostname)
+                this.lastSig.delete(hostname)
+                continue
+            }
+            if (!frame.update) continue
+
+            const entry = roster[hostKey(hostname)]
+            const position = entry?.position ?? { x: 400, y: 400 }
+            const model: PrinterModel | null = entry?.printerModel ?? null
+
+            // The daemon already drops frames whose wire text did not change; this catches the
+            // legacy per-printer format and the 30 s resync, which re-send everything.
+            const sig = JSON.stringify(frame.update) + '|' + position.x + ',' + position.y + '|' + (model ?? '')
+            if (this.lastSig.get(hostname) === sig && currentPrinters[hostname]) continue
+            this.lastSig.set(hostname, sig)
+
+            printers[hostname] = {
+                ...frame.update,
+                socket: {
+                    hostname,
+                    isConnected: true,
+                    webPort: 80,
+                    position,
+                    printerModel: model,
+                },
+                current_file: {
+                    filename: frame.update?.print_stats?.filename ?? '',
+                },
+                _namespace: hostname,
             }
         }
-        return null
+        this.pending.clear()
+
+        if (
+            Object.keys(printers).length ||
+            Object.keys(ovens).length ||
+            removedPrinters.length ||
+            removedOvens.length
+        ) {
+            store.commit('farm/APPLY_FLEET_DAEMON_BATCH', { printers, ovens, removedPrinters, removedOvens })
+        }
     }
 }
 

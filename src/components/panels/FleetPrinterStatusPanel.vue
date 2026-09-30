@@ -68,6 +68,7 @@ import Panel from '@/components/ui/Panel.vue'
 import SimplifiedPrinterMapPanel from '@/components/panels/SimplifiedPrinterMapPanel.vue'
 import MapDrawingOverlay from '@/components/panels/MapDrawingOverlay.vue'
 import Vue from 'vue'
+import { hostKey } from '@/plugins/hostKey'
 import { fleetDaemonClient } from '@/plugins/fleetDaemonClient'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import {
@@ -160,12 +161,10 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
         if (this.positions[key]) {
             return this.positions[key]
         }
-        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
-        for (const printer of Object.values(remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key && (printer as any).position) {
-                Vue.set(this.positions, key, (printer as any).position)
-                return (printer as any).position
-            }
+        const position = this.$store.getters['gui/remoteprinters/byHostKey']?.[hostKey(hostname)]?.position
+        if (position) {
+            Vue.set(this.positions, key, position)
+            return position
         }
         return { x: 400, y: 400 }
     }
@@ -205,14 +204,7 @@ export default class FleetPrinterStatusPanel extends Mixins(BaseMixin) {
     }
 
     getPrinterModel(hostname: string): PrinterModel | null {
-        const key = hostname.toLowerCase()
-        const remotePrinters = this.$store.state.gui?.remoteprinters?.printers || {}
-        for (const printer of Object.values(remotePrinters)) {
-            if ((printer as any).hostname?.toLowerCase() === key) {
-                return (printer as any).printerModel ?? null
-            }
-        }
-        return null
+        return this.$store.getters['gui/remoteprinters/byHostKey']?.[hostKey(hostname)]?.printerModel ?? null
     }
 
     getStyle(printer: any) {

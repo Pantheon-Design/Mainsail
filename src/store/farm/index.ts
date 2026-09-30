@@ -109,6 +109,52 @@ export const farm: Module<FarmState, RootState> = {
             Vue.set(state.fleetDaemonPrinters, hostname, printerData);
         },
 
+        // One commit per fleetDaemonClient flush (see FLUSH_MS there): every printer/oven frame
+        // received in the window, already deduplicated per host and filtered to hosts whose
+        // payload actually changed. Per-key Vue.set/Vue.delete on purpose — rebuilding the
+        // whole map with a spread would allocate an N-entry object per flush and re-render
+        // every card even when one printer changed.
+        APPLY_FLEET_DAEMON_BATCH(
+            state,
+            payload: {
+                printers: { [hostname: string]: any }
+                ovens: { [hostname: string]: OvenFrame }
+                removedPrinters: string[]
+                removedOvens: string[]
+            }
+        ) {
+            const { printers, ovens, removedPrinters, removedOvens } = payload
+            for (const hostname of Object.keys(printers)) {
+                const data = printers[hostname]
+                const existing = state.fleetDaemonPrinters?.[hostname]
+                Vue.set(state.fleetDaemonPrinters, hostname, {
+                    ...data,
+                    socket: {
+                        hostname: hostname,
+                        isConnected: true,
+                        webPort: 80,
+                        ...(existing?.socket || {}),
+                        ...data.socket,
+                    },
+                    _namespace: hostname,
+                })
+            }
+            for (const hostname of removedPrinters) {
+                if (state.fleetDaemonPrinters && hostname in state.fleetDaemonPrinters) {
+                    Vue.delete(state.fleetDaemonPrinters, hostname)
+                }
+            }
+            if (Object.keys(ovens).length && !state.fleetDaemonOvens) Vue.set(state, 'fleetDaemonOvens', {})
+            for (const hostname of Object.keys(ovens)) {
+                Vue.set(state.fleetDaemonOvens, hostname, { ...ovens[hostname], hostname, device_type: 'oven' })
+            }
+            for (const hostname of removedOvens) {
+                if (state.fleetDaemonOvens && hostname in state.fleetDaemonOvens) {
+                    Vue.delete(state.fleetDaemonOvens, hostname)
+                }
+            }
+        },
+
         // Bulk update mutation
         SET_FLEET_DAEMON_PRINTERS(state, payload) {
             Vue.set(state, 'fleetDaemonPrinters', {

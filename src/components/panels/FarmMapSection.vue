@@ -353,23 +353,20 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return this.$store.state.gui?.remoteprinters?.printers || {}
     }
 
+    /** Roster entries by hostKey (cached getter). Every per-printer roster lookup in this
+     *  component goes through it: activePrinterEntries runs one lookup per printer on every
+     *  store commit, and scanning the roster inside that made it O(N^2). */
+    get rosterByKey(): Record<string, any> {
+        return this.$store.getters['gui/remoteprinters/byHostKey'] || {}
+    }
+
     // Resolve a printer's location, defaulting legacy printers (no location key) to 'farm'
     getPrinterLocation(hostname: string): MapLocation {
-        const key = hostKey(hostname)
-        for (const printer of Object.values(this.remotePrinters)) {
-            if (hostKey((printer as any).hostname) === key) {
-                return ((printer as any).location as MapLocation) ?? 'farm'
-            }
-        }
-        return 'farm'
+        return (this.rosterByKey[hostKey(hostname)]?.location as MapLocation) ?? 'farm'
     }
 
     getPrinterModel(hostname: string): PrinterModel | null {
-        const key = hostKey(hostname)
-        for (const printer of Object.values(this.remotePrinters)) {
-            if (hostKey((printer as any).hostname) === key) return (printer as any).printerModel ?? null
-        }
-        return null
+        return this.rosterByKey[hostKey(hostname)]?.printerModel ?? null
     }
 
     // Ovens are roster entries (deviceType === 'oven') but not printers: they never send
@@ -598,11 +595,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     getPrinterGridPosition(hostname: string): { x: number; y: number } {
         const key = hostKey(hostname)
         if (this.gridPositions[key]) return this.gridPositions[key]
-        for (const printer of Object.values(this.remotePrinters)) {
-            if (hostKey((printer as any).hostname) === key && (printer as any).gridPosition) {
-                Vue.set(this.gridPositions, key, (printer as any).gridPosition)
-                return (printer as any).gridPosition
-            }
+        const gridPosition = this.rosterByKey[key]?.gridPosition
+        if (gridPosition) {
+            Vue.set(this.gridPositions, key, gridPosition)
+            return gridPosition
         }
         return { x: 1, y: 1 }
     }
@@ -785,9 +781,17 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return !!this.highlightHostname && hostKey(this.highlightHostname) === hostKey(hostname)
     }
 
+    /** hostKey sets of the worker / attention props, so the per-marker checks are O(1). */
+    get workerHostKeys(): Set<string> {
+        return new Set(this.workerHostnames.map((w) => hostKey(w)))
+    }
+
+    get attentionHostKeys(): Set<string> {
+        return new Set(this.attentionHostnames.map((w) => hostKey(w)))
+    }
+
     needsAttention(hostname: string): boolean {
-        const h = hostKey(hostname)
-        return this.attentionHostnames.some((w) => hostKey(w) === h)
+        return this.attentionHostKeys.has(hostKey(hostname))
     }
 
     attentionReason(hostname: string): string | null {
@@ -797,8 +801,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     isWorker(hostname: string): boolean {
-        const h = hostKey(hostname)
-        return this.workerHostnames.some((w) => hostKey(w) === h)
+        return this.workerHostKeys.has(hostKey(hostname))
     }
 
     onMarkerClick(printer: any, hostname: string) {

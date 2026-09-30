@@ -17,29 +17,34 @@ export const getters: GetterTree<GuiRemoteprintersState, any> = {
         return caseInsensitiveSort(printers, 'hostname')
     },
 
+    // Roster entries indexed by hostKey. Vuex caches this, so it is rebuilt only when the
+    // roster changes; every per-frame roster lookup (fleetDaemonClient, the map, the status
+    // panels) must go through it instead of scanning `state.printers` — with N printers
+    // receiving frames, a scan per lookup is O(N^2) per store commit.
+    byHostKey: (state): Record<string, GuiRemoteprintersStatePrinter> => {
+        const index: Record<string, GuiRemoteprintersStatePrinter> = {}
+        for (const printer of Object.values(state.printers)) {
+            if (printer?.hostname) index[hostKey(printer.hostname)] = printer
+        }
+        return index
+    },
+
     // Device type of the roster entry with this hostname (case-insensitive). Legacy entries
     // without a deviceType key, and hostnames not in the roster, are printers.
     getDeviceType:
-        (state) =>
+        (state, getters) =>
         (hostname: string): DeviceType => {
-            const key = hostKey(hostname)
-            for (const printer of Object.values(state.printers)) {
-                if (hostKey(printer.hostname) === key) return printer.deviceType ?? 'printer'
-            }
-            return 'printer'
+            return getters.byHostKey[hostKey(hostname)]?.deviceType ?? 'printer'
         },
 
     // Soft spool capacity of the oven roster entry with this hostname; null when the
     // entry is missing, is a printer, or has no valid (integer >= 1) maxSpools.
     getMaxSpools:
-        (state) =>
+        (state, getters) =>
         (hostname: string): number | null => {
-            const key = hostKey(hostname)
-            for (const printer of Object.values(state.printers)) {
-                if (hostKey(printer.hostname) !== key) continue
-                const n = Number(printer.maxSpools)
-                return Number.isInteger(n) && n >= 1 ? n : null
-            }
-            return null
+            const printer = getters.byHostKey[hostKey(hostname)]
+            if (!printer) return null
+            const n = Number(printer.maxSpools)
+            return Number.isInteger(n) && n >= 1 ? n : null
         },
 }
