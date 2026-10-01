@@ -164,7 +164,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Mixins, Prop } from 'vue-property-decorator'
+import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
 import { mdiAutorenew, mdiExclamationThick, mdiHammer, mdiPrinter3dNozzle, mdiProgressClock } from '@mdi/js'
 import { mdiSpool } from '@/plugins/customIcons'
 import BaseMixin from '@/components/mixins/base'
@@ -174,7 +174,7 @@ import { ServiceTrackerPrinterSummary } from '@/store/fleet/maintenance/types'
 import {
     computeNozzleHealthPct,
     computeRemainingWeightPct,
-    countPrinterStatuses,
+    emptyStatusCounts,
     getPrinterStatus,
     PrinterStatus,
     STATUS_META,
@@ -194,6 +194,21 @@ const METRICS: WorkerMetric[] = ['progress', 'nozzle', 'filament']
 const METRIC_KEY = 'fleetDashboardWorkerMetric'
 const AUTO_KEY = 'fleetDashboardWorkerAutoCycle'
 const CYCLE_MS = 5000
+
+/** The few fields of a daemon frame this panel shows, rounded to what is displayed (see frameState). */
+interface FrameView {
+    status: PrinterStatus
+    /** 0..1 in 1 % steps, null when the frame has none */
+    progress: number | null
+    nozzleLife: number | null
+    remainingNozzleLife: number | null
+    /** whole grams */
+    remainingWeight: number | null
+    /** 0..100 in 0.1 % steps */
+    weightPct: number | null
+}
+
+const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
 
 interface WorkerRow {
     hostname: string
@@ -318,13 +333,43 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
         return !!this.$store.state.farm.fleetDaemonConnected
     }
 
-    /** fleet_daemon frames keyed by hostKey so worker rows match regardless of `.local` / case. */
-    get framesByKey(): Map<string, any> {
-        const out = new Map<string, any>()
-        Object.entries(this.$store.state.farm.fleetDaemonPrinters || {}).forEach(([h, frame]) =>
-            out.set(hostKey(h), frame)
-        )
-        return out
+    /** Frame views keyed by hostKey (so rows match regardless of `.local` / case); see frameState. */
+    framesByKey: Map<string, FrameView> = new Map()
+
+    /**
+     * What this panel shows of each daemon frame, plus a signature of it. The daemon re-sends a
+     * frame on any field change — during a print the filament counters tick every half second —
+     * and a full re-render of this panel (Vuetify buttons included) for that makes slow devices
+     * lag. The getters read `framesByKey`, which the watcher below only replaces when a displayed
+     * value (status, whole percent, whole gram) actually changed.
+     */
+    get frameState(): { sig: string; views: Map<string, FrameView> } {
+        const views = new Map<string, FrameView>()
+        const parts: string[] = []
+        Object.entries(this.$store.state.farm.fleetDaemonPrinters || {}).forEach(([h, frame]: [string, any]) => {
+            const th = frame?.toolhead || {}
+            const progress = num(frame?.virtual_sdcard?.progress)
+            const weight = num(th.remaining_weight)
+            const pct = computeRemainingWeightPct(frame)
+            const v: FrameView = {
+                status: getPrinterStatus(frame, this.connected),
+                progress: progress === null ? null : Math.round(progress * 100) / 100,
+                nozzleLife: num(th.nozzle_life),
+                remainingNozzleLife: num(th.remaining_nozzle_life),
+                remainingWeight: weight === null ? null : Math.round(weight),
+                weightPct: pct === null ? null : Math.round(pct * 10) / 10,
+            }
+            views.set(hostKey(h), v)
+            parts.push(
+                `${h}:${v.status},${v.progress},${v.nozzleLife},${v.remainingNozzleLife},${v.remainingWeight},${v.weightPct}`
+            )
+        })
+        return { sig: parts.join('|'), views }
+    }
+
+    @Watch('frameState.sig', { immediate: true })
+    onFrameState() {
+        this.framesByKey = this.frameState.views
     }
 
     /** Daily service-tracker snapshot per printer: nozzle life fallback for older daemons. */
@@ -362,11 +407,10 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
 
     get workerStatusList() {
         const keys = new Set(this.enabledHostnames.map(hostKey))
-        const frames: any[] = []
-        this.framesByKey.forEach((frame, key) => {
-            if (keys.has(key)) frames.push(frame)
+        const counts = emptyStatusCounts()
+        this.framesByKey.forEach((view, key) => {
+            if (keys.has(key)) counts[view.status]++
         })
-        const counts = countPrinterStatuses(frames, this.connected)
         return STATUS_ORDER.map((k) => ({
             key: k,
             label: STATUS_META[k].label,
@@ -379,8 +423,8 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
     get printingEntries(): FinishEntry[] {
         return this.workers
             .filter((w) => {
-                const frame = this.framesByKey.get(hostKey(w.printer_hostname))
-                if (frame) return getPrinterStatus(frame, this.connected) === 'printing'
+                const view = this.framesByKey.get(hostKey(w.printer_hostname))
+                if (view) return view.status === 'printing'
                 return w.connected && w.print_state === 'printing'
             })
             .map((w) => ({
@@ -408,28 +452,27 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
             .filter((w) => w.enabled)
             .map((w) => {
                 const key = hostKey(w.printer_hostname)
-                const frame = this.framesByKey.get(key)
-                const th = frame?.toolhead || {}
+                const view = this.framesByKey.get(key)
                 const snap = this.snapshotByKey.get(key)?.latest || null
-                const status: PrinterStatus = frame
-                    ? getPrinterStatus(frame, this.connected)
+                const status: PrinterStatus = view
+                    ? view.status
                     : w.connected
                     ? w.print_state === 'printing'
                         ? 'printing'
                         : 'ready'
                     : 'disconnected'
-                const rawProgress = frame?.virtual_sdcard?.progress ?? w.progress
+                const rawProgress = view?.progress ?? w.progress
                 const progress =
                     status === 'printing' && typeof rawProgress === 'number'
                         ? Math.min(1, Math.max(0, rawProgress))
                         : null
                 const nozzlePct =
-                    computeNozzleHealthPct(th.nozzle_life, th.remaining_nozzle_life) ??
+                    computeNozzleHealthPct(view?.nozzleLife, view?.remainingNozzleLife) ??
                     computeNozzleHealthPct(w.nozzle_life, w.remaining_nozzle_life) ??
                     computeNozzleHealthPct(snap?.nozzle_life, snap?.remaining_nozzle_life)
-                const grams = typeof th.remaining_weight === 'number' ? th.remaining_weight : w.remaining_weight
+                const grams = view?.remainingWeight ?? w.remaining_weight
                 const gramsLeft = typeof grams === 'number' && !isNaN(grams) ? Math.max(0, grams) : null
-                let gramsPct = frame ? computeRemainingWeightPct(frame) : null
+                let gramsPct = view ? view.weightPct : null
                 if (gramsPct === null && gramsLeft !== null && snap?.initial_weight) {
                     gramsPct = Math.max(0, Math.min(100, (gramsLeft / snap.initial_weight) * 100))
                 }
@@ -537,6 +580,16 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
 }
 .dash-workers--reduced .dash-workers__attention--active {
     animation: none;
+}
+/* reduced motion: no metric pop-in, no spinning auto-cycle icon, bars jump instead of sliding */
+.dash-workers--reduced .dash-workers__metric,
+.dash-workers--reduced .dash-workers__spin {
+    animation: none;
+}
+.dash-workers--reduced .bar-progress__fill,
+.dash-workers--reduced .bar-gauge__mask,
+.dash-workers--reduced .bar-gauge__needle {
+    transition: none;
 }
 .dash-workers__attention-num {
     font-size: 68px;

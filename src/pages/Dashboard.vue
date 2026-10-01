@@ -256,6 +256,13 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         opacity: 1;
     }
 }
+/* reduced motion: the sheet still flashes, but as an on/off blink — two compositor frames per
+   cycle instead of one per screen refresh, which matters on devices that composite in software
+   (a Raspberry Pi browser without GPU acceleration blends the whole screen on the CPU) */
+.fleet-dashboard--reduced .fleet-dashboard__attention {
+    animation-timing-function: steps(1, end);
+    will-change: auto;
+}
 /* the panels sit above the attention sheet */
 .fleet-dashboard__col {
     position: relative;

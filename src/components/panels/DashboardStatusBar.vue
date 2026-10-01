@@ -48,12 +48,18 @@
 </template>
 
 <script lang="ts">
-import { Component, Mixins, Prop } from 'vue-property-decorator'
+import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
 import { mdiHammer, mdiLanDisconnect, mdiMotionPauseOutline, mdiMotionPlayOutline } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
 import { FleetWorker } from '@/store/fleet/jobs/types'
-import { countPrinterStatuses, STATUS_META, STATUS_ORDER } from '@/components/panels/farmPrinterStatus'
+import {
+    emptyStatusCounts,
+    getPrinterStatus,
+    PrinterStatus,
+    STATUS_META,
+    STATUS_ORDER,
+} from '@/components/panels/farmPrinterStatus'
 import { enabledWorkerHostnames } from '@/components/panels/fleetWorkerAttention'
 import { getOvenStatus, OVEN_LEGEND, OVEN_STATUS_META, OvenStatus } from '@/components/panels/farmOvenStatus'
 import { OvenFrame } from '@/store/farm/types'
@@ -79,29 +85,49 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
         return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
     }
 
-    get printerFrames(): Record<string, any> {
-        const all = this.$store.state.farm.fleetDaemonPrinters || {}
-        return Object.fromEntries(Object.entries(all).filter(([hostname]) => !this.isOvenHostname(hostname)))
+    /** Figures on screen. Replaced by onFrameState only when one of them changes. */
+    counts: Record<PrinterStatus, number> = emptyStatusCounts()
+    totalPrinterCount = 0
+    /** Daemon printers currently enabled as workers (same figure as the Workers map header). */
+    workerCount = 0
+
+    /**
+     * Totals derived from the daemon frames, plus their signature. The daemon re-sends a frame
+     * on any field change (filament used, timestamps, …); the template reads the data fields
+     * above, which the watcher only replaces when the signature differs, so such frames cost
+     * no render here.
+     */
+    get frameState(): { sig: string; counts: Record<PrinterStatus, number>; total: number; workers: number } {
+        const all: Record<string, any> = this.$store.state.farm.fleetDaemonPrinters || {}
+        const enabled = new Set(enabledWorkerHostnames(this.workers).map(hostKey))
+        const counts = emptyStatusCounts()
+        let total = 0
+        let workers = 0
+        for (const [hostname, frame] of Object.entries(all)) {
+            if (this.isOvenHostname(hostname)) continue
+            total++
+            counts[getPrinterStatus(frame, this.connected)]++
+            if (enabled.has(hostKey(hostname))) workers++
+        }
+        const sig = [total, workers, ...STATUS_ORDER.map((k) => counts[k])].join(',')
+        return { sig, counts, total, workers }
     }
 
-    get totalPrinterCount(): number {
-        return Object.keys(this.printerFrames).length
+    @Watch('frameState.sig', { immediate: true })
+    onFrameState() {
+        const s = this.frameState
+        this.counts = s.counts
+        this.totalPrinterCount = s.total
+        this.workerCount = s.workers
     }
 
     get statusList() {
-        const counts = countPrinterStatuses(Object.values(this.printerFrames), this.connected)
         return STATUS_ORDER.map((k) => ({
             key: k,
             label: STATUS_META[k].label,
             color: STATUS_META[k].color,
-            count: counts[k],
+            count: this.counts[k],
         }))
-    }
-
-    /** Daemon printers currently enabled as workers (same figure as the Workers map header). */
-    get workerCount(): number {
-        const enabled = new Set(enabledWorkerHostnames(this.workers).map(hostKey))
-        return Object.keys(this.printerFrames).filter((h) => enabled.has(hostKey(h))).length
     }
 
     get ovenHostnames(): string[] {

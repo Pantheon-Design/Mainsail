@@ -180,7 +180,7 @@ class FleetDaemonClient {
             this.reconnectTimer = null
         }
         if (this.socket) {
-            this.socket.onclose = null  // prevent auto-reconnect
+            this.socket.onclose = null // prevent auto-reconnect
             this.socket.close()
             this.socket = null
         }
@@ -253,7 +253,7 @@ class FleetDaemonClient {
 
             // The daemon already drops frames whose wire text did not change; this catches the
             // legacy per-printer format and the 30 s resync, which re-send everything.
-            const sig = JSON.stringify(frame.update) + '|' + position.x + ',' + position.y + '|' + (model ?? '')
+            const sig = frameSignature(frame.update) + '|' + position.x + ',' + position.y + '|' + (model ?? '')
             if (this.lastSig.get(hostname) === sig && currentPrinters[hostname]) continue
             this.lastSig.set(hostname, sig)
 
@@ -283,6 +283,22 @@ class FleetDaemonClient {
             store.commit('farm/APPLY_FLEET_DAEMON_BATCH', { printers, ovens, removedPrinters, removedOvens })
         }
     }
+}
+
+/**
+ * Text used to decide whether a printer frame changed. `fleet_worker.evaluated_at` is the
+ * daemon's own "last looked at this worker" clock: it ticks on every scheduler pass, nothing
+ * in the UI reads it, and on a quiet fleet it was the only change in two thirds of all frames —
+ * each one re-rendering every map and panel on screen.
+ */
+function frameSignature(update: any): string {
+    const fw = update?.fleet_worker
+    if (fw && typeof fw === 'object' && 'evaluated_at' in fw) {
+        const rest = { ...fw }
+        delete rest.evaluated_at
+        return JSON.stringify({ ...update, fleet_worker: rest })
+    }
+    return JSON.stringify(update)
 }
 
 /** Event bus for fleet daemon events that components can listen to */

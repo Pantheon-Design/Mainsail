@@ -1,7 +1,11 @@
 <template>
     <div
         class="dash-map"
-        :class="{ 'dash-map--empty': !crop, 'dash-map--rainbow': allPrinting, 'dash-map--reduced': reducedMotion }">
+        :class="{
+            'dash-map--empty': !crop,
+            'dash-map--rainbow': allPrinting && !reducedMotion,
+            'dash-map--reduced': reducedMotion,
+        }">
         <div class="dash-map__head">
             <span class="dash-map__title">{{ name }}</span>
             <span class="dash-map__pill">{{ printers.length }}</span>
@@ -212,7 +216,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Mixins, Prop } from 'vue-property-decorator'
+import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
 import { mdiExclamationThick, mdiHammer } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
@@ -222,7 +226,7 @@ import {
     PrinterStatus,
     STATUS_META,
     STATUS_ORDER,
-    countPrinterStatuses,
+    emptyStatusCounts,
 } from '@/components/panels/farmPrinterStatus'
 import {
     CELL,
@@ -336,7 +340,46 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         return key ? this.attentionReasons[key] || null : null
     }
 
-    get printers(): MarkerVm[] {
+    /** Markers on screen. Replaced by onMarkerSig only when markerState.sig changes. */
+    printers: MarkerVm[] = []
+
+    /**
+     * Markers built from the daemon frames, plus a signature of everything the template and
+     * the marker-derived getters read from them. The daemon re-sends a printer's frame whenever
+     * any field changes (filament used, progress by a tenth of a percent, …); re-patching 600+
+     * SVG nodes for that is what makes a slow device lag. So the render reads `printers`, which
+     * the watcher below only replaces when the signature differs.
+     */
+    get markerState(): { sig: string; markers: MarkerVm[] } {
+        const markers = this.buildMarkers()
+        const sig = markers
+            .map((m) =>
+                [
+                    m.hostname,
+                    m.status,
+                    m.glyph,
+                    m.cx,
+                    m.cy,
+                    m.square ? 1 : 0,
+                    m.hScale,
+                    m.progress === null ? '' : Math.round(m.progress * 100),
+                    m.worker ? 1 : 0,
+                    m.attention ? 1 : 0,
+                    m.reason ?? '',
+                    m.printer?.toolhead?.filament_type ?? '',
+                    m.printer?.socket?.webPort ?? '',
+                ].join(',')
+            )
+            .join('|')
+        return { sig, markers }
+    }
+
+    @Watch('markerState.sig', { immediate: true })
+    onMarkerSig() {
+        this.printers = this.markerState.markers
+    }
+
+    buildMarkers(): MarkerVm[] {
         return Object.entries(this.frames)
             .filter(
                 ([hostname]) =>
@@ -419,10 +462,8 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
     }
 
     get statusList() {
-        const counts = countPrinterStatuses(
-            this.printers.map((p) => p.printer),
-            this.connected
-        )
+        const counts = emptyStatusCounts()
+        this.printers.forEach((p) => counts[p.status]++)
         return STATUS_ORDER.map((k) => ({ key: k, color: STATUS_META[k].color, count: counts[k] }))
     }
 
@@ -532,9 +573,12 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
     z-index: 0;
     top: 50%;
     left: 50%;
-    /* a square wider than any card diagonal so the corners never show while it spins */
-    width: 200vmax;
-    height: 200vmax;
+    /* a square three card-widths wide (padding-% is relative to the width): wider than the
+       card's diagonal so no corner shows while it spins, without a screen-sized texture */
+    width: 300%;
+    height: 0;
+    padding-bottom: 300%;
+    will-change: transform, opacity;
     background: conic-gradient(
         from 0deg,
         rgba(255, 20, 90, 0.85) 0deg 12deg,
@@ -707,11 +751,11 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
     animation-direction: reverse;
 }
 /* reduced motion: every animated SVG element repaints the whole map each frame, so the
-   wave fill, halo, attention sticker and rainbow beams stand still (the ring is not rendered) */
+   wave fill, halo and attention sticker stand still (the ring is not rendered and the
+   rainbow easter egg is off, see the root class binding) */
 .dash-map--reduced .dash-map__wave,
 .dash-map--reduced .dash-map__halo,
-.dash-map--reduced .dash-map__sticker--attention circle,
-.dash-map--reduced.dash-map--rainbow::before {
+.dash-map--reduced .dash-map__sticker--attention circle {
     animation: none;
 }
 @keyframes dash-halo {
