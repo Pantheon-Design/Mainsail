@@ -2,8 +2,8 @@
     <div
         class="fleet-dashboard"
         :class="{ 'fleet-dashboard--fixed': fixedLayout, 'fleet-dashboard--reduced': reducedMotion }">
-        <!-- attention: a fixed red sheet behind the panels whose opacity pulses (compositor only,
-             no repaint of the page); static while reduced motion is on -->
+        <!-- attention: a fixed red sheet behind the panels whose opacity pulses. Compositor only,
+             no repaint of the page, so it keeps flashing under reduced motion too -->
         <div v-if="attentionActive" class="fleet-dashboard__attention" />
         <div class="fleet-dashboard__col fleet-dashboard__col--maps">
             <dashboard-status-bar
@@ -65,8 +65,9 @@ import { sanitizeIntervals } from '@/store/fleet/forecast'
  *
  * Reduced motion (button in the status bar, remembered per browser, defaults to the OS
  * `prefers-reduced-motion` setting): drops the decorative animations that make slow
- * devices such as smart TVs lag — pulse rings and wave fills on the maps, the attention
- * flashing — while keeping the information itself.
+ * devices such as smart TVs lag — pulse rings and wave fills on the maps, the flashing
+ * attention banner — while keeping the information itself. The red attention sheet keeps
+ * flashing: it animates opacity only, which costs nothing on the main thread.
  */
 @Component({
     components: {
@@ -254,11 +255,6 @@ export default class PageDashboard extends Mixins(BaseMixin) {
     25% {
         opacity: 1;
     }
-}
-/* reduced motion: a steady tint instead of flashing */
-.fleet-dashboard--reduced .fleet-dashboard__attention {
-    animation: none;
-    opacity: 0.5;
 }
 /* the panels sit above the attention sheet */
 .fleet-dashboard__col {
