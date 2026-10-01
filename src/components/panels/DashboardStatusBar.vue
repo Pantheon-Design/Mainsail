@@ -34,12 +34,22 @@
             <v-icon small color="error">{{ mdiLanDisconnect }}</v-icon>
             <span class="dash-status__label error--text">{{ $t('FleetDashboard.DaemonOffline') }}</span>
         </div>
+        <!-- reduced motion switch: per browser, for slow screens such as TVs -->
+        <div class="dash-status__item dash-status__item--motion" :class="{ 'ml-auto': connected }">
+            <v-btn
+                icon
+                :color="reducedMotion ? 'primary' : undefined"
+                :title="$t(reducedMotion ? 'FleetDashboard.ReducedMotionOn' : 'FleetDashboard.ReducedMotionOff')"
+                @click="$emit('toggle-reduced-motion')">
+                <v-icon>{{ reducedMotion ? mdiMotionPauseOutline : mdiMotionPlayOutline }}</v-icon>
+            </v-btn>
+        </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Mixins, Prop } from 'vue-property-decorator'
-import { mdiHammer, mdiLanDisconnect } from '@mdi/js'
+import { mdiHammer, mdiLanDisconnect, mdiMotionPauseOutline, mdiMotionPlayOutline } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
 import { FleetWorker } from '@/store/fleet/jobs/types'
@@ -52,9 +62,13 @@ import { OvenFrame } from '@/store/farm/types'
 @Component
 export default class DashboardStatusBar extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workers!: FleetWorker[]
+    /** Reduced-motion state shown on the switch; the page owns it and handles `toggle-reduced-motion`. */
+    @Prop({ type: Boolean, default: false }) readonly reducedMotion!: boolean
 
     mdiHammer = mdiHammer
     mdiLanDisconnect = mdiLanDisconnect
+    mdiMotionPauseOutline = mdiMotionPauseOutline
+    mdiMotionPlayOutline = mdiMotionPlayOutline
     readonly OVEN_LEGEND = OVEN_LEGEND
 
     get connected(): boolean {
@@ -160,6 +174,9 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
     flex-direction: row;
     gap: 6px;
     margin-left: auto;
+}
+.dash-status__item--motion {
+    justify-content: center;
 }
 .dash-status__num {
     font-size: 44px;

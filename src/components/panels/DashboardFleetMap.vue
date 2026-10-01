@@ -1,5 +1,7 @@
 <template>
-    <div class="dash-map" :class="{ 'dash-map--empty': !crop, 'dash-map--rainbow': allPrinting }">
+    <div
+        class="dash-map"
+        :class="{ 'dash-map--empty': !crop, 'dash-map--rainbow': allPrinting, 'dash-map--reduced': reducedMotion }">
         <div class="dash-map__head">
             <span class="dash-map__title">{{ name }}</span>
             <span class="dash-map__pill">{{ printers.length }}</span>
@@ -90,8 +92,9 @@
                 <!-- printers: coloured status icon + worker sticker only -->
                 <g v-for="p in printers" :key="p.hostname" class="dash-map__marker" @click="openPrinter(p.printer)">
                     <title>{{ markerTitle(p) }}</title>
+                    <!-- pulse ring: pure decoration, dropped under reduced motion -->
                     <ellipse
-                        v-if="p.status === 'printing'"
+                        v-if="p.status === 'printing' && !reducedMotion"
                         class="dash-map__ring"
                         :cx="p.cx"
                         :cy="p.cy"
@@ -283,6 +286,8 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
     @Prop({ type: Object, default: () => ({}) }) readonly attentionReasons!: Record<string, string>
     /** Printer hovered in the workers list: its marker gets a pulsing yellow halo. */
     @Prop({ type: String, default: '' }) readonly highlightHostname!: string
+    /** Reduced motion (slow screens): no pulse rings, the wave fill and other decorations stand still. */
+    @Prop({ type: Boolean, default: false }) readonly reducedMotion!: boolean
 
     mdiExclamationThick = mdiExclamationThick
     mdiHammer = mdiHammer
@@ -700,6 +705,14 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
 .dash-map__wave--back {
     animation-duration: 3.6s;
     animation-direction: reverse;
+}
+/* reduced motion: every animated SVG element repaints the whole map each frame, so the
+   wave fill, halo, attention sticker and rainbow beams stand still (the ring is not rendered) */
+.dash-map--reduced .dash-map__wave,
+.dash-map--reduced .dash-map__halo,
+.dash-map--reduced .dash-map__sticker--attention circle,
+.dash-map--reduced.dash-map--rainbow::before {
+    animation: none;
 }
 @keyframes dash-halo {
     0%,

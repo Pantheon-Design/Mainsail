@@ -1,7 +1,16 @@
 <template>
-    <div class="fleet-dashboard" :class="{ 'fleet-dashboard--fixed': fixedLayout }">
+    <div
+        class="fleet-dashboard"
+        :class="{ 'fleet-dashboard--fixed': fixedLayout, 'fleet-dashboard--reduced': reducedMotion }">
+        <!-- attention: a fixed red sheet behind the panels whose opacity pulses (compositor only,
+             no repaint of the page); static while reduced motion is on -->
+        <div v-if="attentionActive" class="fleet-dashboard__attention" />
         <div class="fleet-dashboard__col fleet-dashboard__col--maps">
-            <dashboard-status-bar :workers="workers" class="fleet-dashboard__status" />
+            <dashboard-status-bar
+                :workers="workers"
+                :reduced-motion="reducedMotion"
+                class="fleet-dashboard__status"
+                @toggle-reduced-motion="setReducedMotion(!reducedMotion)" />
             <dashboard-fleet-map
                 v-for="floor in floors"
                 :key="floor.location"
@@ -11,6 +20,7 @@
                 :attention-hostnames="attentionHostnames"
                 :attention-reasons="attentionReasons"
                 :highlight-hostname="hoverHost"
+                :reduced-motion="reducedMotion"
                 class="fleet-dashboard__map"
                 :class="`fleet-dashboard__map--${floor.location}`" />
         </div>
@@ -21,6 +31,7 @@
             <dashboard-workers-panel
                 :workers="workers"
                 :intervals-hours="intervalsHours"
+                :reduced-motion="reducedMotion"
                 class="fleet-dashboard__workers"
                 @hover="hoverHost = $event" />
         </div>
@@ -28,7 +39,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Mixins, Watch } from 'vue-property-decorator'
+import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import DashboardStatusBar from '@/components/panels/DashboardStatusBar.vue'
 import DashboardFleetMap from '@/components/panels/DashboardFleetMap.vue'
@@ -51,6 +62,11 @@ import { sanitizeIntervals } from '@/store/fleet/forecast'
  * time / filament left, and workers needing attention + finish forecast.
  * Desktop and wider fill the viewport without page scrolling; below that the
  * sections stack.
+ *
+ * Reduced motion (button in the status bar, remembered per browser, defaults to the OS
+ * `prefers-reduced-motion` setting): drops the decorative animations that make slow
+ * devices such as smart TVs lag — pulse rings and wave fills on the maps, the attention
+ * flashing — while keeping the information itself.
  */
 @Component({
     components: {
@@ -72,14 +88,39 @@ export default class PageDashboard extends Mixins(BaseMixin) {
     /** Worker hovered in the workers list; its icon is highlighted on the map. */
     hoverHost = ''
 
+    /** Reduced motion: per-browser (a TV keeps its own), see REDUCED_MOTION_KEY. */
+    reducedMotion = false
+    static readonly REDUCED_MOTION_KEY = 'fleetDashboardReducedMotion'
+
     /** Fallback poll period (ms); WS events refresh immediately, this covers missed events. */
     static readonly POLL_MS = 10000
     /** Service-tracker snapshot (nozzle life fallback for older daemons) refresh period. */
     static readonly SNAPSHOT_MS = 60000
 
-    /** Class on <html> while a worker needs attention: the page background flashes red
-     *  (see the unscoped style below), alternating with the banner in the workers panel. */
-    static readonly ATTENTION_CLASS = 'fleet-attention'
+    created() {
+        this.reducedMotion = PageDashboard.loadReducedMotion()
+    }
+
+    /** Stored choice wins; otherwise follow the OS / browser "prefers reduced motion" setting. */
+    static loadReducedMotion(): boolean {
+        try {
+            const stored = localStorage.getItem(PageDashboard.REDUCED_MOTION_KEY)
+            if (stored === '1') return true
+            if (stored === '0') return false
+        } catch (e) {
+            // storage unavailable — fall through to the media query
+        }
+        return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    }
+
+    setReducedMotion(on: boolean) {
+        this.reducedMotion = on
+        try {
+            localStorage.setItem(PageDashboard.REDUCED_MOTION_KEY, on ? '1' : '0')
+        } catch (e) {
+            // ignore
+        }
+    }
 
     mounted() {
         this.loadAll()
@@ -91,7 +132,6 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         this.snapshotTimer = setInterval(() => {
             if (document.visibilityState === 'visible') this.loadSnapshot()
         }, PageDashboard.SNAPSHOT_MS)
-        this.applyAttentionClass(this.attentionActive)
     }
 
     beforeDestroy() {
@@ -102,7 +142,6 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         if (this.jobsTimer) clearTimeout(this.jobsTimer)
         if (this.pollTimer) clearInterval(this.pollTimer)
         if (this.snapshotTimer) clearInterval(this.snapshotTimer)
-        this.applyAttentionClass(false)
     }
 
     /** Daily service-tracker rows: nozzle life for the worker list when the daemon frame lacks it. */
@@ -112,15 +151,6 @@ export default class PageDashboard extends Mixins(BaseMixin) {
 
     get attentionActive(): boolean {
         return this.attentionHostnames.length > 0
-    }
-
-    @Watch('attentionActive')
-    onAttentionChange(active: boolean) {
-        this.applyAttentionClass(active)
-    }
-
-    applyAttentionClass(active: boolean) {
-        document.documentElement.classList.toggle(PageDashboard.ATTENTION_CLASS, active)
     }
 
     /** Both loads are informational: a failure just leaves the last data (or the panel's own hint). */
@@ -200,27 +230,41 @@ export default class PageDashboard extends Mixins(BaseMixin) {
 }
 </script>
 
-<style>
-/* Worker needs attention: the whole page (v-main) flashes red during the first half of the
-   cycle, the banner in the workers panel (DashboardWorkersPanel) during the second half.
-   Both animations share the 2.4s period so they alternate. Unscoped on purpose: the class
-   sits on <html> and the target is the app's main area. */
-html.fleet-attention #content {
+<style scoped>
+/* Worker needs attention: a fixed red sheet behind the panels flashes during the first half
+   of the cycle, the banner in the workers panel (DashboardWorkersPanel) during the second
+   half; both share the 2.4s period so they alternate. Only opacity is animated, which the
+   compositor does without repainting the page (animating the page background did). */
+.fleet-dashboard__attention {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: rgba(211, 47, 47, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    will-change: opacity;
     animation: fleet-attention-page 2.4s ease-in-out infinite;
 }
 @keyframes fleet-attention-page {
     0%,
     50%,
     100% {
-        background-color: transparent;
+        opacity: 0;
     }
     25% {
-        background-color: rgba(211, 47, 47, 0.55);
+        opacity: 1;
     }
 }
-</style>
-
-<style scoped>
+/* reduced motion: a steady tint instead of flashing */
+.fleet-dashboard--reduced .fleet-dashboard__attention {
+    animation: none;
+    opacity: 0.5;
+}
+/* the panels sit above the attention sheet */
+.fleet-dashboard__col {
+    position: relative;
+    z-index: 1;
+}
 /* stacked flow (tablet / phone) */
 .fleet-dashboard {
     display: flex;

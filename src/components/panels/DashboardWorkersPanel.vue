@@ -1,5 +1,5 @@
 <template>
-    <div class="dash-workers">
+    <div class="dash-workers" :class="{ 'dash-workers--reduced': reducedMotion }">
         <!-- 1. attention: the one number an operator must see first -->
         <div
             class="dash-workers__attention"
@@ -222,6 +222,8 @@ interface WorkerRow {
 export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workers!: FleetWorker[]
     @Prop({ type: Array, default: () => [1, 2] }) readonly intervalsHours!: number[]
+    /** Reduced motion (slow screens): the attention banner stays solid red instead of flashing. */
+    @Prop({ type: Boolean, default: false }) readonly reducedMotion!: boolean
 
     mdiExclamationThick = mdiExclamationThick
     mdiHammer = mdiHammer
@@ -532,6 +534,9 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
         border-color: #ff5252;
         box-shadow: 0 0 18px 4px rgba(255, 82, 82, 0.75);
     }
+}
+.dash-workers--reduced .dash-workers__attention--active {
+    animation: none;
 }
 .dash-workers__attention-num {
     font-size: 68px;

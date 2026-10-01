@@ -895,7 +895,9 @@
         "MetricFilament": "Filament left",
         "AutoCycle": "Auto cycle progress / nozzle health / filament every 5 s",
         "HoverSplit": "workers {workers} · other printers {others}",
-        "NoWorkers": "No enabled workers"
+        "NoWorkers": "No enabled workers",
+        "ReducedMotionOn": "Reduced motion is on: no pulsing rings, wave or flashing animations. Click to turn off.",
+        "ReducedMotionOff": "Reduced motion is off. Click to turn off pulsing rings, wave and flashing animations (for slow screens such as TVs)."
     },
     "Router": {
         "Console": "Console",
