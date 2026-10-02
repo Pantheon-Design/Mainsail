@@ -137,7 +137,7 @@
                         </p>
                         <p v-if="!relayListening" class="caption warning--text text-center">
                             {{ printerHost }} is not waiting for a scan.<br />
-                            On the printer, tap <b>Set Filament</b> or <b>Load</b> — the scan is kept for 2 minutes.
+                            On the printer, tap <b>Set Filament</b> or <b>Load</b> — the scan is kept for 5 minutes.
                         </p>
                         <p v-else class="caption grey--text text-center">Confirm or cancel on the printer screen.</p>
                         <v-btn text color="grey" class="mt-2" @click="withdraw">Withdraw</v-btn>
@@ -220,7 +220,7 @@ type Phase = 'scan' | 'sending' | 'waiting' | 'done'
 
 const HOSTNAME_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*\.local$/
 const POLL_MS = 2000
-const POLL_TIMEOUT_MS = 90_000
+const POLL_TIMEOUT_MS = 300_000
 
 @Component
 export default class LoadSpoolScanMode extends Vue {
