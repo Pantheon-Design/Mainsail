@@ -6,7 +6,7 @@ export type PrinterStatus = 'disconnected' | 'error' | 'printing' | 'complete' |
 export const STATUS_META: Record<PrinterStatus, { color: string; label: string }> = {
     printing: { color: '#2196f3', label: 'Printing' },
     ready: { color: 'hsl(90, 100%, 32%)', label: 'Ready' },
-    complete: { color: '#1976d2', label: 'Complete' },
+    complete: { color: '#6E5684', label: 'Complete' },
     error: { color: '#d32f2f', label: 'Error' },
     disconnected: { color: '#8a8a8a', label: 'Offline' },
 }
@@ -102,7 +102,7 @@ export function getStatusBorderStyle(
 
     let color = 'gray'
     if (state === 'error' || state === 'paused' || state === 'cancelled') color = 'red'
-    else if (state === 'complete') color = blueColor
+    else if (state === 'complete') color = STATUS_META.complete.color
     else if (state === 'standby') color = 'hsl(90, 100%, 32%)'
 
     return { ...base, border: `${borderEm}em solid ${color}` }
