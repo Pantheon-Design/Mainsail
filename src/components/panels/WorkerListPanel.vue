@@ -545,7 +545,7 @@ export default class WorkerListPanel extends Vue {
 
     statusColor(w: FleetWorker): string {
         return (
-            { printing: 'blue', ready: 'green', complete: '#6E5684', error: 'red', disconnected: 'grey' }[this.statusText(w)] ??
+            { printing: 'blue', ready: 'green', complete: '#9B86C4', error: 'red', disconnected: 'grey' }[this.statusText(w)] ??
             'grey'
         )
     }
