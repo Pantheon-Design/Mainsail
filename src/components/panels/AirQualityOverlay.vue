@@ -168,5 +168,7 @@ export default class AirQualityOverlay extends Vue {
     top: 0;
     pointer-events: none;
     image-rendering: auto;
+    /* the blur filter bleeds past the canvas edge; keep the field inside the grid */
+    clip-path: inset(0);
 }
 </style>

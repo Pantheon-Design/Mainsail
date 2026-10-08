@@ -93,14 +93,20 @@
                         <stop offset="100%" :stop-color="a.color" stop-opacity="0" />
                     </radialGradient>
                 </defs>
-                <circle
-                    v-for="a in alertSensors"
-                    :key="'air-field-' + a.hostname"
-                    :cx="a.cx"
-                    :cy="a.cy"
-                    :r="a.radius * 1.5"
-                    :fill="`url(#${sensorGradId(a)})`"
-                    pointer-events="none" />
+                <!-- clipped to the floor: the SVG keeps painting outside its viewBox into the
+                     letterbox, so a field near an edge must not spill past the grid -->
+                <clipPath :id="patternId + '-floor'">
+                    <rect x="0" y="0" :width="gridW" :height="gridH" />
+                </clipPath>
+                <g :clip-path="`url(#${patternId}-floor)`" pointer-events="none">
+                    <circle
+                        v-for="a in alertSensors"
+                        :key="'air-field-' + a.hostname"
+                        :cx="a.cx"
+                        :cy="a.cy"
+                        :r="a.radius * 1.5"
+                        :fill="`url(#${sensorGradId(a)})`" />
+                </g>
 
                 <!-- ovens: hollow rounded square in the oven legend colour -->
                 <g v-for="o in ovens" :key="'oven-' + o.hostname" class="dash-map__oven">

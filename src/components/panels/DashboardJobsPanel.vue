@@ -199,7 +199,7 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
 }
 .dash-job__name {
     font-weight: 700;
-    font-size: 26px;
+    font-size: 20px;
     min-width: 0;
 }
 .dash-job__customer {

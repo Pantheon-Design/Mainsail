@@ -205,7 +205,7 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
     justify-content: center;
 }
 .dash-status__num {
-    font-size: 44px;
+    font-size: 25px;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
 }

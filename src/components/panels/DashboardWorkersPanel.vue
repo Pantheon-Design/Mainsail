@@ -592,7 +592,7 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
     transition: none;
 }
 .dash-workers__attention-num {
-    font-size: 68px;
+    font-size: 50px;
     font-weight: 900;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -682,7 +682,7 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
     white-space: nowrap;
 }
 .dash-workers__band-num {
-    font-size: 36px;
+    font-size: 25px;
     font-weight: 800;
     line-height: 1.1;
     font-variant-numeric: tabular-nums;
