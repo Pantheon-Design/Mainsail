@@ -279,6 +279,20 @@
                     </g>
                 </g>
 
+                <!-- highlight halo for the sensor hovered in the Air Sensors card -->
+                <rect
+                    v-if="highlightedSensor"
+                    class="dash-map__halo"
+                    :x="highlightedSensor.cx - 20"
+                    :y="highlightedSensor.cy - 24"
+                    width="40"
+                    height="42"
+                    rx="9"
+                    fill="none"
+                    stroke="#ffeb3b"
+                    stroke-width="4"
+                    pointer-events="none" />
+
                 <!-- highlight halo for the worker hovered in the list (drawn last, above everything) -->
                 <ellipse
                     v-if="highlighted"
@@ -625,6 +639,12 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         return `${(c.minX - 1) * CELL} ${(c.minY - 1) * CELL} ${(c.maxX - c.minX + 1) * CELL} ${
             (c.maxY - c.minY + 1) * CELL
         }`
+    }
+
+    get highlightedSensor(): SensorVm | null {
+        if (!this.highlightHostname) return null
+        const key = hostKey(this.highlightHostname)
+        return this.sensors.find((a) => hostKey(a.hostname) === key) ?? null
     }
 
     get highlighted(): MarkerVm | null {

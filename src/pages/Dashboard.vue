@@ -26,7 +26,7 @@
         </div>
         <div class="fleet-dashboard__col fleet-dashboard__col--jobs">
             <dashboard-jobs-panel class="fleet-dashboard__jobs" />
-            <dashboard-air-panel class="fleet-dashboard__air" />
+            <dashboard-air-panel class="fleet-dashboard__air" @hover="hoverHost = $event" />
         </div>
         <div class="fleet-dashboard__col fleet-dashboard__col--workers">
             <dashboard-workers-panel

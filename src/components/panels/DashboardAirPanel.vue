@@ -16,7 +16,14 @@
             {{ $t('FleetDashboard.AirAllClear') }}
         </div>
         <div v-else class="dash-air__list">
-            <div v-for="a in alerts" :key="a.key" class="dash-air-row" :style="{ borderLeftColor: a.color }">
+            <div
+                v-for="a in alerts"
+                :key="a.key"
+                class="dash-air-row"
+                :class="{ 'dash-air-row--hover': hoverHostname === a.hostname }"
+                :style="{ borderLeftColor: a.color }"
+                @mouseenter="setHover(a.hostname)"
+                @mouseleave="setHover('')">
                 <div class="dash-air-row__line">
                     <span class="dash-air-row__dot" :style="{ backgroundColor: a.color }"></span>
                     <span class="dash-air-row__sensor text-truncate" :title="a.hostname">{{ a.sensor }}</span>
@@ -92,6 +99,14 @@ function lighten(hex: string, amount: number): string {
 export default class DashboardAirPanel extends Mixins(BaseMixin) {
     mdiAirSensor = mdiAirSensor
     mdiCheckCircle = mdiCheckCircle
+    hoverHostname = ''
+
+    /** Hovering a row emits `hover` so the page can halo the sensor on the map (like the workers list). */
+    setHover(hostname: string) {
+        if (this.hoverHostname === hostname) return
+        this.hoverHostname = hostname
+        this.$emit('hover', hostname)
+    }
 
     get roster(): Record<string, any> {
         return this.$store.state.gui?.remoteprinters?.printers || {}
@@ -247,6 +262,9 @@ export default class DashboardAirPanel extends Mixins(BaseMixin) {
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.04);
     min-width: 0;
+}
+.dash-air-row--hover {
+    background: rgba(255, 235, 59, 0.14);
 }
 .dash-air-row__line {
     display: flex;
