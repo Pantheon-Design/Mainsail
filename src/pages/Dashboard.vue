@@ -300,7 +300,7 @@ export default class PageDashboard extends Mixins(BaseMixin) {
     min-height: 0;
 }
 .fleet-dashboard__map--farm {
-    flex-grow: 2;
+    flex-grow: 1.5;
 }
 /* a floor with nothing placed only needs its header line */
 .fleet-dashboard__map.dash-map--empty {
