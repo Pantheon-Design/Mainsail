@@ -11,31 +11,37 @@
             <span class="edit-hint">Click a printer to toggle it as a fleet worker.</span>
         </div>
         <div v-else class="map-controls mb-2">
-            <v-btn small :color="isEditing ? 'success' : undefined" :class="{ 'save-pulse': isEditing }"
-                   @click="toggleEditMode">
+            <v-btn
+                small
+                :color="isEditing ? 'success' : undefined"
+                :class="{ 'save-pulse': isEditing }"
+                @click="toggleEditMode">
                 {{ isEditing ? 'Save' : 'Edit' }}
             </v-btn>
-            <v-btn v-if="mode === 'air'" small title="Add air sensor" @click="openAirSensorSettings">
-                Add Sensor
-            </v-btn>
-            <v-btn small title="Add printer" @click="openPrinterSettings">
-                Add Printer
-            </v-btn>
-            <v-btn v-if="isEditing && mode !== 'air'" small :color="isDrawing ? 'success' : undefined" :class="{ 'save-pulse': isDrawing }"
-                   @click="toggleDrawMode">
+            <v-btn v-if="mode === 'air'" small title="Add air sensor" @click="openAirSensorSettings">Add Sensor</v-btn>
+            <v-btn small title="Add printer" @click="openPrinterSettings">Add Printer</v-btn>
+            <v-btn
+                v-if="isEditing && mode !== 'air'"
+                small
+                :color="isDrawing ? 'success' : undefined"
+                :class="{ 'save-pulse': isDrawing }"
+                @click="toggleDrawMode">
                 {{ isDrawing ? 'Save Drawing' : 'Draw' }}
             </v-btn>
-            <map-drawing-toolbar v-if="isEditing && isDrawing"
-                                 :color.sync="drawColor"
-                                 :stroke-width.sync="drawStrokeWidth"
-                                 :storage-key="drawStorageKey" />
+            <map-drawing-toolbar
+                v-if="isEditing && isDrawing"
+                :color.sync="drawColor"
+                :stroke-width.sync="drawStrokeWidth"
+                :storage-key="drawStorageKey" />
             <span class="edit-hint">{{ editHint }}</span>
         </div>
 
         <!-- Per-section status legend (leads with the worker total when workers are shown) -->
         <div class="status-counters mb-3">
-            <span v-if="workersVisible" class="status-counter status-counter--total"
-                  :title="`${workerCount} of ${printerCount} printers in this section are enabled as fleet workers`">
+            <span
+                v-if="workersVisible"
+                class="status-counter status-counter--total"
+                :title="`${workerCount} of ${printerCount} printers in this section are enabled as fleet workers`">
                 <v-icon x-small color="orange">{{ mdiHammer }}</v-icon>
                 Workers {{ workerCount }}
             </span>
@@ -44,12 +50,19 @@
                 class="status-counter status-counter--attention"
                 :class="{ 'status-counter--attention-active': sectionAttentionHostnames.length > 0 }"
                 :title="sectionAttentionTitle">
-                <v-icon x-small :color="sectionAttentionHostnames.length ? 'white' : undefined">{{ mdiExclamationThick }}</v-icon>
-                {{ sectionAttentionHostnames.length }} need{{ sectionAttentionHostnames.length === 1 ? 's' : '' }} attention
+                <v-icon x-small :color="sectionAttentionHostnames.length ? 'white' : undefined">
+                    {{ mdiExclamationThick }}
+                </v-icon>
+                {{ sectionAttentionHostnames.length }} need{{
+                    sectionAttentionHostnames.length === 1 ? 's' : ''
+                }}
+                attention
             </span>
             <span v-for="s in activeStatusList" :key="'active-' + s.key" class="status-counter">
-                <span class="status-dot" :class="{ square: s.key === 'error' || s.key === 'printing' }"
-                      :style="{ backgroundColor: s.color }"></span>
+                <span
+                    class="status-dot"
+                    :class="{ square: s.key === 'error' || s.key === 'printing' }"
+                    :style="{ backgroundColor: s.color }"></span>
                 {{ s.label }} {{ s.count }}
             </span>
             <!-- Air mode: sensors on this floor and how many are reporting -->
@@ -64,7 +77,8 @@
                 class="status-counter status-counter--oven"
                 :title="ovenLegendTitle">
                 <span class="status-dot oven" :style="{ borderColor: OVEN_LEGEND.color }"></span>
-                {{ OVEN_LEGEND.label }}{{ ovenCount === 1 ? '' : 's' }} {{ ovenCount }}<span v-if="ovenSpoolTotals"> · {{ ovenSpoolTotals }}</span>
+                {{ OVEN_LEGEND.label }}{{ ovenCount === 1 ? '' : 's' }} {{ ovenCount }}
+                <span v-if="ovenSpoolTotals">· {{ ovenSpoolTotals }}</span>
             </span>
         </div>
 
@@ -74,13 +88,17 @@
                 <!-- Background markings (outside the grid, in the margin) -->
                 <template v-if="location === 'farm'">
                     <div v-for="(d, i) in farmDividers" :key="'fd-' + i" class="area-divider" :style="d"></div>
-                    <span v-for="(l, i) in farmLabels" :key="'fl-' + i" class="area-label" :style="l.style">{{ l.text }}</span>
+                    <span v-for="(l, i) in farmLabels" :key="'fl-' + i" class="area-label" :style="l.style">
+                        {{ l.text }}
+                    </span>
                 </template>
                 <template v-else>
                     <div class="rooms-wrap" :style="roomsWrapStyle">
                         <div v-for="(r, i) in groundRooms" :key="'gr-' + i" class="area-room" :style="r"></div>
                     </div>
-                    <span v-for="(l, i) in groundLabels" :key="'gl-' + i" class="area-label" :style="l.style">{{ l.text }}</span>
+                    <span v-for="(l, i) in groundLabels" :key="'gl-' + i" class="area-label" :style="l.style">
+                        {{ l.text }}
+                    </span>
                 </template>
 
                 <!-- Bay door: thickened right-border segment (rows 5-9), both locations -->
@@ -102,44 +120,60 @@
                 <div class="grid-lines" :style="gridLinesStyle"></div>
 
                 <!-- Drawing overlay (over the grid area) -->
-                <map-drawing-overlay class="draw-layer" :style="drawLayerStyle"
-                                     :editable="isEditing && isDrawing"
-                                     :width="gridW"
-                                     :height="gridH"
-                                     :color="drawColor"
-                                     :stroke-width="drawStrokeWidth"
-                                     :storage-key="drawStorageKey" />
+                <map-drawing-overlay
+                    class="draw-layer"
+                    :style="drawLayerStyle"
+                    :editable="isEditing && isDrawing"
+                    :width="gridW"
+                    :height="gridH"
+                    :color="drawColor"
+                    :stroke-width="drawStrokeWidth"
+                    :storage-key="drawStorageKey" />
 
                 <!-- Printers -->
-                <div v-for="[hostname, printer] in activePrinterEntries" :key="hostname"
-                     class="marker" :style="markerWrapStyle(hostname)"
-                     :class="{ draggable: isEditing && !isDrawing, highlighted: isHighlighted(hostname) }"
-                     :data-printer-id="hostname"
-                     @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
-                     @click="onMarkerClick(printer, hostname)"
-                     @mouseover="showTooltip(printer, hostname, $event)"
-                     @mouseleave="hideTooltip">
-                    <div v-if="mode !== 'air' && markerStatus(printer) === 'printing'" class="marker-ring"
-                         :style="markerRingStyle(printer, hostname)"></div>
+                <div
+                    v-for="[hostname, printer] in activePrinterEntries"
+                    :key="hostname"
+                    class="marker"
+                    :style="markerWrapStyle(hostname)"
+                    :class="{ draggable: isEditing && !isDrawing, highlighted: isHighlighted(hostname) }"
+                    :data-printer-id="hostname"
+                    @mousedown="isEditing && !isDrawing ? startGridDrag($event, printer, hostname) : null"
+                    @click="onMarkerClick(printer, hostname)"
+                    @mouseover="showTooltip(printer, hostname, $event)"
+                    @mouseleave="hideTooltip">
+                    <div
+                        v-if="mode !== 'air' && markerStatus(printer) === 'printing'"
+                        class="marker-ring"
+                        :style="markerRingStyle(printer, hostname)"></div>
                     <div class="marker-dot" :style="markerDotStyle(printer, hostname)">
                         <!-- Air mode: minimal marker, just the printer icon on the status colour -->
                         <v-icon v-if="mode === 'air'" size="20" color="#fff">{{ mdiPrinter3d }}</v-icon>
                         <template v-else>
-                            <span class="marker-host" :style="{ fontSize: markerFilament(printer).length > 4 ? '7px' : '9px' }">
+                            <span
+                                class="marker-host"
+                                :style="{ fontSize: markerFilament(printer).length > 4 ? '7px' : '9px' }">
                                 {{ markerFilament(printer) }}
                             </span>
-                            <span v-if="markerGlyph(printer)" class="marker-glyph"
-                                  :style="{ fontSize: markerStatus(printer) === 'printing' ? '9px' : '13px' }">
+                            <span
+                                v-if="markerGlyph(printer)"
+                                class="marker-glyph"
+                                :style="{ fontSize: markerStatus(printer) === 'printing' ? '9px' : '13px' }">
                                 {{ markerGlyph(printer) }}
                             </span>
                         </template>
                     </div>
                     <!-- Worker stickers: flashing "!" when the worker needs attention, else the hammer -->
-                    <span v-if="mode !== 'air' && workersVisible && needsAttention(hostname)" class="worker-sticker attention-sticker"
-                          :title="attentionReason(hostname) || 'Worker needs attention'">
+                    <span
+                        v-if="mode !== 'air' && workersVisible && needsAttention(hostname)"
+                        class="worker-sticker attention-sticker"
+                        :title="attentionReason(hostname) || 'Worker needs attention'">
                         <v-icon size="13" color="#fff">{{ mdiExclamationThick }}</v-icon>
                     </span>
-                    <span v-else-if="mode !== 'air' && workersVisible && isWorker(hostname)" class="worker-sticker" title="Fleet worker">
+                    <span
+                        v-else-if="mode !== 'air' && workersVisible && isWorker(hostname)"
+                        class="worker-sticker"
+                        title="Fleet worker">
                         <v-icon size="12" color="#fff" class="worker-hammer">{{ mdiHammer }}</v-icon>
                     </span>
                 </div>
@@ -197,7 +231,7 @@
                 <div v-if="hoveredOven" ref="tooltipEl" class="tooltip tooltip--oven" :style="tooltipStyle">
                     <p>
                         <strong>{{ hoveredOvenLabel }}</strong>
-                        <span v-if="hoveredOvenStatusNote" class="oven-note"> · {{ hoveredOvenStatusNote }}</span>
+                        <span v-if="hoveredOvenStatusNote" class="oven-note">· {{ hoveredOvenStatusNote }}</span>
                     </p>
                     <p>Temperature: {{ hoveredOvenTemperature }}</p>
                     <p v-if="hoveredOvenFrame && !hoveredOvenMaterials.length" class="oven-note">No spools loaded</p>
@@ -208,7 +242,8 @@
                             <span class="oven-mat-bar-fill" :style="{ width: m.fillPercent + '%' }"></span>
                         </span>
                         <span class="oven-mat-state">
-                            <span class="oven-mat-ready">{{ m.ready }} ready</span> ·
+                            <span class="oven-mat-ready">{{ m.ready }} ready</span>
+                            ·
                             <span class="oven-mat-drying">{{ m.drying }} drying</span>
                         </span>
                         <span class="oven-mat-bar oven-mat-bar--dry">
@@ -228,7 +263,11 @@
                     :key="'air-' + s.hostname"
                     class="marker marker--air"
                     :style="markerWrapStyle(s.hostname)"
-                    :class="{ draggable: isEditing && !isDrawing, highlighted: isHighlighted(s.hostname), 'marker--air-editing': isEditing && !isDrawing }"
+                    :class="{
+                        draggable: isEditing && !isDrawing,
+                        highlighted: isHighlighted(s.hostname),
+                        'marker--air-editing': isEditing && !isDrawing,
+                    }"
                     :data-air-sensor-id="s.hostname"
                     @mousedown="isEditing && !isDrawing ? startGridDrag($event, null, s.hostname) : null"
                     @mouseover="showAirTooltip(s.hostname)"
@@ -238,7 +277,8 @@
                         :fill="airSensorColor(s.hostname)"
                         :value="airSensorValueText(s.hostname)"
                         :unit="airMetricUnit"
-                        :offline="!airSensorOnline(s.hostname)" />
+                        :offline="!airSensorOnline(s.hostname)"
+                        :badge-color="airSensorBadgeColor(s.hostname)" />
                 </div>
 
                 <!-- Air sensor tooltip: label, host, online state, then one row per metric -->
@@ -255,7 +295,11 @@
                         <span v-if="hoveredAirSensorError" class="oven-note">&middot; {{ hoveredAirSensorError }}</span>
                     </p>
                     <p v-if="!hoveredAirSensorRows.length" class="oven-note">No readings yet</p>
-                    <div v-for="r in hoveredAirSensorRows" :key="'air-row-' + r.key" class="air-row" :class="{ 'air-row--selected': r.key === metricKey }">
+                    <div
+                        v-for="r in hoveredAirSensorRows"
+                        :key="'air-row-' + r.key"
+                        class="air-row"
+                        :class="{ 'air-row--selected': r.key === metricKey }">
                         <span class="air-row-label">{{ r.label }}</span>
                         <span class="air-row-value">{{ r.value }}</span>
                         <span class="air-row-band">
@@ -290,7 +334,12 @@ import MapDrawingToolbar from '@/components/panels/MapDrawingToolbar.vue'
 import FarmPrinterTooltip from '@/components/panels/FarmPrinterTooltip.vue'
 import Vue from 'vue'
 import { hostKey } from '@/plugins/hostKey'
-import { getPrinterStatus as getPrinterStatusUtil, PrinterStatus, STATUS_META, STATUS_ORDER } from '@/components/panels/farmPrinterStatus'
+import {
+    getPrinterStatus as getPrinterStatusUtil,
+    PrinterStatus,
+    STATUS_META,
+    STATUS_ORDER,
+} from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import { AirSensorFrame, OvenFrame } from '@/store/farm/types'
 import { FleetSpool } from '@/store/fleet/spools/types'
@@ -305,6 +354,8 @@ import {
     formatMetricReading,
     formatMetricValue,
     isSensorOnline,
+    SEVERITY_ATTENTION,
+    worstReading,
     metricUnit,
     sensorAgeSeconds,
     sensorValue,
@@ -444,7 +495,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return { left: this.pad + 'px', top: this.pad + 'px', width: this.gridW + 'px', height: this.gridH + 'px' }
     }
     get drawLayerStyle() {
-        return { left: this.pad + 'px', top: this.pad + 'px', pointerEvents: this.isEditing && this.isDrawing ? 'auto' : 'none' }
+        return {
+            left: this.pad + 'px',
+            top: this.pad + 'px',
+            pointerEvents: this.isEditing && this.isDrawing ? 'auto' : 'none',
+        }
     }
 
     // ---------- store data ----------
@@ -571,6 +626,15 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     airSensorValueText(hostname: string): string {
         return formatMetricValue(this.airMetric, this.airSensorValue(hostname))
+    }
+
+    /** "!" badge colour: the worst band across ALL metrics when any is worse than Good
+     *  (independent of the selected metric); null = everything Good, offline or no readings. */
+    airSensorBadgeColor(hostname: string): string | null {
+        if (!this.airSensorOnline(hostname)) return null
+        const metrics: AirMetric[] = this.$store.getters['fleet/air/getMetrics'] ?? []
+        const worst = worstReading(metrics, this.airSensorFrame(hostname))
+        return worst && worst.severity >= SEVERITY_ATTENTION ? worst.band.color : null
     }
 
     airSensorLabel(hostname: string): string {
@@ -789,13 +853,19 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get activeStatusList() {
         const c = this.countStatuses(this.activePrinterEntries)
-        return this.STATUS_ORDER.map((k) => ({ key: k, label: this.STATUS_META[k].label, color: this.STATUS_META[k].color, count: c[k] }))
+        return this.STATUS_ORDER.map((k) => ({
+            key: k,
+            label: this.STATUS_META[k].label,
+            color: this.STATUS_META[k].color,
+            count: c[k],
+        }))
     }
 
     get editHint(): string {
         if (this.isDrawing) return 'Draw on the plan — strokes save per map.'
         if (this.isEditing && this.mode === 'air') return 'Drag any printer or sensor to a new cell.'
-        if (this.isEditing) return this.ovenCount ? 'Drag any printer or oven to a new cell.' : 'Drag any printer to a new cell.'
+        if (this.isEditing)
+            return this.ovenCount ? 'Drag any printer or oven to a new cell.' : 'Drag any printer to a new cell.'
         return ''
     }
 
@@ -852,9 +922,12 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
             borderRadius: square ? '22%' : '50%',
             backgroundColor: this.STATUS_META[status].color,
             border: off ? '2px dashed #c4c4c4' : '2px solid rgba(255,255,255,.9)',
-            boxShadow: this.isEditing && !this.isDrawing
-                ? '0 0 0 2px rgba(240,211,176,.5), 0 2px 6px rgba(0,0,0,.4)'
-                : off ? 'none' : '0 2px 6px rgba(0,0,0,.4)',
+            boxShadow:
+                this.isEditing && !this.isDrawing
+                    ? '0 0 0 2px rgba(240,211,176,.5), 0 2px 6px rgba(0,0,0,.4)'
+                    : off
+                    ? 'none'
+                    : '0 2px 6px rgba(0,0,0,.4)',
             opacity: off ? 0.55 : 1,
         }
     }
@@ -883,18 +956,35 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         const labels: { text: string; style: Record<string, string> }[] = []
         labels.push({
             text: 'Post Processing',
-            style: { left: '5px', top: this.pad + this.gridH / 2 + 'px', transform: 'translateY(-50%) rotate(180deg)', writingMode: 'vertical-rl', fontSize: '11px' },
+            style: {
+                left: '5px',
+                top: this.pad + this.gridH / 2 + 'px',
+                transform: 'translateY(-50%) rotate(180deg)',
+                writingMode: 'vertical-rl',
+                fontSize: '11px',
+            },
         })
         for (let i = 0; i < 6; i++) {
             const startCol = 2 + i * 4
             labels.push({
                 text: 'Isle ' + (i + 1),
-                style: { left: this.pad + (startCol + 1) * this.CELL + 'px', top: '5px', transform: 'translateX(-50%)', fontSize: '11px' },
+                style: {
+                    left: this.pad + (startCol + 1) * this.CELL + 'px',
+                    top: '5px',
+                    transform: 'translateX(-50%)',
+                    fontSize: '11px',
+                },
             })
         }
         labels.push({
             text: 'Farm Room',
-            style: { left: this.pad + 13 * this.CELL + 'px', bottom: '4px', transform: 'translateX(-50%)', fontSize: '13px', letterSpacing: '.24em' },
+            style: {
+                left: this.pad + 13 * this.CELL + 'px',
+                bottom: '4px',
+                transform: 'translateX(-50%)',
+                fontSize: '13px',
+                letterSpacing: '.24em',
+            },
         })
         return labels
     }
@@ -943,8 +1033,16 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
             const cx = this.pad + (r.gx - 1 + r.wc / 2) * this.CELL
             const cy = this.pad + (r.gy - 1 + r.hc / 2) * this.CELL
             let style: Record<string, string>
-            if (r.side === 'left') style = { left: '5px', top: cy + 'px', transform: 'translateY(-50%) rotate(180deg)', writingMode: 'vertical-rl', fontSize: '12px' }
-            else if (r.side === 'top') style = { left: cx + 'px', top: '5px', transform: 'translateX(-50%)', fontSize: '12px' }
+            if (r.side === 'left')
+                style = {
+                    left: '5px',
+                    top: cy + 'px',
+                    transform: 'translateY(-50%) rotate(180deg)',
+                    writingMode: 'vertical-rl',
+                    fontSize: '12px',
+                }
+            else if (r.side === 'top')
+                style = { left: cx + 'px', top: '5px', transform: 'translateX(-50%)', fontSize: '12px' }
             else style = { left: cx + 'px', bottom: '5px', transform: 'translateX(-50%)', fontSize: '12px' }
             return { text: r.name, style }
         })
@@ -1050,8 +1148,14 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         const canvas = this.$refs.canvas as HTMLElement | null
         if (!canvas) return
         const rect = canvas.getBoundingClientRect()
-        const gx = Math.min(this.GRID_COLS, Math.max(1, Math.floor((event.clientX - rect.left - this.pad) / this.CELL) + 1))
-        const gy = Math.min(this.GRID_ROWS, Math.max(1, Math.floor((event.clientY - rect.top - this.pad) / this.CELL) + 1))
+        const gx = Math.min(
+            this.GRID_COLS,
+            Math.max(1, Math.floor((event.clientX - rect.left - this.pad) / this.CELL) + 1)
+        )
+        const gy = Math.min(
+            this.GRID_ROWS,
+            Math.max(1, Math.floor((event.clientY - rect.top - this.pad) / this.CELL) + 1)
+        )
         Vue.set(this.gridPositions, hostKey(this.draggingGridHostname), { x: gx, y: gy })
     }
 
@@ -1244,12 +1348,27 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
 <style scoped>
 @keyframes pulsering {
-    0% { transform: scale(1); opacity: 0.75; }
-    100% { transform: scale(1.7); opacity: 0; }
+    0% {
+        transform: scale(1);
+        opacity: 0.75;
+    }
+    100% {
+        transform: scale(1.7);
+        opacity: 0;
+    }
 }
 @keyframes save-pulse-anim {
-    0%, 100% { box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.45), 0 0 12px 2px rgba(76, 175, 80, 0.55); }
-    50% { box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.7), 0 0 20px 4px rgba(76, 175, 80, 0.8); }
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 2px rgba(76, 175, 80, 0.45),
+            0 0 12px 2px rgba(76, 175, 80, 0.55);
+    }
+    50% {
+        box-shadow:
+            0 0 0 4px rgba(76, 175, 80, 0.7),
+            0 0 20px 4px rgba(76, 175, 80, 0.8);
+    }
 }
 
 .save-pulse {
@@ -1363,8 +1482,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     pointer-events: none;
     z-index: 1;
     background-repeat: repeat;
-    background-image:
-        linear-gradient(to right, rgba(40, 36, 30, 0.25) 1px, transparent 1px),
+    background-image: linear-gradient(to right, rgba(40, 36, 30, 0.25) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(40, 36, 30, 0.25) 1px, transparent 1px);
 }
 .rooms-wrap {
@@ -1441,8 +1559,17 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     cursor: move;
 }
 @keyframes highlight-pulse {
-    0%, 100% { box-shadow: 0 0 0 4px rgba(255, 235, 59, 0.95), 0 0 18px 6px rgba(255, 235, 59, 0.55); }
-    50% { box-shadow: 0 0 0 7px rgba(255, 235, 59, 0.6), 0 0 26px 10px rgba(255, 235, 59, 0.35); }
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 4px rgba(255, 235, 59, 0.95),
+            0 0 18px 6px rgba(255, 235, 59, 0.55);
+    }
+    50% {
+        box-shadow:
+            0 0 0 7px rgba(255, 235, 59, 0.6),
+            0 0 26px 10px rgba(255, 235, 59, 0.35);
+    }
 }
 .marker.highlighted {
     z-index: 5;
@@ -1469,8 +1596,19 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     z-index: 3;
 }
 @keyframes attention-flash {
-    0%, 100% { background: #d32f2f; box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7), 0 1px 3px rgba(0, 0, 0, 0.5); }
-    50% { background: #ff5252; box-shadow: 0 0 0 6px rgba(211, 47, 47, 0), 0 1px 3px rgba(0, 0, 0, 0.5); }
+    0%,
+    100% {
+        background: #d32f2f;
+        box-shadow:
+            0 0 0 0 rgba(211, 47, 47, 0.7),
+            0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+    50% {
+        background: #ff5252;
+        box-shadow:
+            0 0 0 6px rgba(211, 47, 47, 0),
+            0 1px 3px rgba(0, 0, 0, 0.5);
+    }
 }
 .attention-sticker {
     animation: attention-flash 0.8s ease-in-out infinite;
@@ -1479,10 +1617,18 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
    lower-left), strikes by turning 45° clockwise about a point halfway down the handle,
    rebounds a touch, then rises slowly back to the drawn position. */
 @keyframes hammer-swing {
-    0% { transform: rotate(0deg); }
-    20% { transform: rotate(45deg); }
-    28% { transform: rotate(38deg); }
-    100% { transform: rotate(0deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    20% {
+        transform: rotate(45deg);
+    }
+    28% {
+        transform: rotate(38deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
 }
 .worker-sticker >>> .worker-hammer {
     transform-origin: 31% 69%;

@@ -8,6 +8,16 @@ import { PrinterStateKlipperConfigWarning } from '@/store/printer/types'
 import { detect } from 'detect-browser'
 import semver from 'semver'
 import { minBrowserVersions } from '@/store/variables'
+import { AirMetric } from '@/store/fleet/air/types'
+import { AirSensorFrame } from '@/store/farm/types'
+import { hostKey } from '@/plugins/hostKey'
+import {
+    bandRangeText,
+    formatMetricReading,
+    isSensorOnline,
+    readingStates,
+    SEVERITY_NOTIFY,
+} from '@/components/panels/airQualityBands'
 
 export const getters: GetterTree<GuiNotificationState, any> = {
     getNotifications: (state, getters) => {
@@ -36,6 +46,9 @@ export const getters: GetterTree<GuiNotificationState, any> = {
 
         // browser warnings
         notifications = notifications.concat(getters['getNotificationsBrowserWarnings'])
+
+        // air quality sensors (fleet_daemon): any metric at Poor or worse
+        notifications = notifications.concat(getters['getNotificationsAirQuality'])
 
         const mapType = {
             normal: 2,
@@ -387,5 +400,61 @@ export const getters: GetterTree<GuiNotificationState, any> = {
         dismisses = dismisses.filter((dismiss: GuiNotificationStateDismissEntry) => dismiss.category === category)
 
         return dismisses
+    },
+
+    /**
+     * One entry per (air sensor, metric) whose reading is Poor or worse (fleet_daemon live frames,
+     * bands from GET /air/metrics). Poor -> high, Severe/Hazardous -> critical. Dismissable like
+     * every other category; the id is `airQuality/<host>/<metric>` so a dismiss sticks to that
+     * sensor+metric until the user chooses "until reboot"/time like the other entries.
+     */
+    getNotificationsAirQuality: (state, getters, rootState, rootGetters) => {
+        const notifications: GuiNotificationStateEntry[] = []
+        const frames: Record<string, AirSensorFrame> = rootState.farm?.fleetDaemonAirSensors ?? {}
+        const metrics: AirMetric[] = rootGetters['fleet/air/getMetrics'] ?? []
+        if (!metrics.length || !Object.keys(frames).length) return notifications
+
+        const daemonConnected: boolean = !!rootState.farm?.fleetDaemonConnected
+        const roster = rootGetters['gui/remoteprinters/byHostKey'] ?? {}
+        const dismissed: string[] = rootGetters['gui/notifications/getDismissByCategory']('airQuality').map(
+            (dismiss: GuiNotificationStateDismissEntry) => dismiss.id
+        )
+
+        for (const [hostname, frame] of Object.entries(frames)) {
+            if (!isSensorOnline(frame, daemonConnected)) continue
+            const key = hostKey(hostname)
+            const label: string = roster[key]?.label || hostname.replace(/\.local$/i, '')
+            const date = frame.last_update ? new Date(frame.last_update * 1000) : new Date()
+            for (const reading of readingStates(metrics, frame)) {
+                if (reading.severity < SEVERITY_NOTIFY) continue
+                const id = `${key}/${reading.metric.key}`
+                if (dismissed.includes(id)) continue
+                notifications.push({
+                    id: `airQuality/${id}`,
+                    priority: reading.severity >= SEVERITY_NOTIFY + 1 ? 'critical' : 'high',
+                    title: i18n
+                        .t('AirQuality.NotificationTitle', {
+                            sensor: label,
+                            metric: reading.metric.label,
+                            band: reading.band.name,
+                        })
+                        .toString(),
+                    description: i18n
+                        .t('AirQuality.NotificationDescription', {
+                            sensor: label,
+                            hostname,
+                            metric: reading.metric.label,
+                            reading: formatMetricReading(reading.metric, reading.value),
+                            band: reading.band.name,
+                            range: bandRangeText(reading.band, reading.metric),
+                        })
+                        .toString(),
+                    date,
+                    dismissed: false,
+                } as GuiNotificationStateEntry)
+            }
+        }
+
+        return notifications
     },
 }

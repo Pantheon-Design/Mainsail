@@ -115,3 +115,53 @@ export function hexToRgb(hex: string): [number, number, number] {
     if (!/^[0-9a-fA-F]{6}$/.test(full) || Number.isNaN(n)) return [158, 158, 158]
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
+
+/**
+ * Severity rank of a band by name (two-sided metrics such as temperature repeat band names on
+ * both sides of the comfort zone, so the catalog order cannot be used): Good 0 … Hazardous 5.
+ */
+export const BAND_SEVERITY: Record<string, number> = {
+    Good: 0,
+    Fair: 1,
+    Marginal: 2,
+    Poor: 3,
+    Severe: 4,
+    Hazardous: 5,
+}
+/** First rank that is "worse than Good" (badge on the marker). */
+export const SEVERITY_ATTENTION = 1
+/** First rank that raises a Mainsail notification. */
+export const SEVERITY_NOTIFY = 3
+
+export function bandSeverity(band: AirMetricBand | null | undefined): number {
+    return band ? BAND_SEVERITY[band.name] ?? 0 : 0
+}
+
+export interface AirReadingState {
+    metric: AirMetric
+    band: AirMetricBand
+    value: number
+    severity: number
+}
+
+/** Band state of every metric that has a reading in this frame, in catalog order. */
+export function readingStates(metrics: AirMetric[], frame: AirSensorFrame | null | undefined): AirReadingState[] {
+    const out: AirReadingState[] = []
+    if (!frame) return out
+    for (const metric of metrics) {
+        const value = sensorValue(frame, metric.key)
+        const band = bandFor(metric, value)
+        if (value === null || !band) continue
+        out.push({ metric, band, value, severity: bandSeverity(band) })
+    }
+    return out
+}
+
+/** The worst (highest severity) reading across all metrics; ties keep catalog order. Null without readings. */
+export function worstReading(metrics: AirMetric[], frame: AirSensorFrame | null | undefined): AirReadingState | null {
+    let worst: AirReadingState | null = null
+    for (const state of readingStates(metrics, frame)) {
+        if (!worst || state.severity > worst.severity) worst = state
+    }
+    return worst
+}

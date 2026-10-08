@@ -5,6 +5,8 @@
         "Metric": "Metric",
         "MetricsUnavailable": "Metric definitions unavailable: fleet_daemon did not answer GET /air/metrics. Sensors are shown without quality colours.",
         "NoData": "Offline / no data",
+        "NotificationDescription": "{sensor} ({hostname}) reports {metric} {reading}, which is {band} ({range}).",
+        "NotificationTitle": "Air quality: {sensor} — {metric} is {band}",
         "Offline": "offline",
         "Online": "online",
         "Sensors": "sensors",
