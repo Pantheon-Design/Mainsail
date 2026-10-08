@@ -81,8 +81,8 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
         return !!this.$store.state.farm.fleetDaemonConnected
     }
 
-    isOvenHostname(hostname: string): boolean {
-        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
+    isNonPrinterHostname(hostname: string): boolean {
+        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) !== 'printer'
     }
 
     /** Figures on screen. Replaced by onFrameState only when one of them changes. */
@@ -104,7 +104,7 @@ export default class DashboardStatusBar extends Mixins(BaseMixin) {
         let total = 0
         let workers = 0
         for (const [hostname, frame] of Object.entries(all)) {
-            if (this.isOvenHostname(hostname)) continue
+            if (this.isNonPrinterHostname(hostname)) continue
             total++
             counts[getPrinterStatus(frame, this.connected)]++
             if (enabled.has(hostKey(hostname))) workers++

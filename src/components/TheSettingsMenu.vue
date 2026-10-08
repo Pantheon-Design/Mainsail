@@ -76,6 +76,8 @@ import SettingsConsoleTab from '@/components/settings/SettingsConsoleTab.vue'
 import SettingsPresetsTab from '@/components/settings/SettingsPresetsTab.vue'
 import SettingsRemotePrintersTab from '@/components/settings/SettingsRemotePrintersTab.vue'
 import SettingsOvensTab from '@/components/settings/SettingsOvensTab.vue'
+import SettingsAirSensorsTab from '@/components/settings/SettingsAirSensorsTab.vue'
+import { mdiAirSensor } from '@/components/panels/airSensorIcon'
 import SettingsUiSettingsTab from '@/components/settings/SettingsUiSettingsTab.vue'
 import SettingsDashboardTab from '@/components/settings/SettingsDashboardTab.vue'
 import SettingsGCodeViewerTab from '@/components/settings/SettingsGCodeViewerTab.vue'
@@ -113,6 +115,7 @@ import SettingsHeightmapTab from '@/components/settings/SettingsHeightmapTab.vue
         SettingsUiSettingsTab,
         SettingsRemotePrintersTab,
         SettingsOvensTab,
+        SettingsAirSensorsTab,
         SettingsPresetsTab,
         SettingsConsoleTab,
         SettingsControlTab,
@@ -183,6 +186,11 @@ export default class TheSettingsMenu extends Mixins(BaseMixin) {
                 icon: mdiToasterOven,
                 name: 'ovens',
                 title: this.$t('Settings.OvensTab.Ovens'),
+            },
+            {
+                icon: mdiAirSensor,
+                name: 'air-sensors',
+                title: this.$t('Settings.AirSensorsTab.AirSensors'),
             },
             {
                 icon: mdiMenu,

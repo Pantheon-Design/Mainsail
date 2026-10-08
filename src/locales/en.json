@@ -1,4 +1,15 @@
 {
+    "AirQuality": {
+        "AddSensor": "Add Sensor",
+        "Legend": "Legend",
+        "Metric": "Metric",
+        "MetricsUnavailable": "Metric definitions unavailable: fleet_daemon did not answer GET /air/metrics. Sensors are shown without quality colours.",
+        "NoData": "Offline / no data",
+        "Offline": "offline",
+        "Online": "online",
+        "Sensors": "sensors",
+        "Title": "Air Quality"
+    },
     "App": {
         "Notifications": {
             "BrowserWarnings": {
@@ -900,6 +911,7 @@
         "ReducedMotionOff": "Reduced motion is off. Click to turn off pulsing rings, wave and flashing animations (for slow screens such as TVs)."
     },
     "Router": {
+        "Air Quality": "Air Quality",
         "Console": "Console",
         "Dashboard": "Dashboard",
         "G-Code Files": "FLEET GCODES",
@@ -944,6 +956,27 @@
         "YouCanFindMore": "You can find more details at"
     },
     "Settings": {
+        "AirSensorsTab": {
+            "AddSensor": "Add Sensor",
+            "AirSensors": "Air Sensors",
+            "Description": "Panda Sense Pro air-quality sensors. fleet_daemon connects to each sensor's own MQTT broker and shows the readings on the Air Quality map; sensors never count as printers.",
+            "EditSensor": "Edit Sensor",
+            "Hostname": "Hostname / IP",
+            "HostnameDescription": "mDNS name or IP of the sensor, e.g. pandasensepro1 (the .local suffix is optional)",
+            "HostnameInvalid": "Enter a hostname or IPv4 address without scheme, port or path",
+            "Label": "Label",
+            "LabelDescription": "Optional name shown on the map instead of the hostname",
+            "Location": "Location",
+            "NoSensors": "No air sensors yet.",
+            "Range": "Range",
+            "RangeDescription": "Grid cells around the sensor its reading is painted over on the Air Quality map ({min}-{max}); the colour fades out beyond it.",
+            "RangeInvalid": "Enter a whole number between {min} and {max}",
+            "RangeShort": "range {n}",
+            "RosterRefreshed": "Air sensor list refreshed",
+            "RosterRefreshFailed": "Failed to refresh the fleet_daemon roster",
+            "UpdateSensor": "Update Sensor",
+            "UseConfigJson": "InstanceDB = JSON detected. Please use the config.json to modify the air sensor list."
+        },
         "Cancel": "Cancel",
         "Close": "Close",
         "ConsoleTab": {

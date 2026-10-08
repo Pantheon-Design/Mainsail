@@ -207,6 +207,10 @@ export interface GuiState {
         farmStrokes: GuiStateMapDrawingStroke[]
         groundStrokes: GuiStateMapDrawingStroke[]
     }
+    airquality: {
+        /** metric key selected on the Air Quality page; null = first catalog entry */
+        metric: string | null
+    }
 }
 
 export interface GuiStateMapDrawingStroke {

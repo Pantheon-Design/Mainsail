@@ -165,10 +165,10 @@ export default class SettingsRemotePrintersTab extends Mixins(BaseMixin) {
         location: 'farm',
     }
 
-    /** Printers only: ovens (deviceType 'oven') are managed on the Ovens tab. */
+    /** Printers only: ovens and air sensors are managed on their own tabs. */
     get printers(): GuiRemoteprintersStatePrinter[] {
         const all: GuiRemoteprintersStatePrinter[] = this.$store.getters['gui/remoteprinters/getRemoteprinters'] ?? []
-        return all.filter((p) => (p.deviceType ?? 'printer') !== 'oven')
+        return all.filter((p) => (p.deviceType ?? 'printer') === 'printer')
     }
 
     get canAddPrinters() {

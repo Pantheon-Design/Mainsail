@@ -325,8 +325,8 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         return gridRows(this.location) * CELL
     }
 
-    isOvenHostname(hostname: string): boolean {
-        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
+    isNonPrinterHostname(hostname: string): boolean {
+        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) !== 'printer'
     }
 
     private inList(list: string[], hostname: string): boolean {
@@ -383,7 +383,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         return Object.entries(this.frames)
             .filter(
                 ([hostname]) =>
-                    !this.isOvenHostname(hostname) && printerLocation(this.roster, hostname) === this.location
+                    !this.isNonPrinterHostname(hostname) && printerLocation(this.roster, hostname) === this.location
             )
             .map(([hostname, printer]) => {
                 const pos = printerGridPosition(this.roster, hostname)

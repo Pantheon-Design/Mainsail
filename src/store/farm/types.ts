@@ -51,9 +51,34 @@ export interface OvenFrame {
     received_at?: number
 }
 
+// ---- Air sensor WS frames (fleet_daemon `/ws`, `device_type: "air_sensor"`) ----
+// Wire shape is `_project_air_sensor_for_broadcast` in fleet_daemon/fleet_manager.py. The
+// Panda Sense Pro metric keys as the daemon remaps them from the MQTT payload; the catalog
+// (labels, units, bands) comes from `GET /air/metrics` (store/fleet/air), never from here.
+export type AirMetricKey = 'temperature' | 'humidity' | 'pm2_5' | 'pm10' | 'co2' | 'etvoc' | 'ch2o' | 'aqi'
+
+export type AirSensorValues = Partial<Record<AirMetricKey, number | null>> & Record<string, number | null | undefined>
+
+export interface AirSensorFrame {
+    /** hostname as the daemon resolved it (`pandasensepro1.local`) */
+    hostname: string
+    device_type: 'air_sensor'
+    /** false after FLEET_AIR_STALE_SECS without a message or while the broker is unreachable */
+    online: boolean
+    /** epoch seconds of the last MQTT sample, null before the first one */
+    last_update: number | null
+    /** last values (kept while offline) */
+    values: AirSensorValues
+    /** daemon-side error text (broker unreachable, aiomqtt missing, ...) */
+    error?: string | null
+    /** Client receive time (ms epoch), set by fleetDaemonClient */
+    received_at?: number
+}
+
 export interface FarmState {
     fleetDaemonPrinters: { [hostname: string]: any };
     fleetDaemonOvens: { [hostname: string]: OvenFrame };
+    fleetDaemonAirSensors: { [hostname: string]: AirSensorFrame };
     fleetDaemonConnected: boolean;
     [printerId: string]: any; // <- allow dynamic printer namespaces
 }

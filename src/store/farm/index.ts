@@ -1,6 +1,6 @@
 import { printer } from '@/store/farm/printer'
 import { Module } from 'vuex'
-import { FarmState, OvenFrame } from '@/store/farm/types'
+import { AirSensorFrame, FarmState, OvenFrame } from '@/store/farm/types'
 import { RootState } from '@/store/types'
 import Vue from 'vue'
 
@@ -8,6 +8,7 @@ export const getDefaultState = (): FarmState => {
     return {
         fleetDaemonPrinters: {},
         fleetDaemonOvens: {},
+        fleetDaemonAirSensors: {},
         fleetDaemonConnected: false,
     }
 }
@@ -47,6 +48,10 @@ export const farm: Module<FarmState, RootState> = {
         // Ovens (device_type === 'oven' frames) - kept apart from fleetDaemonPrinters
         getFleetDaemonOvens: (state): { [hostname: string]: OvenFrame } => {
             return state.fleetDaemonOvens || {}
+        },
+        // Air sensors (device_type === 'air_sensor' frames) - their own map as well
+        getFleetDaemonAirSensors: (state): { [hostname: string]: AirSensorFrame } => {
+            return state.fleetDaemonAirSensors || {}
         },
     },
     actions: {
@@ -119,11 +124,15 @@ export const farm: Module<FarmState, RootState> = {
             payload: {
                 printers: { [hostname: string]: any }
                 ovens: { [hostname: string]: OvenFrame }
+                airSensors?: { [hostname: string]: AirSensorFrame }
                 removedPrinters: string[]
                 removedOvens: string[]
+                removedAirSensors?: string[]
             }
         ) {
             const { printers, ovens, removedPrinters, removedOvens } = payload
+            const airSensors = payload.airSensors ?? {}
+            const removedAirSensors = payload.removedAirSensors ?? []
             for (const hostname of Object.keys(printers)) {
                 const data = printers[hostname]
                 const existing = state.fleetDaemonPrinters?.[hostname]
@@ -151,6 +160,21 @@ export const farm: Module<FarmState, RootState> = {
             for (const hostname of removedOvens) {
                 if (state.fleetDaemonOvens && hostname in state.fleetDaemonOvens) {
                     Vue.delete(state.fleetDaemonOvens, hostname)
+                }
+            }
+            if (Object.keys(airSensors).length && !state.fleetDaemonAirSensors) {
+                Vue.set(state, 'fleetDaemonAirSensors', {})
+            }
+            for (const hostname of Object.keys(airSensors)) {
+                Vue.set(state.fleetDaemonAirSensors, hostname, {
+                    ...airSensors[hostname],
+                    hostname,
+                    device_type: 'air_sensor',
+                })
+            }
+            for (const hostname of removedAirSensors) {
+                if (state.fleetDaemonAirSensors && hostname in state.fleetDaemonAirSensors) {
+                    Vue.delete(state.fleetDaemonAirSensors, hostname)
                 }
             }
         },
@@ -190,6 +214,23 @@ export const farm: Module<FarmState, RootState> = {
 
         CLEAR_FLEET_DAEMON_OVENS(state) {
             Vue.set(state, 'fleetDaemonOvens', {})
+        },
+
+        // ---- Air sensors: separate map, never merged into fleetDaemonPrinters ----
+        SET_FLEET_DAEMON_AIR_SENSOR(state, payload: { hostname: string; data: AirSensorFrame }) {
+            const { hostname, data } = payload
+            if (!state.fleetDaemonAirSensors) Vue.set(state, 'fleetDaemonAirSensors', {})
+            Vue.set(state.fleetDaemonAirSensors, hostname, { ...data, hostname, device_type: 'air_sensor' })
+        },
+
+        REMOVE_FLEET_DAEMON_AIR_SENSOR(state, hostname: string) {
+            if (state.fleetDaemonAirSensors && hostname in state.fleetDaemonAirSensors) {
+                Vue.delete(state.fleetDaemonAirSensors, hostname)
+            }
+        },
+
+        CLEAR_FLEET_DAEMON_AIR_SENSORS(state) {
+            Vue.set(state, 'fleetDaemonAirSensors', {})
         },
 
         // Track fleet daemon WebSocket connection state

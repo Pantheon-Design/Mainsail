@@ -24,6 +24,7 @@ import {
     mdiHeartPulse,
     mdiBriefcaseOutline,
 } from '@mdi/js'
+import { mdiAirSensor } from '@/components/panels/airSensorIcon'
 
 const routes: AppRoute[] = [
     {
@@ -141,6 +142,16 @@ const routes: AppRoute[] = [
         alwaysShow: true,
         showInNavi: true,
         position: 68,
+    },
+    {
+        name: 'airQuality',
+        title: 'Air Quality',
+        path: '/air-quality',
+        icon: mdiAirSensor,
+        component: () => import('../pages/AirQuality.vue'),
+        alwaysShow: true,
+        showInNavi: true,
+        position: 69,
     },
     {
         name: 'spool-management',

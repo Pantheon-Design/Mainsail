@@ -66,6 +66,9 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     deviceType: state.printers[id].deviceType ?? 'printer',
                     // NEW: oven soft spool capacity (null = unknown / not an oven)
                     maxSpools: state.printers[id].maxSpools ?? null,
+                    // NEW: air sensor display name + overlay radius (null = unset / not a sensor)
+                    label: state.printers[id].label ?? null,
+                    sensorRange: state.printers[id].sensorRange ?? null,
                 })
             })
 
@@ -85,6 +88,9 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 deviceType: state.printers[id].deviceType ?? 'printer',
                 // NEW: oven soft spool capacity (null = unknown / not an oven)
                 maxSpools: state.printers[id].maxSpools ?? null,
+                // NEW: air sensor display name + overlay radius (null = unset / not a sensor)
+                label: state.printers[id].label ?? null,
+                sensorRange: state.printers[id].sensorRange ?? null,
             }
 
             Vue.$socket.emit('server.database.post_item', {

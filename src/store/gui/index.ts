@@ -253,6 +253,10 @@ export const getDefaultState = (): GuiState => {
             farmStrokes: [],
             groundStrokes: [],
         },
+        airquality: {
+            // selected metric on the Air Quality page (null = first catalog entry)
+            metric: null,
+        },
     }
 }
 

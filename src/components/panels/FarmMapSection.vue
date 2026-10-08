@@ -15,10 +15,13 @@
                    @click="toggleEditMode">
                 {{ isEditing ? 'Save' : 'Edit' }}
             </v-btn>
+            <v-btn v-if="mode === 'air'" small title="Add air sensor" @click="openAirSensorSettings">
+                Add Sensor
+            </v-btn>
             <v-btn small title="Add printer" @click="openPrinterSettings">
                 Add Printer
             </v-btn>
-            <v-btn v-if="isEditing" small :color="isDrawing ? 'success' : undefined" :class="{ 'save-pulse': isDrawing }"
+            <v-btn v-if="isEditing && mode !== 'air'" small :color="isDrawing ? 'success' : undefined" :class="{ 'save-pulse': isDrawing }"
                    @click="toggleDrawMode">
                 {{ isDrawing ? 'Save Drawing' : 'Draw' }}
             </v-btn>
@@ -49,9 +52,15 @@
                       :style="{ backgroundColor: s.color }"></span>
                 {{ s.label }} {{ s.count }}
             </span>
+            <!-- Air mode: sensors on this floor and how many are reporting -->
+            <span v-if="mode === 'air'" class="status-counter status-counter--air" :title="airSensorLegendTitle">
+                <span class="status-dot air" :style="{ backgroundColor: airLegendColor }"></span>
+                Sensor{{ airSensorCount === 1 ? '' : 's' }} {{ airSensorCount }}
+                <span v-if="airSensorCount" class="status-counter__muted">&middot; {{ airOnlineCount }} online</span>
+            </span>
             <!-- Ovens are counted apart from printers (never part of the printer statuses) -->
             <span
-                v-if="ovenCount"
+                v-if="ovenCount && mode !== 'air'"
                 class="status-counter status-counter--oven"
                 :title="ovenLegendTitle">
                 <span class="status-dot oven" :style="{ borderColor: OVEN_LEGEND.color }"></span>
@@ -78,6 +87,17 @@
                 <div class="bay-door" :style="bayDoorStyle"></div>
                 <span class="area-label" :style="bayDoorLabelStyle">Bay Door</span>
 
+                <!-- Air quality field (air mode): under the grid lines and markers, over the room markings -->
+                <air-quality-overlay
+                    v-if="mode === 'air'"
+                    class="air-layer"
+                    :style="roomsWrapStyle"
+                    :width="gridW"
+                    :height="gridH"
+                    :fields="airFields"
+                    :metric="airMetric"
+                    :cell="CELL" />
+
                 <!-- Grid lines -->
                 <div class="grid-lines" :style="gridLinesStyle"></div>
 
@@ -99,23 +119,27 @@
                      @click="onMarkerClick(printer, hostname)"
                      @mouseover="showTooltip(printer, hostname, $event)"
                      @mouseleave="hideTooltip">
-                    <div v-if="markerStatus(printer) === 'printing'" class="marker-ring"
+                    <div v-if="mode !== 'air' && markerStatus(printer) === 'printing'" class="marker-ring"
                          :style="markerRingStyle(printer, hostname)"></div>
                     <div class="marker-dot" :style="markerDotStyle(printer, hostname)">
-                        <span class="marker-host" :style="{ fontSize: markerFilament(printer).length > 4 ? '7px' : '9px' }">
-                            {{ markerFilament(printer) }}
-                        </span>
-                        <span v-if="markerGlyph(printer)" class="marker-glyph"
-                              :style="{ fontSize: markerStatus(printer) === 'printing' ? '9px' : '13px' }">
-                            {{ markerGlyph(printer) }}
-                        </span>
+                        <!-- Air mode: minimal marker, just the printer icon on the status colour -->
+                        <v-icon v-if="mode === 'air'" size="20" color="#fff">{{ mdiPrinter3d }}</v-icon>
+                        <template v-else>
+                            <span class="marker-host" :style="{ fontSize: markerFilament(printer).length > 4 ? '7px' : '9px' }">
+                                {{ markerFilament(printer) }}
+                            </span>
+                            <span v-if="markerGlyph(printer)" class="marker-glyph"
+                                  :style="{ fontSize: markerStatus(printer) === 'printing' ? '9px' : '13px' }">
+                                {{ markerGlyph(printer) }}
+                            </span>
+                        </template>
                     </div>
                     <!-- Worker stickers: flashing "!" when the worker needs attention, else the hammer -->
-                    <span v-if="workersVisible && needsAttention(hostname)" class="worker-sticker attention-sticker"
+                    <span v-if="mode !== 'air' && workersVisible && needsAttention(hostname)" class="worker-sticker attention-sticker"
                           :title="attentionReason(hostname) || 'Worker needs attention'">
                         <v-icon size="13" color="#fff">{{ mdiExclamationThick }}</v-icon>
                     </span>
-                    <span v-else-if="workersVisible && isWorker(hostname)" class="worker-sticker" title="Fleet worker">
+                    <span v-else-if="mode !== 'air' && workersVisible && isWorker(hostname)" class="worker-sticker" title="Fleet worker">
                         <v-icon size="12" color="#fff" class="worker-hammer">{{ mdiHammer }}</v-icon>
                     </span>
                 </div>
@@ -130,7 +154,7 @@
                      No fire when offline / Klipper error / empty (see ovenFire()).
                      One markup for both modes ('map' and 'workers' render this same loop). -->
                 <div
-                    v-for="o in ovenEntries"
+                    v-for="o in mode === 'air' ? [] : ovenEntries"
                     :key="'oven-' + o.hostname"
                     class="marker marker--oven"
                     :style="markerWrapStyle(o.hostname)"
@@ -194,6 +218,54 @@
                     <p v-if="isEditing" class="oven-hint">Drag to place</p>
                 </div>
 
+                <!-- Air sensors (roster deviceType === 'air_sensor', air mode only), placed by
+                     gridPosition like printers and ovens. Driven by the roster so a sensor that
+                     has never reported still shows up (offline, grey) and can be dragged. The
+                     body colour is the quality band of the selected metric and the text is its
+                     exact reading. -->
+                <div
+                    v-for="s in airSensorEntries"
+                    :key="'air-' + s.hostname"
+                    class="marker marker--air"
+                    :style="markerWrapStyle(s.hostname)"
+                    :class="{ draggable: isEditing && !isDrawing, highlighted: isHighlighted(s.hostname), 'marker--air-editing': isEditing && !isDrawing }"
+                    :data-air-sensor-id="s.hostname"
+                    @mousedown="isEditing && !isDrawing ? startGridDrag($event, null, s.hostname) : null"
+                    @mouseover="showAirTooltip(s.hostname)"
+                    @mouseleave="hideTooltip">
+                    <air-sensor-icon
+                        :size="CELL - 10"
+                        :fill="airSensorColor(s.hostname)"
+                        :value="airSensorValueText(s.hostname)"
+                        :unit="airMetricUnit"
+                        :offline="!airSensorOnline(s.hostname)" />
+                </div>
+
+                <!-- Air sensor tooltip: label, host, online state, then one row per metric -->
+                <div v-if="hoveredAirSensor" ref="tooltipEl" class="tooltip tooltip--air" :style="tooltipStyle">
+                    <p>
+                        <strong>{{ hoveredAirSensorLabel }}</strong>
+                        <span v-if="hoveredAirSensorLabel !== hoveredAirSensor.hostname" class="oven-note">
+                            &middot; {{ hoveredAirSensor.hostname }}
+                        </span>
+                    </p>
+                    <p :class="hoveredAirSensorOnline ? 'air-online' : 'air-offline'">
+                        {{ hoveredAirSensorOnline ? 'online' : 'offline' }}
+                        <span class="oven-note">&middot; {{ hoveredAirSensorAge }}</span>
+                        <span v-if="hoveredAirSensorError" class="oven-note">&middot; {{ hoveredAirSensorError }}</span>
+                    </p>
+                    <p v-if="!hoveredAirSensorRows.length" class="oven-note">No readings yet</p>
+                    <div v-for="r in hoveredAirSensorRows" :key="'air-row-' + r.key" class="air-row" :class="{ 'air-row--selected': r.key === metricKey }">
+                        <span class="air-row-label">{{ r.label }}</span>
+                        <span class="air-row-value">{{ r.value }}</span>
+                        <span class="air-row-band">
+                            <span class="air-row-dot" :style="{ backgroundColor: r.color }"></span>
+                            {{ r.band }}
+                        </span>
+                    </div>
+                    <p v-if="isEditing" class="oven-hint">Drag to place</p>
+                </div>
+
                 <!-- Tooltip -->
                 <farm-printer-tooltip
                     v-if="hoveredPrinter"
@@ -220,8 +292,23 @@ import Vue from 'vue'
 import { hostKey } from '@/plugins/hostKey'
 import { getPrinterStatus as getPrinterStatusUtil, PrinterStatus, STATUS_META, STATUS_ORDER } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
-import { OvenFrame } from '@/store/farm/types'
+import { AirSensorFrame, OvenFrame } from '@/store/farm/types'
 import { FleetSpool } from '@/store/fleet/spools/types'
+import { AirMetric } from '@/store/fleet/air/types'
+import AirSensorIcon from '@/components/panels/AirSensorIcon.vue'
+import AirQualityOverlay, { AirField } from '@/components/panels/AirQualityOverlay.vue'
+import {
+    AIR_NEUTRAL_COLOR,
+    bandColor,
+    bandFor,
+    formatAge,
+    formatMetricReading,
+    formatMetricValue,
+    isSensorOnline,
+    metricUnit,
+    sensorAgeSeconds,
+    sensorValue,
+} from '@/components/panels/airQualityBands'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import {
     getOvenStatus,
@@ -243,7 +330,7 @@ import {
     OVEN_LEGEND,
     OVEN_STATUS_META,
 } from '@/components/panels/farmOvenStatus'
-import { mdiExclamationThick, mdiHammer } from '@mdi/js'
+import { mdiExclamationThick, mdiHammer, mdiPrinter3d } from '@mdi/js'
 import { attentionChipTitle } from '@/components/panels/fleetWorkerAttention'
 
 type MapLocation = 'farm' | 'ground'
@@ -254,19 +341,33 @@ interface OvenEntry {
     hostname: string
 }
 
+interface AirSensorEntry {
+    /** roster id (gui/remoteprinters key) */
+    id: string
+    hostname: string
+    label: string
+}
+
 @Component({
     components: {
         MapDrawingOverlay,
         MapDrawingToolbar,
         FarmPrinterTooltip,
+        AirSensorIcon,
+        AirQualityOverlay,
     },
 })
 export default class FarmMapSection extends Mixins(BaseMixin) {
     @Prop({ type: String, required: true }) readonly location!: MapLocation
     @Prop({ type: String, required: true }) readonly name!: string
     /** 'map' (default): edit/drag, click opens the printer. 'workers': no editing,
-     *  click emits `toggle-worker`(hostname), worker printers get a hammer sticker. */
-    @Prop({ type: String, default: 'map' }) readonly mode!: 'map' | 'workers'
+     *  click emits `toggle-worker`(hostname), worker printers get a hammer sticker.
+     *  'air': Air Quality page - minimal printer markers (icon + status colour), air sensor
+     *  markers coloured by the selected metric's quality band, the colour field underneath,
+     *  edit/drag for printers and sensors (no drawing). */
+    @Prop({ type: String, default: 'map' }) readonly mode!: 'map' | 'workers' | 'air'
+    /** Air mode: key of the metric (from fleet/air/getMetrics) the markers and overlay show. */
+    @Prop({ type: String, default: '' }) readonly metricKey!: string
     /** Map mode only: also show the per-section worker count, stickers and tooltip lines
      *  (the Fleet Map page passes this so it mirrors the Workers map without toggling). */
     @Prop({ type: Boolean, default: false }) readonly showWorkers!: boolean
@@ -283,6 +384,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     mdiHammer = mdiHammer
     mdiExclamationThick = mdiExclamationThick
+    mdiPrinter3d = mdiPrinter3d
 
     // Grid geometry
     readonly GRID_COLS = 25
@@ -313,6 +415,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     // tooltip
     hoveredPrinter: any = null
     hoveredOven: OvenEntry | null = null
+    hoveredAirSensor: AirSensorEntry | null = null
     tooltipStyle: Record<string, string> = { top: '0px', left: '0px', position: 'absolute' }
 
     // ---------- geometry helpers ----------
@@ -369,10 +472,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return this.rosterByKey[hostKey(hostname)]?.printerModel ?? null
     }
 
-    // Ovens are roster entries (deviceType === 'oven') but not printers: they never send
-    // printer WS frames, so without this they would render as offline printers.
-    isOvenHostname(hostname: string): boolean {
-        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
+    // Ovens and air sensors are roster entries (deviceType 'oven' / 'air_sensor') but not
+    // printers: they never send printer WS frames, so without this filter they would render
+    // as offline printers.
+    isPrinterHostname(hostname: string): boolean {
+        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'printer'
     }
 
     isSquareModel(hostname: string): boolean {
@@ -387,8 +491,115 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get activePrinterEntries(): [string, any][] {
         return Object.entries(this.fleetDaemonPrinters).filter(
-            ([hostname]) => !this.isOvenHostname(hostname) && this.getPrinterLocation(hostname) === this.location
+            ([hostname]) => this.isPrinterHostname(hostname) && this.getPrinterLocation(hostname) === this.location
         ) as [string, any][]
+    }
+
+    // ---------- air sensors (air mode) ----------
+    get fleetDaemonAirSensors(): Record<string, AirSensorFrame> {
+        return this.$store.state.farm.fleetDaemonAirSensors || {}
+    }
+
+    get airMetric(): AirMetric | null {
+        return this.metricKey ? this.$store.getters['fleet/air/getMetric'](this.metricKey) : null
+    }
+
+    get airMetrics(): AirMetric[] {
+        return this.$store.getters['fleet/air/getMetrics'] || []
+    }
+
+    get airMetricUnit(): string {
+        return metricUnit(this.airMetric)
+    }
+
+    /** Roster sensors on this map tab (roster-driven like ovens, so unplaced/offline ones still show). */
+    get airSensorEntries(): AirSensorEntry[] {
+        if (this.mode !== 'air') return []
+        const seen = new Set<string>()
+        const entries: AirSensorEntry[] = []
+        for (const [id, entry] of Object.entries(this.remotePrinters)) {
+            const e = entry as any
+            if (e?.deviceType !== 'air_sensor' || !e.hostname) continue
+            if (((e.location as MapLocation) ?? 'farm') !== this.location) continue
+            const key = hostKey(e.hostname)
+            if (seen.has(key)) continue
+            seen.add(key)
+            entries.push({ id, hostname: e.hostname, label: (e.label ?? '').trim() })
+        }
+        return entries.sort((a, b) => a.hostname.localeCompare(b.hostname))
+    }
+
+    get airSensorCount(): number {
+        return this.airSensorEntries.length
+    }
+
+    get airOnlineCount(): number {
+        return this.airSensorEntries.filter((s) => this.airSensorOnline(s.hostname)).length
+    }
+
+    get airSensorLegendTitle(): string {
+        if (!this.airSensorCount) return 'No air sensors placed on this floor'
+        return `${this.airOnlineCount} of ${this.airSensorCount} sensors reporting`
+    }
+
+    /** Legend swatch: the first (best) band colour of the selected metric. */
+    get airLegendColor(): string {
+        return this.airMetric?.bands?.[0]?.color ?? AIR_NEUTRAL_COLOR
+    }
+
+    airSensorFrame(hostname: string): AirSensorFrame | null {
+        const key = hostKey(hostname)
+        for (const [h, frame] of Object.entries(this.fleetDaemonAirSensors)) {
+            if (hostKey(h) === key) return frame
+        }
+        return null
+    }
+
+    airSensorOnline(hostname: string): boolean {
+        return isSensorOnline(this.airSensorFrame(hostname), this.$store.state.farm.fleetDaemonConnected)
+    }
+
+    airSensorValue(hostname: string): number | null {
+        return sensorValue(this.airSensorFrame(hostname), this.metricKey)
+    }
+
+    /** Body colour: the band of the selected metric; neutral grey when offline or no reading. */
+    airSensorColor(hostname: string): string {
+        if (!this.airSensorOnline(hostname)) return AIR_NEUTRAL_COLOR
+        return bandColor(this.airMetric, this.airSensorValue(hostname))
+    }
+
+    airSensorValueText(hostname: string): string {
+        return formatMetricValue(this.airMetric, this.airSensorValue(hostname))
+    }
+
+    airSensorLabel(hostname: string): string {
+        const entry = this.airSensorEntries.find((s) => hostKey(s.hostname) === hostKey(hostname))
+        return entry?.label || hostname.replace(/\.local$/i, '')
+    }
+
+    /** Overlay inputs: every online sensor with a reading, at its (possibly mid-drag) cell centre. */
+    get airFields(): AirField[] {
+        if (this.mode !== 'air' || !this.airMetric) return []
+        const fields: AirField[] = []
+        for (const s of this.airSensorEntries) {
+            if (!this.airSensorOnline(s.hostname)) continue
+            const value = this.airSensorValue(s.hostname)
+            if (value === null) continue
+            const pos = this.getPrinterGridPosition(s.hostname)
+            const range = this.$store.getters['gui/remoteprinters/getSensorRange'](s.hostname) as number
+            fields.push({
+                cx: (pos.x - 0.5) * this.CELL,
+                cy: (pos.y - 0.5) * this.CELL,
+                radius: range * this.CELL,
+                value,
+            })
+        }
+        return fields
+    }
+
+    openAirSensorSettings() {
+        this.$root.$emit('open-settings', 'air-sensors')
     }
 
     get printerCount(): number {
@@ -583,6 +794,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get editHint(): string {
         if (this.isDrawing) return 'Draw on the plan — strokes save per map.'
+        if (this.isEditing && this.mode === 'air') return 'Drag any printer or sensor to a new cell.'
         if (this.isEditing) return this.ovenCount ? 'Drag any printer or oven to a new cell.' : 'Drag any printer to a new cell.'
         return ''
     }
@@ -911,6 +1123,59 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     hideTooltip() {
         this.hoveredPrinter = null
         this.hoveredOven = null
+        this.hoveredAirSensor = null
+    }
+
+    // ---------- air sensor tooltip ----------
+    showAirTooltip(hostname: string) {
+        if (this.isEditing) return
+        this.hoveredPrinter = null
+        this.hoveredOven = null
+        const entry = this.airSensorEntries.find((s) => s.hostname === hostname)
+        this.hoveredAirSensor = entry ?? { id: '', hostname, label: '' }
+        this.placeTooltip(hostname)
+    }
+
+    get hoveredAirSensorFrame(): AirSensorFrame | null {
+        return this.hoveredAirSensor ? this.airSensorFrame(this.hoveredAirSensor.hostname) : null
+    }
+
+    get hoveredAirSensorLabel(): string {
+        return this.hoveredAirSensor ? this.airSensorLabel(this.hoveredAirSensor.hostname) : ''
+    }
+
+    get hoveredAirSensorOnline(): boolean {
+        return this.hoveredAirSensor ? this.airSensorOnline(this.hoveredAirSensor.hostname) : false
+    }
+
+    get hoveredAirSensorAge(): string {
+        if (!this.$store.state.farm.fleetDaemonConnected) return 'fleet_daemon disconnected'
+        const frame = this.hoveredAirSensorFrame
+        if (!frame) return 'no status from fleet_daemon yet'
+        return 'last reading ' + formatAge(sensorAgeSeconds(frame))
+    }
+
+    get hoveredAirSensorError(): string {
+        return (this.hoveredAirSensorFrame?.error ?? '').toString().trim()
+    }
+
+    /** One row per catalog metric: label, formatted reading and its band. */
+    get hoveredAirSensorRows(): { key: string; label: string; value: string; band: string; color: string }[] {
+        const frame = this.hoveredAirSensorFrame
+        if (!frame) return []
+        return this.airMetrics
+            .map((m) => {
+                const v = sensorValue(frame, m.key)
+                const band = bandFor(m, v)
+                return {
+                    key: m.key,
+                    label: m.label,
+                    value: formatMetricReading(m, v),
+                    band: band?.name ?? 'â€”',
+                    color: band?.color ?? AIR_NEUTRAL_COLOR,
+                }
+            })
+            .filter((r) => r.value !== 'â€”')
     }
 
     // ---------- oven tooltip ----------
@@ -1144,6 +1409,25 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     position: absolute;
     z-index: 3;
 }
+/* Air quality field: above the room markings (z0), below grid lines / markers */
+.air-layer {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+}
+.status-dot.air {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+.status-counter--air {
+    padding-left: 12px;
+    border-left: 1px solid rgba(128, 128, 128, 0.4);
+}
+.status-counter__muted {
+    opacity: 0.7;
+    font-weight: 400;
+}
 
 /* Markers */
 .marker {
@@ -1348,6 +1632,15 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     transition: height 0.3s ease;
 }
 
+/* Air sensor markers: the SVG icon carries fill/outline; editing gets a halo like printers */
+.marker--air-editing >>> .air-sensor-icon {
+    filter: drop-shadow(0 0 2px rgba(240, 211, 176, 0.8));
+}
+.marker.highlighted >>> .air-sensor-icon {
+    animation: highlight-pulse 0.9s ease-in-out infinite;
+    transform: scale(1.12);
+}
+
 /* Tooltip */
 .tooltip {
     background-color: rgba(0, 0, 0, 0.78);
@@ -1374,6 +1667,41 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 .tooltip .oven-hint {
     opacity: 0.6;
     font-style: italic;
+}
+.tooltip .air-online {
+    color: #00e676;
+}
+.tooltip .air-offline {
+    color: #ff8a80;
+}
+/* Per-metric row: label | reading | band dot + name */
+.tooltip .air-row {
+    display: grid;
+    grid-template-columns: 92px auto auto;
+    gap: 1px 10px;
+    align-items: center;
+}
+.tooltip .air-row--selected .air-row-label {
+    font-weight: 700;
+}
+.tooltip .air-row-label {
+    opacity: 0.85;
+}
+.tooltip .air-row-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.tooltip .air-row-band {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0.9;
+}
+.tooltip .air-row-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
 }
 /* Per-material block: `NAME ×n` | grams left / full | fullness bar
                         `r ready · d drying`        | readiness bar */

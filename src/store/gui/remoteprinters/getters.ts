@@ -1,6 +1,13 @@
 import { GetterTree } from 'vuex'
 import { hostKey } from '@/plugins/hostKey'
-import { DeviceType, GuiRemoteprintersState, GuiRemoteprintersStatePrinter } from '@/store/gui/remoteprinters/types'
+import {
+    DEFAULT_SENSOR_RANGE,
+    DeviceType,
+    GuiRemoteprintersState,
+    GuiRemoteprintersStatePrinter,
+    MAX_SENSOR_RANGE,
+    MIN_SENSOR_RANGE,
+} from '@/store/gui/remoteprinters/types'
 import { caseInsensitiveSort } from '@/plugins/helpers'
 
 // eslint-disable-next-line
@@ -35,6 +42,26 @@ export const getters: GetterTree<GuiRemoteprintersState, any> = {
         (state, getters) =>
         (hostname: string): DeviceType => {
             return getters.byHostKey[hostKey(hostname)]?.deviceType ?? 'printer'
+        },
+
+    // True when the roster entry with this hostname is a printer (or an unknown / legacy entry).
+    // Printer-only views filter on this rather than on "not an oven" so every non-printer
+    // device type (ovens, air sensors) stays off them.
+    isPrinterHostname:
+        (state, getters) =>
+        (hostname: string): boolean => {
+            return getters.getDeviceType(hostname) === 'printer'
+        },
+
+    // Overlay radius (grid cells) of the air sensor with this hostname, clamped to the allowed
+    // range; the default when unset or not a sensor.
+    getSensorRange:
+        (state, getters) =>
+        (hostname: string): number => {
+            const entry = getters.byHostKey[hostKey(hostname)]
+            const n = Number(entry?.sensorRange)
+            if (!Number.isFinite(n) || n <= 0) return DEFAULT_SENSOR_RANGE
+            return Math.min(MAX_SENSOR_RANGE, Math.max(MIN_SENSOR_RANGE, Math.round(n)))
         },
 
     // Soft spool capacity of the oven roster entry with this hostname; null when the

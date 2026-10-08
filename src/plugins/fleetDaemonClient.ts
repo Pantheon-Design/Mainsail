@@ -2,12 +2,12 @@ import store from '@/store'
 import Vue from 'vue'
 import { hostKey } from '@/plugins/hostKey'
 import { GuiRemoteprintersStatePrinter, PrinterModel } from '@/store/gui/remoteprinters/types'
-import { OvenFrame } from '@/store/farm/types'
+import { AirSensorFrame, OvenFrame } from '@/store/farm/types'
 
 /** One printer/oven frame as the daemon sends it — standalone, or as an item of a `batch`. */
 interface FleetFrame {
     hostname: string
-    device_type?: 'oven'
+    device_type?: 'oven' | 'air_sensor'
     update?: any
     removed?: boolean
 }
@@ -125,6 +125,9 @@ class FleetDaemonClient {
                     if (message.event === 'ovens_updated') {
                         fleetDaemonEvents.$emit('ovens_updated')
                     }
+                    if (message.event === 'air_sensors_updated') {
+                        fleetDaemonEvents.$emit('air_sensors_updated')
+                    }
                     if (message.event === 'gcodes_updated') {
                         fleetDaemonEvents.$emit('gcodes_updated')
                     }
@@ -200,7 +203,7 @@ class FleetDaemonClient {
 
     private queueFrame(frame: FleetFrame) {
         if (!frame || !frame.hostname) return
-        const kind = frame.device_type === 'oven' ? 'oven' : 'printer'
+        const kind = frame.device_type ?? 'printer'
         this.pending.set(kind + ':' + frame.hostname, frame)
         if (!this.flushTimer) {
             this.flushTimer = setTimeout(() => this.flush(), FLUSH_MS)
@@ -218,11 +221,36 @@ class FleetDaemonClient {
 
         const printers: { [hostname: string]: any } = {}
         const ovens: { [hostname: string]: OvenFrame } = {}
+        const airSensors: { [hostname: string]: AirSensorFrame } = {}
         const removedPrinters: string[] = []
         const removedOvens: string[] = []
+        const removedAirSensors: string[] = []
 
         for (const frame of this.pending.values()) {
             const hostname = frame.hostname
+
+            // Air sensor frames ({hostname, device_type: 'air_sensor', update|removed}) go to
+            // farm.fleetDaemonAirSensors. The daemon re-sends every sensor in the 30 s resync,
+            // so an unchanged payload is skipped here or the overlay would redraw for nothing.
+            if (frame.device_type === 'air_sensor') {
+                const sigKey = 'air:' + hostname
+                if (frame.removed) {
+                    removedAirSensors.push(hostname)
+                    this.lastSig.delete(sigKey)
+                } else if (frame.update) {
+                    const sig = JSON.stringify(frame.update)
+                    const current = (store.state as any).farm?.fleetDaemonAirSensors || {}
+                    if (this.lastSig.get(sigKey) === sig && current[hostname]) continue
+                    this.lastSig.set(sigKey, sig)
+                    airSensors[hostname] = {
+                        ...frame.update,
+                        hostname,
+                        device_type: 'air_sensor',
+                        received_at: Date.now(),
+                    }
+                }
+                continue
+            }
 
             // Oven frames ({hostname, device_type: 'oven', update|removed}) go to their
             // own store map (farm.fleetDaemonOvens): printer counters, the worker list and
@@ -277,10 +305,19 @@ class FleetDaemonClient {
         if (
             Object.keys(printers).length ||
             Object.keys(ovens).length ||
+            Object.keys(airSensors).length ||
             removedPrinters.length ||
-            removedOvens.length
+            removedOvens.length ||
+            removedAirSensors.length
         ) {
-            store.commit('farm/APPLY_FLEET_DAEMON_BATCH', { printers, ovens, removedPrinters, removedOvens })
+            store.commit('farm/APPLY_FLEET_DAEMON_BATCH', {
+                printers,
+                ovens,
+                airSensors,
+                removedPrinters,
+                removedOvens,
+                removedAirSensors,
+            })
         }
     }
 }

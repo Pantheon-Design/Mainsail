@@ -164,9 +164,9 @@ export default class PageFarm extends Mixins(BaseMixin) {
         return Object.keys(this.fleetDaemonPrinters).filter((h) => enabled.has(hostKey(h))).length
     }
 
-    // Ovens (roster deviceType === 'oven') are not printers; keep them out of the counters
-    isOvenHostname(hostname: string): boolean {
-        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) === 'oven'
+    // Ovens and air sensors (roster deviceType !== 'printer') are not printers; keep them out of the counters
+    isNonPrinterHostname(hostname: string): boolean {
+        return this.$store.getters['gui/remoteprinters/getDeviceType'](hostname) !== 'printer'
     }
 
     // Status colour/label vocabulary shared with the other fleet views (farmPrinterStatus.ts)
@@ -237,7 +237,7 @@ export default class PageFarm extends Mixins(BaseMixin) {
 
     get fleetDaemonPrinters() {
         const all = this.$store.state.farm.fleetDaemonPrinters || {}
-        return Object.fromEntries(Object.entries(all).filter(([hostname]) => !this.isOvenHostname(hostname)))
+        return Object.fromEntries(Object.entries(all).filter(([hostname]) => !this.isNonPrinterHostname(hostname)))
     }
 
     get totalPrinterCount(): number {

@@ -259,7 +259,9 @@ export default class TheSelectPrinterDialog extends Mixins(BaseMixin) {
     mdiCancel = mdiCancel
 
     get printers() {
-        return this.$store.getters['gui/remoteprinters/getRemoteprinters'] ?? []
+        const all: GuiRemoteprintersStatePrinter[] = this.$store.getters['gui/remoteprinters/getRemoteprinters'] ?? []
+        // ovens / air sensors share the roster but are not Mainsail instances
+        return all.filter((p) => (p.deviceType ?? 'printer') === 'printer')
     }
 
     get canAddPrinters() {
