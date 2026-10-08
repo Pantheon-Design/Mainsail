@@ -77,6 +77,31 @@
                     stroke="rgba(40,36,30,0.35)"
                     stroke-width="1" />
 
+                <!-- air quality overlay: only sensors with a metric at Marginal or worse paint their
+                     range in the worst band's colour, fading out over another half range -->
+                <defs>
+                    <radialGradient
+                        v-for="a in alertSensors"
+                        :id="sensorGradId(a)"
+                        :key="'air-grad-' + a.hostname"
+                        gradientUnits="userSpaceOnUse"
+                        :cx="a.cx"
+                        :cy="a.cy"
+                        :r="a.radius * 1.5">
+                        <stop offset="0%" :stop-color="a.color" stop-opacity="0.45" />
+                        <stop offset="66%" :stop-color="a.color" stop-opacity="0.4" />
+                        <stop offset="100%" :stop-color="a.color" stop-opacity="0" />
+                    </radialGradient>
+                </defs>
+                <circle
+                    v-for="a in alertSensors"
+                    :key="'air-field-' + a.hostname"
+                    :cx="a.cx"
+                    :cy="a.cy"
+                    :r="a.radius * 1.5"
+                    :fill="`url(#${sensorGradId(a)})`"
+                    pointer-events="none" />
+
                 <!-- ovens: hollow rounded square in the oven legend colour -->
                 <g v-for="o in ovens" :key="'oven-' + o.hostname" class="dash-map__oven">
                     <title>{{ o.hostname }} · oven · {{ o.label }}</title>
@@ -91,6 +116,57 @@
                         stroke-width="3"
                         :stroke-dasharray="o.offline ? '4 3' : undefined"
                         :opacity="o.offline ? 0.55 : 1" />
+                </g>
+
+                <!-- air quality sensors: square body with two antennas in the worst band's colour
+                     (green = every metric Good), no reading text; "!" when Marginal or worse -->
+                <g
+                    v-for="a in sensors"
+                    :key="'air-' + a.hostname"
+                    class="dash-map__air"
+                    :opacity="a.offline ? 0.55 : 1">
+                    <title>{{ a.title }}</title>
+                    <line
+                        :x1="a.cx - 10"
+                        :y1="a.cy - 12"
+                        :x2="a.cx - 14"
+                        :y2="a.cy - 20"
+                        :stroke="a.offline ? '#9e9e9e' : '#2b2824'"
+                        stroke-width="2.2"
+                        stroke-linecap="round" />
+                    <line
+                        :x1="a.cx + 10"
+                        :y1="a.cy - 12"
+                        :x2="a.cx + 14"
+                        :y2="a.cy - 20"
+                        :stroke="a.offline ? '#9e9e9e' : '#2b2824'"
+                        stroke-width="2.2"
+                        stroke-linecap="round" />
+                    <circle :cx="a.cx - 14" :cy="a.cy - 20" r="2.2" :fill="a.offline ? '#9e9e9e' : '#2b2824'" />
+                    <circle :cx="a.cx + 14" :cy="a.cy - 20" r="2.2" :fill="a.offline ? '#9e9e9e' : '#2b2824'" />
+                    <rect
+                        :x="a.cx - 16"
+                        :y="a.cy - 12"
+                        width="32"
+                        height="26"
+                        rx="5"
+                        :fill="a.color"
+                        :stroke="a.offline ? '#c4c4c4' : 'rgba(255,255,255,0.9)'"
+                        stroke-width="2"
+                        :stroke-dasharray="a.offline ? '4 3' : undefined" />
+                    <g v-if="a.alert" class="dash-map__sticker">
+                        <circle
+                            :cx="a.cx + STICKER_OFF"
+                            :cy="a.cy + 12"
+                            :r="STICKER_R"
+                            :fill="a.color"
+                            stroke="rgba(255,255,255,0.9)"
+                            stroke-width="1.5" />
+                        <path
+                            :d="mdiExclamationThick"
+                            fill="#fff"
+                            :transform="`translate(${a.cx + STICKER_OFF - 7}, ${a.cy + 12 - 7}) scale(${14 / 24})`" />
+                    </g>
                 </g>
 
                 <!-- printers: coloured status icon + worker sticker only -->
@@ -236,6 +312,7 @@ import {
     MapLocation,
     cropBox,
     gridRows,
+    airSensorHostnames,
     ovenHostnames,
     printerHostnames,
     printerGridPosition,
@@ -245,7 +322,15 @@ import {
 import { SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import { attentionChipTitle } from '@/components/panels/fleetWorkerAttention'
 import { getOvenStatus, OVEN_LEGEND, OVEN_STATUS_META } from '@/components/panels/farmOvenStatus'
-import { OvenFrame } from '@/store/farm/types'
+import { AirSensorFrame, OvenFrame } from '@/store/farm/types'
+import { AirMetric } from '@/store/fleet/air/types'
+import {
+    AIR_NEUTRAL_COLOR,
+    formatMetricReading,
+    isSensorOnline,
+    worstReading,
+    SEVERITY_ATTENTION,
+} from '@/components/panels/airQualityBands'
 
 interface MarkerVm {
     hostname: string
@@ -271,6 +356,20 @@ interface OvenVm {
     color: string
     label: string
     offline: boolean
+}
+
+interface SensorVm {
+    hostname: string
+    cx: number
+    cy: number
+    /** worst band colour across all metrics (green when everything is Good), grey when offline */
+    color: string
+    /** any metric at Marginal or worse: paint the range overlay + the "!" badge */
+    alert: boolean
+    /** overlay radius in grid px (sensorRange × CELL) */
+    radius: number
+    offline: boolean
+    title: string
 }
 
 let svgSeq = 0
@@ -439,10 +538,77 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         })
     }
 
+    airSensorFrame(hostname: string): AirSensorFrame | null {
+        const frames: Record<string, AirSensorFrame> = this.$store.state.farm.fleetDaemonAirSensors || {}
+        const key = hostKey(hostname)
+        for (const [h, frame] of Object.entries(frames)) {
+            if (hostKey(h) === key) return frame
+        }
+        return null
+    }
+
+    get airMetrics(): AirMetric[] {
+        return this.$store.getters['fleet/air/getMetrics'] ?? []
+    }
+
+    /** Air sensors placed on this floor (roster-driven like ovens, so an unreported sensor still shows). */
+    get sensors(): SensorVm[] {
+        return airSensorHostnames(this.roster, this.location).map((hostname) => {
+            const pos = printerGridPosition(this.roster, hostname)
+            const frame = this.airSensorFrame(hostname)
+            const online = isSensorOnline(frame, this.connected)
+            const worst = online ? worstReading(this.airMetrics, frame) : null
+            const alert = !!worst && worst.severity >= SEVERITY_ATTENTION + 1
+            const range = this.$store.getters['gui/remoteprinters/getSensorRange'](hostname) as number
+            const entry =
+                this.roster[
+                    Object.keys(this.roster).find((k) => hostKey(this.roster[k]?.hostname) === hostKey(hostname)) ?? ''
+                ]
+            const label: string = entry?.label || hostname.replace(/\.local$/i, '')
+            const lines = [`${label} · ${hostname}`]
+            if (!online) lines.push('offline')
+            else if (!worst) lines.push('no readings yet')
+            else if (worst.severity === 0) lines.push('All metrics Good')
+            else
+                lines.push(
+                    `${worst.metric.label} ${formatMetricReading(worst.metric, worst.value)} · ${worst.band.name}`
+                )
+            return {
+                hostname,
+                cx: (pos.x - 0.5) * CELL,
+                cy: (pos.y - 0.5) * CELL,
+                color: !online ? AIR_NEUTRAL_COLOR : worst ? worst.band.color : AIR_NEUTRAL_COLOR,
+                alert,
+                radius: range * CELL,
+                offline: !online,
+                title: lines.join('\n'),
+            }
+        })
+    }
+
+    /** Sensors that paint an overlay + badge (any metric Marginal or worse). */
+    get alertSensors(): SensorVm[] {
+        return this.sensors.filter((a) => a.alert)
+    }
+
+    sensorGradId(a: SensorVm): string {
+        return `${this.patternId}-air-${hostKey(a.hostname).replace(/[^a-z0-9]/g, '-')}`
+    }
+
+    mounted() {
+        // Band colours come from the daemon's metric catalog; the Air Quality page loads it on
+        // demand, the dashboard has to as well (once per app, the store keeps it).
+        const air = this.$store.state.fleet?.air
+        if (air && !air.metrics?.length && !air.loading) {
+            this.$store.dispatch('fleet/air/loadMetrics').catch(() => undefined)
+        }
+    }
+
     get crop() {
         const positions = [
             ...this.printers.map((p) => printerGridPosition(this.roster, p.hostname)),
             ...this.ovens.map((o) => printerGridPosition(this.roster, o.hostname)),
+            ...this.sensors.map((a) => printerGridPosition(this.roster, a.hostname)),
         ]
         return cropBox(positions, this.location, 1)
     }
