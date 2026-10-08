@@ -14,7 +14,7 @@ export const AIR_SENSOR_PRINTER_MODEL: PrinterModel = 'Air Sensor'
 /** Air sensors: MQTT port of the Panda Sense Pro built-in broker (not editable in the UI). */
 export const AIR_SENSOR_PORT = 1883
 /** Air sensors: radius (grid cells) the reading is drawn over on the Air Quality map. */
-export const DEFAULT_SENSOR_RANGE = 6
+export const DEFAULT_SENSOR_RANGE = 3
 export const MIN_SENSOR_RANGE = 1
 export const MAX_SENSOR_RANGE = 25
 export const SQUARE_PRINTER_MODELS: PrinterModel[] = ['HS-Pro', 'Tallboi']
