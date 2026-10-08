@@ -26,6 +26,7 @@
         </div>
         <div class="fleet-dashboard__col fleet-dashboard__col--jobs">
             <dashboard-jobs-panel class="fleet-dashboard__jobs" />
+            <dashboard-air-panel class="fleet-dashboard__air" />
         </div>
         <div class="fleet-dashboard__col fleet-dashboard__col--workers">
             <dashboard-workers-panel
@@ -45,6 +46,7 @@ import DashboardStatusBar from '@/components/panels/DashboardStatusBar.vue'
 import DashboardFleetMap from '@/components/panels/DashboardFleetMap.vue'
 import DashboardWorkersPanel from '@/components/panels/DashboardWorkersPanel.vue'
 import DashboardJobsPanel from '@/components/panels/DashboardJobsPanel.vue'
+import DashboardAirPanel from '@/components/panels/DashboardAirPanel.vue'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { FleetWorker } from '@/store/fleet/jobs/types'
 import {
@@ -75,6 +77,7 @@ import { sanitizeIntervals } from '@/store/fleet/forecast'
         DashboardFleetMap,
         DashboardWorkersPanel,
         DashboardJobsPanel,
+        DashboardAirPanel,
     },
 })
 export default class PageDashboard extends Mixins(BaseMixin) {
@@ -312,6 +315,12 @@ export default class PageDashboard extends Mixins(BaseMixin) {
     flex: 1 1 0;
     min-height: 0;
 }
+/* air sensor card under the jobs: takes what its rows need, never more than 40% of the column */
+.fleet-dashboard__air {
+    flex: 0 1 auto;
+    max-height: 40%;
+    min-height: 0;
+}
 /* stacked layout (tablet / phone): give the maps and lists a sensible height */
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__map {
     height: 320px;
@@ -325,6 +334,9 @@ export default class PageDashboard extends Mixins(BaseMixin) {
 }
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__jobs {
     max-height: 50vh;
+}
+.fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__air {
+    max-height: 40vh;
 }
 .fleet-dashboard:not(.fleet-dashboard--fixed) .fleet-dashboard__workers {
     max-height: 70vh;
