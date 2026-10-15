@@ -34,6 +34,9 @@ const FLUSH_MS = 250
  *   - `{"event": ...}` messages are re-emitted on `fleetDaemonEvents` unchanged.
  */
 class FleetDaemonClient {
+    /** Delay before the air metric catalog load is tried again after a failure. */
+    private static readonly METRICS_RETRY_MS = 5000
+
     private socket: WebSocket | null = null
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null
     private started = false
@@ -44,6 +47,8 @@ class FleetDaemonClient {
      *  so the store entry keeps its object identity and nothing depending on it re-renders. */
     private lastSig = new Map<string, string>()
     private flushTimer: ReturnType<typeof setTimeout> | null = null
+    /** Pending retry of the air metric catalog load (see ensureAirMetrics). */
+    private metricsRetryTimer: ReturnType<typeof setTimeout> | null = null
 
     get isConnected(): boolean {
         return this.socket !== null && this.socket.readyState === WebSocket.OPEN
@@ -97,6 +102,7 @@ class FleetDaemonClient {
                     clearTimeout(this.reconnectTimer)
                     this.reconnectTimer = null
                 }
+                this.ensureAirMetrics()
             }
 
             this.socket.onmessage = (event: MessageEvent) => {
@@ -170,6 +176,7 @@ class FleetDaemonClient {
                 console.warn('[FleetDaemon] Disconnected')
                 this.socket = null
                 this.resetBuffer()
+                this.cancelAirMetricsRetry()
                 store.commit('farm/SET_FLEET_DAEMON_CONNECTED', false)
 
                 if (this.started) {
@@ -199,7 +206,37 @@ class FleetDaemonClient {
             this.socket = null
         }
         this.resetBuffer()
+        this.cancelAirMetricsRetry()
         store.commit('farm/SET_FLEET_DAEMON_CONNECTED', false)
+    }
+
+    /**
+     * Air metric catalog (fleet/air, GET /air/metrics): the dashboard and the maps colour the
+     * sensors from it, and without it every sensor paints neutral grey ("no readings yet") even
+     * though its frames are arriving. The pages load it on mount, but a load that fails or is
+     * fired before this daemon is reachable (URL still loading from the Moonraker DB, daemon
+     * restarting) was never retried, so the first page sat grey until it was remounted.
+     * Loading it here, every time the socket opens, uses the URL the daemon just answered on
+     * and retries while the connection is up until the catalog arrives.
+     */
+    private ensureAirMetrics() {
+        this.cancelAirMetricsRetry()
+        const air = (store.state as any).fleet?.air
+        if (!air || air.metrics?.length) return
+        store.dispatch('fleet/air/loadMetrics').catch(() => {
+            if (!this.isConnected || this.metricsRetryTimer) return
+            this.metricsRetryTimer = setTimeout(() => {
+                this.metricsRetryTimer = null
+                this.ensureAirMetrics()
+            }, FleetDaemonClient.METRICS_RETRY_MS)
+        })
+    }
+
+    private cancelAirMetricsRetry() {
+        if (this.metricsRetryTimer) {
+            clearTimeout(this.metricsRetryTimer)
+            this.metricsRetryTimer = null
+        }
     }
 
     /** Drop buffered frames and forget signatures: the next connection starts with a full snapshot. */

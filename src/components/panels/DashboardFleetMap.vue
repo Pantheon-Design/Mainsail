@@ -617,9 +617,10 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
 
     mounted() {
         // Band colours come from the daemon's metric catalog; the Air Quality page loads it on
-        // demand, the dashboard has to as well (once per app, the store keeps it).
-        const air = this.$store.state.fleet?.air
-        if (air && !air.metrics?.length && !air.loading) {
+        // demand, the dashboard has to as well (once per app, the store keeps it). The action
+        // shares one request between callers, and fleetDaemonClient reloads it on every daemon
+        // (re)connect, so a failed first load does not leave the sensors grey until a remount.
+        if (!this.airMetrics.length) {
             this.$store.dispatch('fleet/air/loadMetrics').catch(() => undefined)
         }
     }

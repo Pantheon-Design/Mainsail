@@ -186,8 +186,9 @@ export default class DashboardAirPanel extends Mixins(BaseMixin) {
 
     mounted() {
         // Bands/colours come from the daemon's metric catalog (loaded on demand, kept in the store).
-        const air = this.$store.state.fleet?.air
-        if (air && !air.metrics?.length && !air.loading) {
+        // The action shares one request between callers and fleetDaemonClient reloads the catalog
+        // on every daemon (re)connect, so a failed first load is retried without a remount.
+        if (!this.metrics.length) {
             this.$store.dispatch('fleet/air/loadMetrics').catch(() => undefined)
         }
     }
