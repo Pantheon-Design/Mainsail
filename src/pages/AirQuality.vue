@@ -9,8 +9,15 @@
                     <span v-if="totalSensorCount">&middot; {{ totalOnlineCount }} {{ $t('AirQuality.Online') }}</span>
                 </span>
                 <span v-if="!daemonConnected" class="air-offline-chip">{{ $t('FleetDashboard.DaemonOffline') }}</span>
+                <v-spacer />
+                <v-btn small outlined color="primary" :title="$t('AirQuality.HistoryHint')" @click="historyOpen = true">
+                    <v-icon small left>{{ mdiHistory }}</v-icon> {{ $t('AirQuality.History') }}
+                </v-btn>
             </div>
         </div>
+
+        <!-- Hourly archive on the same maps with a scrubbable timeline (GET /air/history) -->
+        <air-history-dialog v-model="historyOpen" :initial-metric-key="metricKey" />
 
         <!-- Metric selector: one chip per catalog entry (GET /air/metrics) -->
         <div class="air-metrics mb-2">
@@ -56,7 +63,9 @@
 <script lang="ts">
 import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
+import { mdiHistory } from '@mdi/js'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import AirHistoryDialog from '@/components/dialogs/AirHistoryDialog.vue'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { hostKey } from '@/plugins/hostKey'
 import { AirMetric } from '@/store/fleet/air/types'
@@ -72,10 +81,14 @@ import { AIR_NEUTRAL_COLOR, bandRangeText, isSensorOnline, metricUnit } from '@/
 @Component({
     components: {
         FarmMapSection,
+        AirHistoryDialog,
     },
 })
 export default class PageAirQuality extends Mixins(BaseMixin) {
     readonly AIR_NEUTRAL_COLOR = AIR_NEUTRAL_COLOR
+    mdiHistory = mdiHistory
+
+    historyOpen = false
 
     private reloadTimer: ReturnType<typeof setTimeout> | null = null
 

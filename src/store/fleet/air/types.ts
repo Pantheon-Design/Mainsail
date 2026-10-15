@@ -22,6 +22,40 @@ export interface AirMetric {
     bands: AirMetricBand[]
 }
 
+/** One hour of `GET /air/history`: every sensor's archived frame at that hour. */
+export interface AirHistoryHour {
+    /** ISO-8601 UTC, hour-aligned */
+    ts: string
+    /** epoch seconds of `ts` */
+    epoch: number
+    /** hostname -> air-sensor frame as archived (+ label/location at the time) */
+    sensors: Record<string, AirHistoryFrame>
+}
+
+export interface AirHistoryFrame {
+    hostname: string
+    device_type: 'air_sensor'
+    online: boolean
+    last_update: number | null
+    values: Record<string, number | null>
+    error?: string | null
+    label?: string | null
+    location?: string | null
+    /** exact archive timestamp of this row */
+    ts?: string
+}
+
+export interface AirHistoryResponse {
+    since: string
+    until: string
+    /** where the rows came from: fleet_air_snapshot or the NAS/staging day-files */
+    source: 'postgres' | 'files' | null
+    hours: AirHistoryHour[]
+    rows?: number
+    truncated?: boolean
+    db_error?: string
+}
+
 export interface FleetAirState {
     metrics: AirMetric[]
     loading: boolean

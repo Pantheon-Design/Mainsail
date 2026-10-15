@@ -1,6 +1,15 @@
 {
     "AirQuality": {
         "AddSensor": "Add Sensor",
+        "History": "History",
+        "HistoryEmpty": "No hourly snapshots in this range yet. The daemon archives one row per sensor every hour.",
+        "HistoryError": "Could not load the air history:",
+        "HistoryHint": "Scroll the timeline to pick an hour, then hover a sensor for its readings at that time.",
+        "HistoryLatest": "Latest",
+        "HistoryNext": "Next hour",
+        "HistoryPrev": "Previous hour",
+        "HistoryStripHint": "Worst quality band across all sensors for the selected metric, per hour. Click to jump.",
+        "HistoryTitle": "Air quality history",
         "Legend": "Legend",
         "Metric": "Metric",
         "MetricsUnavailable": "Metric definitions unavailable: fleet_daemon did not answer GET /air/metrics. Sensors are shown without quality colours.",

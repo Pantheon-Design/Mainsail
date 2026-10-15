@@ -10,6 +10,9 @@
         <div v-if="mode === 'workers'" class="map-controls mb-2">
             <span class="edit-hint">Click a printer to toggle it as a fleet worker.</span>
         </div>
+        <div v-else-if="readonly" class="map-controls mb-2">
+            <span class="edit-hint">{{ readonlyHint }}</span>
+        </div>
         <div v-else class="map-controls mb-2">
             <v-btn
                 small
@@ -419,6 +422,15 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     @Prop({ type: String, default: 'map' }) readonly mode!: 'map' | 'workers' | 'air'
     /** Air mode: key of the metric (from fleet/air/getMetrics) the markers and overlay show. */
     @Prop({ type: String, default: '' }) readonly metricKey!: string
+    /** Air mode, history view: archived frames (hostname -> frame) to render INSTEAD of the live
+     *  websocket frames. A sensor's `online` is then taken from the archive, not the live socket. */
+    @Prop({ type: Object, default: null }) readonly airFrames!: Record<string, AirSensorFrame> | null
+    /** Air mode, history view: what `airFrames` are (e.g. "Tue 13 Oct, 14:00") for the tooltip. */
+    @Prop({ type: String, default: '' }) readonly airFramesLabel!: string
+    /** Hide the Edit / Add / Draw controls (history view, embedded maps). */
+    @Prop({ type: Boolean, default: false }) readonly readonly!: boolean
+    /** Hint shown in place of the controls when `readonly`. */
+    @Prop({ type: String, default: 'Hover a sensor for its readings.' }) readonly readonlyHint!: string
     /** Map mode only: also show the per-section worker count, stickers and tooltip lines
      *  (the Fleet Map page passes this so it mirrors the Workers map without toggling). */
     @Prop({ type: Boolean, default: false }) readonly showWorkers!: boolean
@@ -551,8 +563,14 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     // ---------- air sensors (air mode) ----------
+    /** Live websocket frames, or the archived hour handed in by the history view. */
     get fleetDaemonAirSensors(): Record<string, AirSensorFrame> {
+        if (this.airFrames !== null) return this.airFrames
         return this.$store.state.farm.fleetDaemonAirSensors || {}
+    }
+
+    get historical(): boolean {
+        return this.airFrames !== null
     }
 
     get airMetric(): AirMetric | null {
@@ -611,6 +629,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     airSensorOnline(hostname: string): boolean {
+        if (this.historical) return !!this.airSensorFrame(hostname)?.online
         return isSensorOnline(this.airSensorFrame(hostname), this.$store.state.farm.fleetDaemonConnected)
     }
 
@@ -1253,6 +1272,11 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
     }
 
     get hoveredAirSensorAge(): string {
+        if (this.historical) {
+            const frame = this.hoveredAirSensorFrame
+            if (!frame) return `no snapshot${this.airFramesLabel ? ' at ' + this.airFramesLabel : ' for this hour'}`
+            return this.airFramesLabel ? `snapshot at ${this.airFramesLabel}` : 'archived snapshot'
+        }
         if (!this.$store.state.farm.fleetDaemonConnected) return 'fleet_daemon disconnected'
         const frame = this.hoveredAirSensorFrame
         if (!frame) return 'no status from fleet_daemon yet'
