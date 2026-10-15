@@ -1,6 +1,12 @@
 import Vue from 'vue'
 import { MutationTree } from 'vuex'
-import { FleetWorkersState, FleetWorker, FleetWorkerRow, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
+import {
+    FleetWorkersState,
+    FleetWorker,
+    FleetWorkerRow,
+    FleetSchedulerStatus,
+    FleetSchedulerStoragePatch,
+} from '@/store/fleet/jobs/types'
 import { getDefaultState } from './index'
 
 export const mutations: MutationTree<FleetWorkersState> = {
@@ -31,5 +37,11 @@ export const mutations: MutationTree<FleetWorkersState> = {
 
     setSchedulerStatus(state, status: FleetSchedulerStatus | null) {
         Vue.set(state, 'schedulerStatus', status)
+    },
+
+    /** Merge the NAS-gate fields from a `scheduler_status` WS event or a force_dispatch reply.
+     *  Works before the first GET /scheduler/status so every page sees the gate at once. */
+    mergeSchedulerStatus(state, patch: FleetSchedulerStoragePatch) {
+        Vue.set(state, 'schedulerStatus', { ...(state.schedulerStatus ?? {}), ...patch })
     },
 }

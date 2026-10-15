@@ -34,8 +34,18 @@
             <v-icon small color="error">{{ mdiLanDisconnect }}</v-icon>
             <span class="dash-status__label error--text">{{ $t('FleetDashboard.DaemonOffline') }}</span>
         </div>
+        <!-- NAS (gcode storage) offline: the scheduler cannot start jobs; forced = operator override on -->
+        <div
+            v-if="connected && nasBlocked"
+            class="dash-status__item dash-status__item--offline"
+            :title="nasForced ? $t('FleetDashboard.NasForcedHint') : $t('FleetDashboard.NasOfflineHint')">
+            <v-icon small :color="nasForced ? 'warning' : 'error'">{{ mdiNas }}</v-icon>
+            <span class="dash-status__label" :class="nasForced ? 'warning--text' : 'error--text'">
+                {{ $t(nasForced ? 'FleetDashboard.NasForced' : 'FleetDashboard.NasOffline') }}
+            </span>
+        </div>
         <!-- reduced motion switch: per browser, for slow screens such as TVs -->
-        <div class="dash-status__item dash-status__item--motion" :class="{ 'ml-auto': connected }">
+        <div class="dash-status__item dash-status__item--motion" :class="{ 'ml-auto': connected && !nasBlocked }">
             <v-btn
                 icon
                 :color="reducedMotion ? 'primary' : undefined"
@@ -49,10 +59,11 @@
 
 <script lang="ts">
 import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
-import { mdiHammer, mdiLanDisconnect, mdiMotionPauseOutline, mdiMotionPlayOutline } from '@mdi/js'
+import { mdiHammer, mdiLanDisconnect, mdiMotionPauseOutline, mdiMotionPlayOutline, mdiNas } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
-import { FleetWorker } from '@/store/fleet/jobs/types'
+import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
+import { nasDispatchBlocked } from '@/components/panels/fleetWorkerAttention'
 import {
     emptyStatusCounts,
     getPrinterStatus,
@@ -68,11 +79,22 @@ import { OvenFrame } from '@/store/farm/types'
 @Component
 export default class DashboardStatusBar extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workers!: FleetWorker[]
+    /** GET /scheduler/status (+ `scheduler_status` WS event): carries the NAS gate */
+    @Prop({ type: Object, default: null }) readonly scheduler!: FleetSchedulerStatus | null
     /** Reduced-motion state shown on the switch; the page owns it and handles `toggle-reduced-motion`. */
     @Prop({ type: Boolean, default: false }) readonly reducedMotion!: boolean
 
     mdiHammer = mdiHammer
     mdiLanDisconnect = mdiLanDisconnect
+    mdiNas = mdiNas
+
+    get nasBlocked(): boolean {
+        return nasDispatchBlocked(this.scheduler)
+    }
+
+    get nasForced(): boolean {
+        return this.nasBlocked && !!this.scheduler?.force_dispatch
+    }
     mdiMotionPauseOutline = mdiMotionPauseOutline
     mdiMotionPlayOutline = mdiMotionPlayOutline
     readonly OVEN_LEGEND = OVEN_LEGEND

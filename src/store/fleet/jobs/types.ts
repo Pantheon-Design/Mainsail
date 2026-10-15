@@ -199,6 +199,21 @@ export interface FleetSchedulerEval {
     evaluated_at: string | null
 }
 
+/** Operator override of the NAS gate on auto dispatch (POST /scheduler/force_dispatch). */
+export interface FleetForceDispatch {
+    /** once = next scheduler pass only; until_online = until the NAS mount is back (auto-clears) */
+    mode: 'once' | 'until_online'
+    set_at: number | null
+}
+
+/** The gate fields the daemon pushes as the `scheduler_status` WS event (subset of FleetSchedulerStatus). */
+export interface FleetSchedulerStoragePatch {
+    storage_available?: boolean | null
+    storage_changed_at?: number | null
+    dispatch_paused?: string | null
+    force_dispatch?: FleetForceDispatch | null
+}
+
 export interface FleetSchedulerStatus {
     running: boolean
     interval_s: number
@@ -210,6 +225,12 @@ export interface FleetSchedulerStatus {
     last_error: string | null
     /** Fleet-wide: why nothing is dispatched right now (gcode storage down); null = dispatching */
     dispatch_paused?: string | null
+    /** Central gcode storage (NAS mount) as seen by the last tick; false = Fleet cannot start jobs. null until first tick */
+    storage_available?: boolean | null
+    /** Epoch seconds of the last storage_available transition */
+    storage_changed_at?: number | null
+    /** Non-null while the operator has bypassed the NAS gate */
+    force_dispatch?: FleetForceDispatch | null
     max_dispatch_failures?: number
     in_flight: Record<string, string>
     eval: Record<string, FleetSchedulerEval>

@@ -20,6 +20,9 @@
             </v-btn>
         </v-card-title>
 
+        <!-- NAS offline: auto dispatch is off until the mount is back, or the operator forces it here -->
+        <fleet-nas-banner show-actions />
+
         <!-- Jobs the scheduler paused on its own: the operator has to fix something and resume. -->
         <v-alert
             v-for="job in autoHeldJobs"
@@ -145,9 +148,10 @@ import Component from 'vue-class-component'
 import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPlay, mdiPlus } from '@mdi/js'
 import JobFormDialog from '@/components/dialogs/JobFormDialog.vue'
 import JobDetailsDialog from '@/components/dialogs/JobDetailsDialog.vue'
+import FleetNasBanner from '@/components/panels/FleetNasBanner.vue'
 import { FleetJob, FleetJobDetail } from '@/store/fleet/jobs/types'
 
-@Component({ components: { JobFormDialog, JobDetailsDialog } })
+@Component({ components: { JobFormDialog, JobDetailsDialog, FleetNasBanner } })
 export default class JobListPanel extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiDotsVertical = mdiDotsVertical

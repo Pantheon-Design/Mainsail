@@ -17,6 +17,15 @@
                 </template>
                 <span>{{ scheduler.dispatch_paused }} — no jobs are sent to any printer until fleet gcode storage is back; dispatch resumes automatically.</span>
             </v-tooltip>
+            <v-tooltip v-if="scheduler && scheduler.force_dispatch" bottom max-width="420">
+                <template #activator="{ on }">
+                    <v-chip small color="warning" text-color="white" class="mr-2" v-on="on">
+                        <v-icon x-small left>{{ mdiAlertCircle }}</v-icon>
+                        forced dispatch
+                    </v-chip>
+                </template>
+                <span>NAS gate bypassed ({{ scheduler.force_dispatch.mode === 'until_online' ? 'until the NAS is back' : 'one pass' }}): jobs start only on printers that already hold the file.</span>
+            </v-tooltip>
             <v-btn x-small text :loading="ticking" @click="tick">Run scheduler now</v-btn>
             <v-chip small outlined class="ml-2 mr-2">
                 <v-icon x-small left color="orange">{{ mdiHammer }}</v-icon>
@@ -27,7 +36,7 @@
                 :outlined="attentionHostnames.length === 0"
                 :color="attentionHostnames.length ? 'error' : undefined"
                 :text-color="attentionHostnames.length ? 'white' : undefined"
-                title="Workers that could run a job but are blocked by low filament, not primed, or a worn-out / unset nozzle">
+                :title="attentionTitle">
                 <v-icon x-small left>{{ mdiExclamationThick }}</v-icon>
                 {{ attentionHostnames.length }} need{{ attentionHostnames.length === 1 ? 's' : '' }} attention
             </v-chip>
@@ -40,6 +49,9 @@
                 Disable all
             </v-btn>
         </v-card-title>
+
+        <!-- NAS offline: auto dispatch is off; force-dispatch controls live here and on the Jobs tab -->
+        <fleet-nas-banner show-actions />
 
         <!-- Disable-all confirmation -->
         <v-dialog v-model="disableAllDialog" max-width="440">
@@ -148,7 +160,7 @@
                             </td>
                             <td>
                                 <span :class="{ 'text--secondary': !w.connected }">{{ shortName(w.printer_hostname) }}</span>
-                                <v-icon v-if="needsAttention(w)" x-small color="error" class="ml-1" :title="w.reason">{{ mdiExclamationThick }}</v-icon>
+                                <v-icon v-if="needsAttention(w)" x-small color="error" class="ml-1" :title="attentionReasons[w.printer_hostname] || w.reason">{{ mdiExclamationThick }}</v-icon>
                                 <v-icon v-else-if="w.enabled" x-small color="orange" class="ml-1">{{ mdiHammer }}</v-icon>
                                 <div class="text-caption text--secondary">{{ w.printer_model || '' }} · {{ statusText(w) }}</div>
                             </td>
@@ -233,11 +245,13 @@ import { mdiAlertCircle, mdiExclamationThick, mdiFormatListBulleted, mdiHammer, 
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus, PrinterStatus, STATUS_META, STATUS_ORDER } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import FleetNasBanner from '@/components/panels/FleetNasBanner.vue'
 import {
-    workerNeedsAttention,
-    enabledWorkerHostnames,
+    attentionChipTitle,
     attentionWorkerHostnames,
     attentionWorkerReasons,
+    enabledWorkerHostnames,
+    workerNeedsAttention,
 } from '@/components/panels/fleetWorkerAttention'
 import { hostKey } from '@/plugins/hostKey'
 
@@ -247,7 +261,7 @@ const SIDE_WIDTH_KEY = 'fleetWorkersSideWidth'
 const SIDE_MIN_WIDTH = 260
 const MAP_MIN_WIDTH = 360
 
-@Component({ components: { FarmMapSection } })
+@Component({ components: { FarmMapSection, FleetNasBanner } })
 export default class WorkerListPanel extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiHandBackRight = mdiHandBackRight
@@ -429,16 +443,21 @@ export default class WorkerListPanel extends Vue {
 
     /** See fleetWorkerAttention.ts (shared with the Fleet Map page). */
     needsAttention(w: FleetWorker): boolean {
-        return workerNeedsAttention(w)
+        return workerNeedsAttention(w, this.scheduler)
     }
 
+    /** Includes every enabled worker while the NAS is offline (Fleet cannot start jobs on it). */
     get attentionHostnames(): string[] {
-        return attentionWorkerHostnames(this.workers)
+        return attentionWorkerHostnames(this.workers, this.scheduler)
     }
 
-    /** hostname -> scheduler reason, for the map tooltip. */
+    /** hostname -> reason, for the map tooltip and the list's "!" icon. */
     get attentionReasons(): Record<string, string> {
-        return attentionWorkerReasons(this.workers)
+        return attentionWorkerReasons(this.workers, this.scheduler)
+    }
+
+    get attentionTitle(): string {
+        return attentionChipTitle(this.attentionHostnames, this.attentionReasons)
     }
 
     get enabledCount(): number {

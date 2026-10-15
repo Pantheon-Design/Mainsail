@@ -37,6 +37,9 @@
             </div>
         </div>
 
+        <!-- NAS offline: Fleet cannot start jobs; every enabled worker also gets the "!" sticker -->
+        <fleet-nas-banner flush class="mb-4" />
+
         <!-- Print Farm map (worker stickers + count mirror the Jobs → Workers map) -->
         <farm-map-section
             location="farm"
@@ -64,7 +67,8 @@ import { mdiExclamationThick, mdiHammer } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
-import { FleetWorker } from '@/store/fleet/jobs/types'
+import FleetNasBanner from '@/components/panels/FleetNasBanner.vue'
+import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import {
     enabledWorkerHostnames,
@@ -91,6 +95,7 @@ import { OvenFrame } from '@/store/farm/types'
 @Component({
     components: {
         FarmMapSection,
+        FleetNasBanner,
     },
 })
 export default class PageFarm extends Mixins(BaseMixin) {
@@ -122,6 +127,8 @@ export default class PageFarm extends Mixins(BaseMixin) {
     /** Worker state is informational here, so a failed load just leaves the stickers off. */
     loadWorkers() {
         this.$store.dispatch('fleet/workers/loadWorkers').catch(() => {})
+        // NAS gate (storage_available / force_dispatch); the WS `scheduler_status` event keeps it live
+        this.$store.dispatch('fleet/workers/loadSchedulerStatus').catch(() => {})
     }
 
     onVisibility() {
@@ -145,12 +152,17 @@ export default class PageFarm extends Mixins(BaseMixin) {
         return enabledWorkerHostnames(this.workers)
     }
 
+    get scheduler(): FleetSchedulerStatus | null {
+        return this.$store.getters['fleet/workers/getSchedulerStatus']
+    }
+
+    /** Includes every enabled worker while the NAS is offline (Fleet cannot start jobs on it). */
     get attentionHostnames(): string[] {
-        return attentionWorkerHostnames(this.workers)
+        return attentionWorkerHostnames(this.workers, this.scheduler)
     }
 
     get attentionReasons(): Record<string, string> {
-        return attentionWorkerReasons(this.workers)
+        return attentionWorkerReasons(this.workers, this.scheduler)
     }
 
     /** Chip hover: one `host: reason` line per blocked worker, else what the chip means. */

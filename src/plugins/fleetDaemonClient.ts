@@ -140,6 +140,17 @@ class FleetDaemonClient {
                     if (message.event === 'workers_updated') {
                         fleetDaemonEvents.$emit('workers_updated')
                     }
+                    if (message.event === 'scheduler_status') {
+                        // NAS gate state (storage_available / force_dispatch): straight into the
+                        // store so the maps and dashboard react without a GET /scheduler/status.
+                        store.commit('fleet/workers/mergeSchedulerStatus', {
+                            storage_available: message.storage_available ?? null,
+                            storage_changed_at: message.storage_changed_at ?? null,
+                            dispatch_paused: message.dispatch_paused ?? null,
+                            force_dispatch: message.force_dispatch ?? null,
+                        })
+                        fleetDaemonEvents.$emit('scheduler_status')
+                    }
                     if (message.event === 'activity_updated') {
                         fleetDaemonEvents.$emit('activity_updated', message.hostname ?? null)
                     }

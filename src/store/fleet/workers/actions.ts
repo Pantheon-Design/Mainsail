@@ -169,6 +169,22 @@ export const actions: ActionTree<FleetWorkersState, RootState> = {
         }
     },
 
+    /**
+     * POST /scheduler/force_dispatch — operator override of the NAS gate.
+     * mode: 'once' (next scheduler pass only), 'until_online' (auto-clears when the
+     * NAS is back) or 'off'. The reply is the gate snapshot, merged into schedulerStatus.
+     */
+    async setForceDispatch({ commit, rootGetters }, mode: 'once' | 'until_online' | 'off') {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.post(`${baseUrl}/scheduler/force_dispatch`, { mode })
+            commit('mergeSchedulerStatus', response.data)
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
     /** POST /scheduler/tick — wakes the scheduler loop. */
     async triggerTick({ rootGetters }) {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']

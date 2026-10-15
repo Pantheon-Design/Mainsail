@@ -169,7 +169,7 @@ import { mdiAutorenew, mdiExclamationThick, mdiHammer, mdiPrinter3dNozzle, mdiPr
 import { mdiSpool } from '@/plugins/customIcons'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
-import { FleetWorker } from '@/store/fleet/jobs/types'
+import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { ServiceTrackerPrinterSummary } from '@/store/fleet/maintenance/types'
 import {
     computeNozzleHealthPct,
@@ -236,6 +236,8 @@ interface WorkerRow {
 @Component
 export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
     @Prop({ type: Array, default: () => [] }) readonly workers!: FleetWorker[]
+    /** NAS gate: while storage_available is false every enabled worker needs attention */
+    @Prop({ type: Object, default: null }) readonly scheduler!: FleetSchedulerStatus | null
     @Prop({ type: Array, default: () => [1, 2] }) readonly intervalsHours!: number[]
     /** Reduced motion (slow screens): the attention banner stays solid red instead of flashing. */
     @Prop({ type: Boolean, default: false }) readonly reducedMotion!: boolean
@@ -394,11 +396,15 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
     }
 
     get attentionHostnames(): string[] {
-        return attentionWorkerHostnames(this.workers)
+        return attentionWorkerHostnames(this.workers, this.scheduler)
+    }
+
+    get attentionReasons(): Record<string, string> {
+        return attentionWorkerReasons(this.workers, this.scheduler)
     }
 
     get attentionTitle(): string {
-        return attentionChipTitle(this.attentionHostnames, attentionWorkerReasons(this.workers))
+        return attentionChipTitle(this.attentionHostnames, this.attentionReasons)
     }
 
     shortName(hostname: string): string {
@@ -482,8 +488,8 @@ export default class DashboardWorkersPanel extends Mixins(BaseMixin) {
                     status,
                     statusLabel: STATUS_META[status].label,
                     color: STATUS_META[status].color,
-                    attention: workerNeedsAttention(w),
-                    reason: w.reason,
+                    attention: workerNeedsAttention(w, this.scheduler),
+                    reason: this.attentionReasons[w.printer_hostname] ?? w.reason,
                     progress,
                     nozzlePct,
                     gramsLeft,

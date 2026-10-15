@@ -8,6 +8,7 @@
         <div class="fleet-dashboard__col fleet-dashboard__col--maps">
             <dashboard-status-bar
                 :workers="workers"
+                :scheduler="scheduler"
                 :reduced-motion="reducedMotion"
                 class="fleet-dashboard__status"
                 @toggle-reduced-motion="setReducedMotion(!reducedMotion)" />
@@ -31,6 +32,7 @@
         <div class="fleet-dashboard__col fleet-dashboard__col--workers">
             <dashboard-workers-panel
                 :workers="workers"
+                :scheduler="scheduler"
                 :intervals-hours="intervalsHours"
                 :reduced-motion="reducedMotion"
                 class="fleet-dashboard__workers"
@@ -48,7 +50,7 @@ import DashboardWorkersPanel from '@/components/panels/DashboardWorkersPanel.vue
 import DashboardJobsPanel from '@/components/panels/DashboardJobsPanel.vue'
 import DashboardAirPanel from '@/components/panels/DashboardAirPanel.vue'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
-import { FleetWorker } from '@/store/fleet/jobs/types'
+import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import {
     enabledWorkerHostnames,
     attentionWorkerHostnames,
@@ -153,8 +155,10 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         this.$store.dispatch('fleet/maintenance/loadPrinters').catch(() => {})
     }
 
+    /** The red pulse is for blockers fixable at a printer; a NAS outage shows in the
+     *  status bar, the worker banner and the map stickers instead of flashing the screen. */
     get attentionActive(): boolean {
-        return this.attentionHostnames.length > 0
+        return attentionWorkerHostnames(this.workers).length > 0
     }
 
     /** Both loads are informational: a failure just leaves the last data (or the panel's own hint). */
@@ -166,9 +170,14 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         this.$store.dispatch('fleet/jobs/loadForecast').catch(() => {})
     }
 
+    loadScheduler() {
+        this.$store.dispatch('fleet/workers/loadSchedulerStatus').catch(() => {})
+    }
+
     loadAll() {
         this.loadWorkers()
         this.loadForecast()
+        this.loadScheduler()
     }
 
     onVisibility() {
@@ -182,6 +191,7 @@ export default class PageDashboard extends Mixins(BaseMixin) {
             await Promise.allSettled([
                 this.$store.dispatch('fleet/workers/loadWorkers'),
                 this.$store.dispatch('fleet/jobs/loadForecast'),
+                this.$store.dispatch('fleet/workers/loadSchedulerStatus'),
             ])
         } finally {
             this.polling = false
@@ -220,12 +230,17 @@ export default class PageDashboard extends Mixins(BaseMixin) {
         return enabledWorkerHostnames(this.workers)
     }
 
+    get scheduler(): FleetSchedulerStatus | null {
+        return this.$store.getters['fleet/workers/getSchedulerStatus']
+    }
+
+    /** Map stickers: workers blocked at the printer plus, while the NAS is offline, every enabled worker. */
     get attentionHostnames(): string[] {
-        return attentionWorkerHostnames(this.workers)
+        return attentionWorkerHostnames(this.workers, this.scheduler)
     }
 
     get attentionReasons(): Record<string, string> {
-        return attentionWorkerReasons(this.workers)
+        return attentionWorkerReasons(this.workers, this.scheduler)
     }
 
     get intervalsHours(): number[] {
