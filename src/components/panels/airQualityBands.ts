@@ -32,8 +32,8 @@ export function bandColor(metric: AirMetric | null | undefined, value: number | 
     return bandFor(metric, value)?.color ?? AIR_NEUTRAL_COLOR
 }
 
-/** Numeric reading of `key` from a frame, null when missing or not a number. */
-export function sensorValue(frame: AirSensorFrame | null | undefined, key: string | null | undefined): number | null {
+/** Raw numeric reading of `key` from a frame, null when missing or not a number (ignores quality). */
+export function rawSensorValue(frame: AirSensorFrame | null | undefined, key: string | null | undefined): number | null {
     if (!frame || !key) return null
     const raw = frame.values?.[key]
     if (raw === null || raw === undefined) return null
@@ -41,13 +41,49 @@ export function sensorValue(frame: AirSensorFrame | null | undefined, key: strin
     return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Quality the daemon attached to a metric (AirGradient / Dyson), null when it attached none
+ * (Panda Sense Pro and older daemons: every value counts as valid).
+ */
+export function metricQuality(frame: AirSensorFrame | null | undefined, key: string | null | undefined): string | null {
+    if (!frame || !key) return null
+    return frame.metric_quality?.[key] ?? null
+}
+
+/** True when a metric's value is flagged (anything but `valid`); such a value never drives bands or alerts. */
+export function isQualityFlagged(frame: AirSensorFrame | null | undefined, key: string | null | undefined): boolean {
+    const q = metricQuality(frame, key)
+    return q !== null && q !== 'valid'
+}
+
+/**
+ * Usable reading of `key`: the number when its quality is valid (or unknown), null otherwise.
+ * Map colours, bands, alerts and notifications all go through this, so e.g. an AirGradient CO₂
+ * reading flagged `suspect_low` is shown (rawSensorValue) but never coloured or alerted on.
+ */
+export function sensorValue(frame: AirSensorFrame | null | undefined, key: string | null | undefined): number | null {
+    if (isQualityFlagged(frame, key)) return null
+    return rawSensorValue(frame, key)
+}
+
+/** Metrics a set of vendors can report (catalog `vendors`; a metric without it suits every vendor). */
+export function metricsForVendors(metrics: AirMetric[], vendors: Iterable<string>): AirMetric[] {
+    const set = new Set(vendors)
+    if (!set.size) return metrics
+    return metrics.filter((m) => !m.vendors?.length || m.vendors.some((v) => set.has(v)))
+}
+
 /** Online = the daemon says so AND we still have the daemon websocket. */
 export function isSensorOnline(frame: AirSensorFrame | null | undefined, daemonConnected: boolean): boolean {
     return !!frame && !!frame.online && daemonConnected
 }
 
-/** Decimals shown for a metric: temperature/humidity 1, everything else 0 (ch2o/etvoc need more). */
+/**
+ * Decimals shown for a metric: the catalog's `decimals`; for older daemons without it,
+ * temperature/humidity 1, ch2o/etvoc 3, everything else 0.
+ */
 export function metricDecimals(metric: AirMetric | null | undefined): number {
+    if (typeof metric?.decimals === 'number' && metric.decimals >= 0) return Math.min(metric.decimals, 4)
     const key = metric?.key ?? ''
     if (key === 'temperature' || key === 'humidity') return 1
     if (key === 'ch2o' || key === 'etvoc') return 3

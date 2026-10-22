@@ -19,7 +19,7 @@
         <!-- Hourly archive on the same maps with a scrubbable timeline (GET /air/history) -->
         <air-history-dialog v-model="historyOpen" :initial-metric-key="metricKey" />
 
-        <!-- Metric selector: one chip per catalog entry (GET /air/metrics) -->
+        <!-- Metric selector: one chip per catalog entry a rostered sensor reports (GET /air/metrics) -->
         <div class="air-metrics mb-2">
             <span class="air-metrics__label">{{ $t('AirQuality.Metric') }}</span>
             <v-chip-group v-if="metrics.length" v-model="metricKey" mandatory active-class="primary--text" column>
@@ -116,8 +116,9 @@ export default class PageAirQuality extends Mixins(BaseMixin) {
         }, 500)
     }
 
+    /** Metrics the rostered sensors report (catalog `vendors` vs. roster sensorVendor). */
     get metrics(): AirMetric[] {
-        return this.$store.getters['fleet/air/getMetrics'] || []
+        return this.$store.getters['fleet/air/getRosterMetrics'] || []
     }
 
     get metricsLoading(): boolean {

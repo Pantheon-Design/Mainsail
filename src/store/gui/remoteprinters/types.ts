@@ -9,10 +9,34 @@ export type PrinterModel = 'HS-3' | 'HS-Pro' | 'Tallboi' | 'Oven' | 'Air Sensor'
 export const PRINTER_MODELS: PrinterModel[] = ['HS-3', 'HS-Pro', 'Tallboi']
 export const OVEN_PRINTER_MODEL: PrinterModel = 'Oven'
 // 'Air Sensor' is the same kind of label-only model for deviceType === 'air_sensor' entries
-// (Panda Sense Pro air-quality sensors, see SettingsAirSensorsTab.vue).
+// (air-quality sensors of any vendor, see SettingsAirSensorsTab.vue).
 export const AIR_SENSOR_PRINTER_MODEL: PrinterModel = 'Air Sensor'
-/** Air sensors: MQTT port of the Panda Sense Pro built-in broker (not editable in the UI). */
-export const AIR_SENSOR_PORT = 1883
+/**
+ * Air sensor vendor (roster `sensorVendor`); picks fleet_daemon's collector. Entries saved
+ * before this field existed are Panda Sense Pro sensors.
+ *  - pandasense: BIGTREETECH Panda Sense Pro, its own MQTT broker
+ *  - airgradient: AirGradient ONE, read-only HTTP poll of /measures/current
+ *  - dyson: Dyson purifier, local MQTT (credentials live on the daemon host only)
+ */
+export type AirSensorVendor = 'pandasense' | 'airgradient' | 'dyson'
+export const AIR_SENSOR_VENDORS: AirSensorVendor[] = ['airgradient', 'dyson', 'pandasense']
+export const AIR_SENSOR_VENDOR_LABELS: Record<AirSensorVendor, string> = {
+    pandasense: 'Panda Sense Pro',
+    airgradient: 'AirGradient ONE',
+    dyson: 'Dyson purifier',
+}
+/** Air sensors: port fleet_daemon talks to, per vendor (not editable in the UI). */
+export const AIR_SENSOR_VENDOR_PORTS: Record<AirSensorVendor, number> = {
+    pandasense: 1883,
+    airgradient: 80,
+    dyson: 1883,
+}
+/** Panda Sense Pro broker port (kept for older callers). */
+export const AIR_SENSOR_PORT = AIR_SENSOR_VENDOR_PORTS.pandasense
+export function airSensorVendor(entry: { sensorVendor?: string | null } | null | undefined): AirSensorVendor {
+    const v = entry?.sensorVendor
+    return v === 'airgradient' || v === 'dyson' ? v : 'pandasense'
+}
 /** Air sensors: radius (grid cells) the reading is drawn over on the Air Quality map. */
 export const DEFAULT_SENSOR_RANGE = 3
 export const MIN_SENSOR_RANGE = 1
@@ -58,4 +82,9 @@ export interface GuiRemoteprintersStatePrinter {
     // NEW: air sensors only. Radius in grid cells the reading is painted over on the
     // Air Quality map (default DEFAULT_SENSOR_RANGE). Absent/null = default.
     sensorRange?: number | null
+    // NEW: air sensors only. Vendor (absent = 'pandasense', see airSensorVendor) and the
+    // device serial (AirGradient: 12 hex digits, checked against every response; Dyson:
+    // the MQTT username and the key into the daemon's credential file).
+    sensorVendor?: AirSensorVendor | null
+    sensorSerial?: string | null
 }

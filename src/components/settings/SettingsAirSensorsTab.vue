@@ -41,14 +41,35 @@
             </v-card-title>
             <v-card-text>
                 <settings-row
+                    :title="$t('Settings.AirSensorsTab.Vendor')"
+                    :sub-title="$t(`Settings.AirSensorsTab.VendorDescription.${form.vendor}`)">
+                    <v-select v-model="form.vendor" :items="vendorItems" dense outlined hide-details="auto" />
+                </settings-row>
+                <template v-if="form.vendor !== 'pandasense'">
+                    <v-divider class="my-2"></v-divider>
+                    <settings-row
+                        :title="$t('Settings.AirSensorsTab.Serial')"
+                        :sub-title="$t(`Settings.AirSensorsTab.SerialDescription.${form.vendor}`)">
+                        <v-text-field
+                            v-model="form.serial"
+                            :placeholder="form.vendor === 'airgradient' ? 'a0f262dc4620' : ''"
+                            :rules="[serialRule]"
+                            hide-details="auto"
+                            required
+                            dense
+                            outlined></v-text-field>
+                    </settings-row>
+                </template>
+                <v-divider class="my-2"></v-divider>
+                <settings-row
                     :title="$t('Settings.AirSensorsTab.Hostname')"
-                    :sub-title="$t('Settings.AirSensorsTab.HostnameDescription')">
+                    :sub-title="$t(`Settings.AirSensorsTab.HostnameDescription.${form.vendor}`)">
                     <v-text-field
                         v-model="form.hostname"
-                        placeholder="pandasensepro1"
+                        :placeholder="hostnamePlaceholder"
                         :rules="[hostnameRule]"
                         hide-details="auto"
-                        required
+                        :required="form.vendor !== 'airgradient'"
                         dense
                         outlined></v-text-field>
                 </settings-row>
@@ -98,8 +119,12 @@ import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '../mixins/base'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import {
-    AIR_SENSOR_PORT,
     AIR_SENSOR_PRINTER_MODEL,
+    AIR_SENSOR_VENDOR_LABELS,
+    AIR_SENSOR_VENDOR_PORTS,
+    AIR_SENSOR_VENDORS,
+    AirSensorVendor,
+    airSensorVendor,
     DEFAULT_SENSOR_RANGE,
     GuiRemoteprintersStatePrinter,
     MAX_SENSOR_RANGE,
@@ -111,6 +136,8 @@ import Vue from 'vue'
 interface AirSensorForm {
     bool: boolean
     id: string | null
+    vendor: AirSensorVendor
+    serial: string
     hostname: string
     label: string
     location: 'farm' | 'ground'
@@ -120,14 +147,23 @@ interface AirSensorForm {
 
 /** IPv4 literal with octets 0-255. */
 const IPV4_RE = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/
-/** RFC-1123 hostname (labels of letters/digits/hyphens, dot separated; `.local` allowed). */
-const HOSTNAME_RE = /^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/
+/**
+ * Hostname labels of letters/digits/hyphens, dot separated (`.local` allowed). Underscores are
+ * accepted because AirGradient monitors announce themselves as `airgradient_<serial>.local`.
+ */
+const HOSTNAME_RE = /^[A-Za-z0-9]([A-Za-z0-9_-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9_-]{0,61}[A-Za-z0-9])?)*$/
+/** AirGradient serial: 12 hex digits (the label / mDNS name shows it lower-case). */
+const AIRGRADIENT_SERIAL_RE = /^[0-9a-f]{12}$/i
+/** Dyson serial, e.g. `AB1-US-ABC1234A`. */
+const DYSON_SERIAL_RE = /^[A-Z0-9]{2,4}(-[A-Z0-9]{2,10}){1,3}$/i
 
 /**
- * Air-quality sensors (BIGTREETECH Panda Sense Pro) live in the same roster as printers
- * (gui/remoteprinters, mirrored to fleet_daemon by /refresh_printer_list) but are registered
- * with deviceType 'air_sensor'. fleet_daemon subscribes to each sensor's own MQTT broker
- * (port 1883) and streams the readings to the Air Quality map; the port is never editable.
+ * Air-quality sensors live in the same roster as printers (gui/remoteprinters, mirrored to
+ * fleet_daemon by /refresh_printer_list) but are registered with deviceType 'air_sensor' and a
+ * `sensorVendor` that picks the daemon's collector: Panda Sense Pro (its own MQTT broker),
+ * AirGradient ONE (read-only HTTP poll, serial checked on every read) or Dyson purifier (local
+ * MQTT; the credential is set up on the daemon host with fleet_air_dyson_setup.py and is never
+ * stored here). The port follows the vendor and is never editable.
  */
 @Component({
     components: { SettingsRow },
@@ -145,10 +181,54 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
         { text: 'Ground Floor', value: 'ground' },
     ]
 
+    readonly vendorItems = AIR_SENSOR_VENDORS.map((value) => ({ text: AIR_SENSOR_VENDOR_LABELS[value], value }))
+
     private form: AirSensorForm = this.blankForm()
 
     blankForm(): AirSensorForm {
-        return { bool: false, id: null, hostname: '', label: '', location: 'farm', sensorRange: DEFAULT_SENSOR_RANGE }
+        return {
+            bool: false,
+            id: null,
+            vendor: 'airgradient',
+            serial: '',
+            hostname: '',
+            label: '',
+            location: 'farm',
+            sensorRange: DEFAULT_SENSOR_RANGE,
+        }
+    }
+
+    get hostnamePlaceholder(): string {
+        if (this.form.vendor === 'pandasense') return 'pandasensepro1'
+        if (this.form.vendor === 'dyson') return '192.168.1.50'
+        return this.agHostname(this.form.serial) || 'airgradient_a0f262dc4620'
+    }
+
+    /** mDNS name an AirGradient monitor announces for its serial, '' for an invalid serial. */
+    agHostname(serial: string): string {
+        const s = (serial ?? '').trim().toLowerCase()
+        return AIRGRADIENT_SERIAL_RE.test(s) ? `airgradient_${s}` : ''
+    }
+
+    normalisedSerial(): string | null {
+        const s = (this.form.serial ?? '').trim()
+        if (this.form.vendor === 'airgradient') return AIRGRADIENT_SERIAL_RE.test(s) ? s.toLowerCase() : null
+        if (this.form.vendor === 'dyson') return DYSON_SERIAL_RE.test(s) ? s.toUpperCase() : null
+        return null
+    }
+
+    serialRule(): boolean | string {
+        return (
+            this.normalisedSerial() !== null ||
+            (this.$t(`Settings.AirSensorsTab.SerialInvalid.${this.form.vendor}`) as string)
+        )
+    }
+
+    /** Hostname to store: as typed, or `airgradient_<serial>` when an AirGradient entry leaves it blank. */
+    resolvedHostname(): string {
+        const typed = (this.form.hostname ?? '').trim()
+        if (typed || this.form.vendor !== 'airgradient') return typed
+        return this.agHostname(this.form.serial)
     }
 
     get sensors(): GuiRemoteprintersStatePrinter[] {
@@ -175,9 +255,11 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
 
     sensorSubtitle(sensor: GuiRemoteprintersStatePrinter) {
         const range = this.$store.getters['gui/remoteprinters/getSensorRange'](sensor.hostname) as number
-        return [this.locationLabel(sensor.location), this.$t('Settings.AirSensorsTab.RangeShort', { n: range })].join(
-            ' · '
-        )
+        return [
+            AIR_SENSOR_VENDOR_LABELS[airSensorVendor(sensor)],
+            this.locationLabel(sensor.location),
+            this.$t('Settings.AirSensorsTab.RangeShort', { n: range }),
+        ].join(' · ')
     }
 
     parseRange(value: string | number | null | undefined): number | null {
@@ -200,24 +282,30 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
     }
 
     hostnameRule(value: string): boolean | string {
+        // AirGradient: blank means the serial's own mDNS name.
+        if (this.form.vendor === 'airgradient' && !(value ?? '').trim()) return true
         return this.isValidHostname(value) || (this.$t('Settings.AirSensorsTab.HostnameInvalid') as string)
     }
 
     get formValid(): boolean {
-        return this.isValidHostname(this.form.hostname) && this.parseRange(this.form.sensorRange) !== null
+        if (this.form.vendor !== 'pandasense' && this.normalisedSerial() === null) return false
+        return this.isValidHostname(this.resolvedHostname()) && this.parseRange(this.form.sensorRange) !== null
     }
 
-    /** Roster values shared by add and update. The port is the sensor's built-in broker, fixed. */
+    /** Roster values shared by add and update. The port follows the vendor and is fixed. */
     get formValues() {
         const label = this.form.label.trim()
+        const vendor = this.form.vendor
         return {
-            hostname: this.form.hostname.trim(),
-            port: AIR_SENSOR_PORT,
+            hostname: this.resolvedHostname(),
+            port: AIR_SENSOR_VENDOR_PORTS[vendor],
             printerModel: AIR_SENSOR_PRINTER_MODEL,
             location: this.form.location,
             deviceType: 'air_sensor' as const,
             label: label || null,
             sensorRange: this.parseRange(this.form.sensorRange) ?? DEFAULT_SENSOR_RANGE,
+            sensorVendor: vendor,
+            sensorSerial: vendor === 'pandasense' ? null : this.normalisedSerial(),
         }
     }
 
@@ -226,9 +314,12 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
     }
 
     editSensor(sensor: GuiRemoteprintersStatePrinter) {
+        const vendor = airSensorVendor(sensor)
         this.form = {
             bool: true,
             id: sensor.id ?? null,
+            vendor,
+            serial: sensor.sensorSerial ?? '',
             hostname: sensor.hostname,
             label: sensor.label ?? '',
             location: sensor.location ?? 'farm',

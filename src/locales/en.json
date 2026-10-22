@@ -2,10 +2,13 @@
     "AirQuality": {
         "AddSensor": "Add Sensor",
         "History": "History",
-        "HistoryEmpty": "No hourly snapshots in this range yet. The daemon archives one row per sensor every hour.",
+        "HistoryChartHint": "Hourly means of each sensor's valid per-minute readings. Gaps are hours without readings; hollow points are hours with missing readings. Click a point to select that hour.",
+        "HistoryChartView": "Chart",
+        "HistoryEmpty": "No air history in this range yet. The daemon records one reading per sensor every minute.",
         "HistoryError": "Could not load the air history:",
         "HistoryHint": "Scroll the timeline to pick an hour, then hover a sensor for its readings at that time.",
         "HistoryLatest": "Latest",
+        "HistoryMapView": "Map",
         "HistoryNext": "Next hour",
         "HistoryPrev": "Previous hour",
         "HistoryStripHint": "Worst quality band across all sensors for the selected metric, per hour. Click to jump.",
@@ -978,10 +981,14 @@
         "AirSensorsTab": {
             "AddSensor": "Add Sensor",
             "AirSensors": "Air Sensors",
-            "Description": "Panda Sense Pro air-quality sensors. fleet_daemon connects to each sensor's own MQTT broker and shows the readings on the Air Quality map; sensors never count as printers.",
+            "Description": "Air-quality sensors: AirGradient ONE monitors, Dyson purifiers and Panda Sense Pro sensors. fleet_daemon reads each sensor directly, records one reading per minute and shows them on the Air Quality map; sensors never count as printers.",
             "EditSensor": "Edit Sensor",
             "Hostname": "Hostname / IP",
-            "HostnameDescription": "mDNS name or IP of the sensor, e.g. pandasensepro1 (the .local suffix is optional)",
+            "HostnameDescription": {
+                "airgradient": "Optional: leave blank to use the monitor's own name airgradient_<serial>.local, or enter its IP",
+                "dyson": "IP or mDNS name of the purifier on the office network",
+                "pandasense": "mDNS name or IP of the sensor, e.g. pandasensepro1 (the .local suffix is optional)"
+            },
             "HostnameInvalid": "Enter a hostname or IPv4 address without scheme, port or path",
             "Label": "Label",
             "LabelDescription": "Optional name shown on the map instead of the hostname",
@@ -992,9 +999,26 @@
             "RangeInvalid": "Enter a whole number between {min} and {max}",
             "RangeShort": "range {n}",
             "RosterRefreshed": "Air sensor list refreshed",
+            "Serial": "Serial",
+            "SerialDescription": {
+                "airgradient": "12-digit serial on the monitor's label (also in its airgradient_<serial> name); every reading is checked against it",
+                "dyson": "Serial on the purifier's label, e.g. AB1-US-ABC1234A. Its local credential is set up once on the fleet_daemon host (fleet_air_dyson_setup.py)",
+                "pandasense": ""
+            },
+            "SerialInvalid": {
+                "airgradient": "Enter the 12 hex digits of the serial, e.g. a0f262dc4620",
+                "dyson": "Enter the serial as printed, e.g. AB1-US-ABC1234A",
+                "pandasense": ""
+            },
             "RosterRefreshFailed": "Failed to refresh the fleet_daemon roster",
             "UpdateSensor": "Update Sensor",
-            "UseConfigJson": "InstanceDB = JSON detected. Please use the config.json to modify the air sensor list."
+            "UseConfigJson": "InstanceDB = JSON detected. Please use the config.json to modify the air sensor list.",
+            "Vendor": "Sensor type",
+            "VendorDescription": {
+                "airgradient": "AirGradient ONE: fleet_daemon reads it over the LAN once a minute (read-only)",
+                "dyson": "Dyson purifier: air-quality sensors and fan status only, Mainsail never controls it",
+                "pandasense": "BIGTREETECH Panda Sense Pro: fleet_daemon subscribes to its MQTT broker"
+            }
         },
         "Cancel": "Cancel",
         "Close": "Close",

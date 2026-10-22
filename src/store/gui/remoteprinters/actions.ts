@@ -69,6 +69,9 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     // NEW: air sensor display name + overlay radius (null = unset / not a sensor)
                     label: state.printers[id].label ?? null,
                     sensorRange: state.printers[id].sensorRange ?? null,
+                    // NEW: air sensor vendor + serial (null = Panda Sense Pro / not a sensor)
+                    sensorVendor: state.printers[id].sensorVendor ?? null,
+                    sensorSerial: state.printers[id].sensorSerial ?? null,
                 })
             })
 
@@ -91,6 +94,9 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 // NEW: air sensor display name + overlay radius (null = unset / not a sensor)
                 label: state.printers[id].label ?? null,
                 sensorRange: state.printers[id].sensorRange ?? null,
+                // NEW: air sensor vendor + serial (null = Panda Sense Pro / not a sensor)
+                sensorVendor: state.printers[id].sensorVendor ?? null,
+                sensorSerial: state.printers[id].sensorSerial ?? null,
             }
 
             Vue.$socket.emit('server.database.post_item', {

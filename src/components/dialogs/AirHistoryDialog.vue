@@ -20,6 +20,11 @@
                 <v-alert v-else-if="!loading && !hours.length" type="info" dense text class="mb-3">{{ $t('AirQuality.HistoryEmpty') }}</v-alert>
                 <v-progress-linear v-if="loading" indeterminate class="mb-3" />
 
+                <v-tabs v-if="hours.length" v-model="view" class="mb-3" height="36">
+                    <v-tab>{{ $t('AirQuality.HistoryMapView') }}</v-tab>
+                    <v-tab>{{ $t('AirQuality.HistoryChartView') }}</v-tab>
+                </v-tabs>
+
                 <!-- Timeline: one slider step per archived hour; the strip under it is the fleet-wide worst band
                      of the selected metric for each hour (click to jump). -->
                 <div v-if="hours.length" class="air-history__timeline mb-4">
@@ -66,8 +71,20 @@
                     </div>
                 </div>
 
+                <!-- Charts: the selected metric over the whole range, one line per sensor (hourly means) -->
+                <template v-if="hours.length && view === 1">
+                    <p class="air-history__chart-hint mb-1">{{ $t('AirQuality.HistoryChartHint') }}</p>
+                    <air-history-chart
+                        v-if="metric"
+                        :hours="hours"
+                        :metric="metric"
+                        :sensors="chartSensors"
+                        :selected-epoch="current ? current.epoch : null"
+                        @select="selectFromChart" />
+                </template>
+
                 <!-- The same two floors as the live page, fed the selected hour instead of the live socket -->
-                <template v-if="hours.length">
+                <template v-if="hours.length && view === 0">
                     <farm-map-section
                         mode="air"
                         location="farm"
@@ -95,15 +112,19 @@
 
 <script lang="ts">
 /**
- * Air Quality history: the live page's two maps rendered from the hourly archive
- * (`GET /air/history`, fleet_air_snapshot with day-file fallback) with a scrubbable
- * timeline. Pick an hour on the slider / strip, hover a sensor for its readings at
- * that hour. Sensor positions are the current roster positions.
+ * Air Quality history (`GET /air/history`, hourly): the daemon averages each sensor's
+ * per-minute readings per hour (valid readings only; hours before the per-minute recorder
+ * existed come from the legacy hourly snapshots). Two views share the hour timeline:
+ *  - Map: the live page's two maps rendered for the selected hour; hover a sensor for its
+ *    readings at that hour. Sensor positions are the current roster positions.
+ *  - Chart: the selected metric over the whole range, one line per sensor; click a point
+ *    to select its hour (then switch back to the map).
  */
 import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
 import { mdiChevronLeft, mdiChevronRight, mdiClose, mdiHistory } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import AirHistoryChart, { AirChartSensor } from '@/components/charts/AirHistoryChart.vue'
 import { AirHistoryHour, AirHistoryResponse, AirMetric } from '@/store/fleet/air/types'
 import { AirSensorFrame } from '@/store/farm/types'
 import { AIR_NEUTRAL_COLOR, bandFor, bandSeverity, sensorValue } from '@/components/panels/airQualityBands'
@@ -113,7 +134,7 @@ interface Range {
     label: string
 }
 
-@Component({ components: { FarmMapSection } })
+@Component({ components: { FarmMapSection, AirHistoryChart } })
 export default class AirHistoryDialog extends Mixins(BaseMixin) {
     mdiChevronLeft = mdiChevronLeft
     mdiChevronRight = mdiChevronRight
@@ -134,6 +155,8 @@ export default class AirHistoryDialog extends Mixins(BaseMixin) {
 
     rangeDays = 7
     metricKey = ''
+    /** 0 = map, 1 = chart */
+    view = 0
     hours: AirHistoryHour[] = []
     index = 0
     loading = false
@@ -149,7 +172,32 @@ export default class AirHistoryDialog extends Mixins(BaseMixin) {
     }
 
     get metrics(): AirMetric[] {
-        return this.$store.getters['fleet/air/getMetrics'] || []
+        return this.$store.getters['fleet/air/getRosterMetrics'] || []
+    }
+
+    /** Chart lines: current roster sensors first (by label), then hosts that only appear in the archive. */
+    get chartSensors(): AirChartSensor[] {
+        const printers = this.$store.state.gui?.remoteprinters?.printers ?? {}
+        const byHost = new Map<string, AirChartSensor>()
+        const norm = (h: string) => h.toLowerCase().replace(/\.local$/, '')
+        const archived = new Set<string>()
+        for (const h of this.hours) for (const host of Object.keys(h.sensors)) archived.add(host)
+        for (const entry of Object.values(printers) as any[]) {
+            if (entry?.deviceType !== 'air_sensor' || !entry.hostname) continue
+            const host = [...archived].find((a) => norm(a) === norm(entry.hostname))
+            if (!host) continue
+            byHost.set(host, { hostname: host, label: (entry.label ?? '').trim() || entry.hostname })
+        }
+        for (const host of archived) {
+            if (byHost.has(host)) continue
+            const latestLabel = [...this.hours].reverse().find((h) => h.sensors[host]?.label)?.sensors[host]?.label
+            byHost.set(host, { hostname: host, label: latestLabel || host })
+        }
+        return [...byHost.values()].sort((a, b) => a.label.localeCompare(b.label))
+    }
+
+    selectFromChart(index: number) {
+        this.index = index
     }
 
     get metric(): AirMetric | null {
@@ -264,9 +312,14 @@ export default class AirHistoryDialog extends Mixins(BaseMixin) {
     }
 
     get sourceTitle(): string {
-        return this.source === 'files'
-            ? 'fleet_air_snapshot was not reachable; readings come from the archive day-files'
-            : 'Readings from the fleet_air_snapshot table (hourly)'
+        const legacy = this.hours.some((h) => h.source === 'snapshot')
+            ? ' Hours before the per-minute recorder started are the legacy hourly snapshots.'
+            : ''
+        return (
+            (this.source === 'files'
+                ? 'The database was not reachable; hourly means come from the archive day-files.'
+                : 'Hourly means of the per-minute readings (fleet_air_reading).') + legacy
+        )
     }
 }
 </script>
@@ -274,6 +327,10 @@ export default class AirHistoryDialog extends Mixins(BaseMixin) {
 <style scoped>
 .air-history__body {
     padding-top: 12px;
+}
+.air-history__chart-hint {
+    font-size: 11px;
+    opacity: 0.65;
 }
 .air-history__source {
     font-size: 11px;

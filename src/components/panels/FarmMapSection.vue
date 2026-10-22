@@ -297,6 +297,10 @@
                         <span class="oven-note">&middot; {{ hoveredAirSensorAge }}</span>
                         <span v-if="hoveredAirSensorError" class="oven-note">&middot; {{ hoveredAirSensorError }}</span>
                     </p>
+                    <p v-if="hoveredAirSensorVendor" class="oven-note">{{ hoveredAirSensorVendor }}</p>
+                    <p v-for="(flag, i) in hoveredAirSensorFlags" :key="'air-flag-' + i" class="oven-note air-flag">
+                        &#9873; {{ flag }}
+                    </p>
                     <p v-if="!hoveredAirSensorRows.length" class="oven-note">No readings yet</p>
                     <div
                         v-for="r in hoveredAirSensorRows"
@@ -304,7 +308,7 @@
                         class="air-row"
                         :class="{ 'air-row--selected': r.key === metricKey }">
                         <span class="air-row-label">{{ r.label }}</span>
-                        <span class="air-row-value">{{ r.value }}</span>
+                        <span class="air-row-value" :title="r.title">{{ r.value }}</span>
                         <span class="air-row-band">
                             <span class="air-row-dot" :style="{ backgroundColor: r.color }"></span>
                             {{ r.band }}
@@ -360,9 +364,12 @@ import {
     SEVERITY_ATTENTION,
     worstReading,
     metricUnit,
+    metricQuality,
+    rawSensorValue,
     sensorAgeSeconds,
     sensorValue,
 } from '@/components/panels/airQualityBands'
+import { AIR_SENSOR_VENDOR_LABELS, airSensorVendor } from '@/store/gui/remoteprinters/types'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import {
     getOvenStatus,
@@ -1273,9 +1280,13 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     get hoveredAirSensorAge(): string {
         if (this.historical) {
-            const frame = this.hoveredAirSensorFrame
-            if (!frame) return `no snapshot${this.airFramesLabel ? ' at ' + this.airFramesLabel : ' for this hour'}`
-            return this.airFramesLabel ? `snapshot at ${this.airFramesLabel}` : 'archived snapshot'
+            const frame = this.hoveredAirSensorFrame as (AirSensorFrame & { samples?: number; expected?: number }) | null
+            if (!frame) return `no data${this.airFramesLabel ? ' at ' + this.airFramesLabel : ' for this hour'}`
+            const at = this.airFramesLabel ? ` at ${this.airFramesLabel}` : ''
+            // Per-minute readings averaged by the daemon carry their sample counts; legacy rows don't.
+            if (typeof frame.samples === 'number' && typeof frame.expected === 'number')
+                return `hourly mean${at} · ${frame.samples}/${frame.expected} readings`
+            return at ? `snapshot${at}` : 'archived snapshot'
         }
         if (!this.$store.state.farm.fleetDaemonConnected) return 'fleet_daemon disconnected'
         const frame = this.hoveredAirSensorFrame
@@ -1287,23 +1298,50 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return (this.hoveredAirSensorFrame?.error ?? '').toString().trim()
     }
 
-    /** One row per catalog metric: label, formatted reading and its band. */
-    get hoveredAirSensorRows(): { key: string; label: string; value: string; band: string; color: string }[] {
+    /** `AirGradient ONE` etc. from the roster entry (the live frame's vendor as a fallback). */
+    get hoveredAirSensorVendor(): string {
+        if (!this.hoveredAirSensor) return ''
+        const entry = this.rosterByKey[hostKey(this.hoveredAirSensor.hostname)] as any
+        const vendor = airSensorVendor(entry ?? { sensorVendor: this.hoveredAirSensorFrame?.vendor })
+        return AIR_SENSOR_VENDOR_LABELS[vendor]
+    }
+
+    get hoveredAirSensorFlags(): string[] {
+        return this.historical ? [] : this.hoveredAirSensorFrame?.flags ?? []
+    }
+
+    /**
+     * One row per catalog metric the sensor reports: label, formatted reading and its band. A
+     * value the daemon flagged (quality other than valid, e.g. AirGradient CO₂ < 300 ppm) is
+     * shown with ⚑ and its quality instead of a band: it never colours the map or raises alerts.
+     */
+    get hoveredAirSensorRows(): {
+        key: string
+        label: string
+        value: string
+        band: string
+        color: string
+        title: string
+    }[] {
         const frame = this.hoveredAirSensorFrame
         if (!frame) return []
-        return this.airMetrics
-            .map((m) => {
-                const v = sensorValue(frame, m.key)
-                const band = bandFor(m, v)
-                return {
-                    key: m.key,
-                    label: m.label,
-                    value: formatMetricReading(m, v),
-                    band: band?.name ?? 'â€”',
-                    color: band?.color ?? AIR_NEUTRAL_COLOR,
-                }
+        const rows = []
+        for (const m of this.airMetrics) {
+            const raw = rawSensorValue(frame, m.key)
+            if (raw === null) continue
+            const v = sensorValue(frame, m.key)
+            const quality = metricQuality(frame, m.key)
+            const band = bandFor(m, v)
+            rows.push({
+                key: m.key,
+                label: m.label,
+                value: formatMetricReading(m, raw) + (v === null ? ' ⚑' : ''),
+                band: v === null ? (quality ?? 'flagged').replace(/_/g, ' ') : band?.name ?? '—',
+                color: band?.color ?? AIR_NEUTRAL_COLOR,
+                title: v === null ? `${quality}: excluded from bands, alerts and averages` : '',
             })
-            .filter((r) => r.value !== 'â€”')
+        }
+        return rows
     }
 
     // ---------- oven tooltip ----------
