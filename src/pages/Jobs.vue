@@ -136,11 +136,19 @@ export default class Jobs extends Vue {
         const id = parseInt(String(this.$route.query.openJob ?? ''), 10)
         if (!isNaN(id) && id > 0) {
             this.activeTab = 0
-            this.$nextTick(() => {
+            // The Jobs tab item renders lazily: when another tab was active the
+            // panel does not exist on the next tick yet, so wait for it briefly.
+            let tries = 0
+            const open = () => {
                 const panel = this.$refs.jobPanel as any
-                if (panel && typeof panel.openDetails === 'function') panel.openDetails(id)
-                this.$router.replace({ path: '/jobs' }).catch(() => {})
-            })
+                if (panel && typeof panel.openDetails === 'function') {
+                    panel.openDetails(id)
+                    this.$router.replace({ path: '/jobs' }).catch(() => {})
+                } else if (++tries < 20) {
+                    setTimeout(open, 100)
+                }
+            }
+            this.$nextTick(open)
         }
     }
 }

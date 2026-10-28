@@ -143,6 +143,9 @@ class FleetDaemonClient {
                     if (message.event === 'jobs_updated') {
                         fleetDaemonEvents.$emit('jobs_updated')
                     }
+                    if (message.event === 'pos_updated') {
+                        fleetDaemonEvents.$emit('pos_updated', message.po_id ?? null)
+                    }
                     if (message.event === 'workers_updated') {
                         fleetDaemonEvents.$emit('workers_updated')
                     }

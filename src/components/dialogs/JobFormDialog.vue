@@ -1,9 +1,20 @@
 <template>
     <v-dialog :value="value" max-width="1500" width="95vw" persistent scrollable @input="$emit('input', $event)">
         <v-card>
-            <v-card-title>{{ isEdit ? 'Edit Job' : 'New Job' }}</v-card-title>
+            <v-card-title>
+                {{ isEdit ? 'Edit Job' : 'New Job' }}
+                <v-chip v-if="po" small outlined color="primary" class="ml-3">
+                    <v-icon x-small left>{{ mdiFileDocumentOutline }}</v-icon>
+                    PO {{ po.po.po_number || '#' + po.po.id }}
+                </v-chip>
+            </v-card-title>
             <v-card-text>
                 <v-alert v-if="error" type="error" dense class="mb-3">{{ error }}</v-alert>
+                <v-alert v-if="po && uncoveredParts.length" type="warning" dense text color="amber darken-2" class="mb-3">
+                    PO parts with no gcode in this job (and not tracked by another job):
+                    <strong>{{ uncoveredParts.map((p) => p.name + ' (' + p.item_label + ')').join(', ') }}</strong>.
+                    You can still create the job; they stay unlinked.
+                </v-alert>
                 <v-row>
                     <!-- Job fields -->
                     <v-col cols="12" md="4">
@@ -77,7 +88,12 @@
                             No files yet. Add files from the fleet library. Printer, filament and grams are prefilled from the
                             file name (e.g. HS-Pro_0.2mm_part_PETG-CF_13h26m_258.879g) when present.
                         </div>
-                        <v-card v-for="(it, idx) in items" :key="it.key" outlined class="mb-2 pa-2">
+                        <v-card
+                            v-for="(it, idx) in items"
+                            :key="it.key"
+                            outlined
+                            class="mb-2 pa-2"
+                            :class="{ 'po-warn-border': po && !rowHasParts(it) }">
                             <div class="d-flex align-center mb-1">
                                 <v-icon small class="mr-1">{{ mdiFile }}</v-icon>
                                 <span class="text-truncate flex-grow-1" :title="it.gcode_filename">{{ it.gcode_filename }}</span>
@@ -134,6 +150,24 @@
                                         :error="!!it.print_time && printTimeSecs(it) === null" />
                                 </v-col>
                             </v-row>
+                            <!-- PO: which parts this plate produces -->
+                            <div v-if="po" class="mt-2">
+                                <gcode-part-links-editor v-model="it.parts" :options="partOptions" :disabled="it.saving" />
+                                <div v-if="!isEdit && suggestedRuns(it) > 0" class="d-flex align-center text-caption mt-1">
+                                    <span class="text--secondary">
+                                        Suggested: {{ suggestedRuns(it) }} run{{ suggestedRuns(it) === 1 ? '' : 's' }} / copy
+                                        to cover the unscheduled parts
+                                    </span>
+                                    <v-btn
+                                        v-if="Number(it.quantity) !== suggestedRuns(it)"
+                                        x-small
+                                        text
+                                        color="primary"
+                                        @click="it.quantity = suggestedRuns(it)">
+                                        Use suggestion
+                                    </v-btn>
+                                </div>
+                            </div>
                         </v-card>
                     </v-col>
                 </v-row>
@@ -141,7 +175,7 @@
             <v-card-actions>
                 <v-spacer />
                 <v-btn text @click="close">Cancel</v-btn>
-                <v-btn color="primary" :loading="saving" :disabled="!form.name || !(form.quantity >= 1) || !allNozzlesValid" @click="save">
+                <v-btn color="primary" :loading="saving" :disabled="!form.name || !(form.quantity >= 1) || !allNozzlesValid || !partsValid" @click="save">
                     {{ isEdit ? 'Save' : 'Create job' }}
                 </v-btn>
             </v-card-actions>
@@ -166,8 +200,11 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Prop, Watch } from 'vue-property-decorator'
-import { mdiAccountPlus, mdiCalendar, mdiDelete, mdiFile, mdiFilePlus } from '@mdi/js'
+import { mdiAccountPlus, mdiCalendar, mdiDelete, mdiFile, mdiFileDocumentOutline, mdiFilePlus } from '@mdi/js'
 import FleetGcodePicker from '@/components/FleetGcodePicker.vue'
+import GcodePartLinksEditor from '@/components/po/GcodePartLinksEditor.vue'
+import { PoPartOption, cleanLinks, poPartOptions, suggestRuns } from '@/components/po/poFormat'
+import { FleetPoDetail, PartLinkPayload } from '@/store/fleet/purchaseOrders/types'
 import {
     FleetCustomer,
     FleetJobDetail,
@@ -195,21 +232,31 @@ interface ItemRow {
     saving: boolean
     /** JSON of the payload as last persisted (edit mode); used to detect changes on Save. */
     persisted: string | null
+    /** PO parts this gcode produces (only used with a PO) */
+    parts: PartLinkPayload[]
+    /** JSON of cleanLinks(parts) as last persisted (edit mode) */
+    partsPersisted: string | null
 }
 
 let rowSeq = 0
 
-@Component({ components: { FleetGcodePicker } })
+@Component({ components: { FleetGcodePicker, GcodePartLinksEditor } })
 export default class JobFormDialog extends Vue {
     mdiAccountPlus = mdiAccountPlus
     mdiCalendar = mdiCalendar
     mdiDelete = mdiDelete
     mdiFile = mdiFile
+    mdiFileDocumentOutline = mdiFileDocumentOutline
     mdiFilePlus = mdiFilePlus
 
     @Prop({ type: Boolean, default: false }) value!: boolean
     /** When set, the dialog edits this job (items are saved per row). */
     @Prop({ type: Object, default: null }) job!: FleetJobDetail | null
+    /**
+     * Purchase order (detail) the job is for: new jobs get po_id, the PO's
+     * customer / due date / name, and every gcode gets a "parts on this plate" editor.
+     */
+    @Prop({ type: Object, default: null }) po!: FleetPoDetail | null
 
     form = this.emptyForm()
     items: ItemRow[] = []
@@ -258,6 +305,32 @@ export default class JobFormDialog extends Vue {
         return !!this.job
     }
 
+    get partOptions(): PoPartOption[] {
+        return poPartOptions(this.po)
+    }
+
+    rowHasParts(row: ItemRow): boolean {
+        return row.parts.some((p) => p.part_id > 0)
+    }
+
+    /** Runs per copy that cover the largest unscheduled need of the plate's parts. */
+    suggestedRuns(row: ItemRow): number {
+        const runs = suggestRuns(cleanLinks(row.parts), this.partOptions)
+        const copies = Math.max(1, Number(this.form.quantity) || 1)
+        return Math.ceil(runs / copies)
+    }
+
+    /** PO parts nobody makes yet: not tracked by any linked job and not on a plate here. */
+    get uncoveredParts(): PoPartOption[] {
+        const mapped = new Set<number>()
+        for (const r of this.items) r.parts.forEach((p) => mapped.add(p.part_id))
+        return this.partOptions.filter((p) => !p.tracked && !mapped.has(p.part_id))
+    }
+
+    get partsValid(): boolean {
+        return this.items.every((r) => r.parts.every((p) => p.part_id > 0 && Number(p.qty_per_run) >= 1))
+    }
+
     get customerOptions() {
         return (this.$store.getters['fleet/customers/getCustomers'] as FleetCustomer[]).map((c) => ({
             text: c.name,
@@ -298,11 +371,18 @@ export default class JobFormDialog extends Vue {
             this.items = this.job.items.map((i) => {
                 const row = this.rowFromItem(i)
                 row.persisted = JSON.stringify(this.itemPayload(row))
+                row.partsPersisted = JSON.stringify(cleanLinks(row.parts))
                 return row
             })
         } else {
             this.form = this.emptyForm()
             this.items = []
+            if (this.po) {
+                const p = this.po.po
+                this.form.name = p.po_number ? `PO ${p.po_number}` : `PO #${p.id}`
+                this.form.customer_id = p.customer_id
+                this.form.due_date = p.due_date ? String(p.due_date).slice(0, 10) : ''
+            }
         }
     }
 
@@ -319,6 +399,8 @@ export default class JobFormDialog extends Vue {
             print_time: formatPrintTimeInput(i.print_time_secs),
             saving: false,
             persisted: null,
+            parts: (i.parts ?? []).map((l) => ({ part_id: l.part_id, qty_per_run: l.qty_per_run })),
+            partsPersisted: null,
         }
     }
 
@@ -343,6 +425,8 @@ export default class JobFormDialog extends Vue {
                 print_time: formatPrintTimeInput(hint.print_time_secs),
                 saving: false,
                 persisted: null,
+                parts: this.defaultParts(),
+                partsPersisted: null,
             }
             this.items.push(row)
             if (this.isEdit && this.job && this.nozzleValid(row)) {
@@ -350,6 +434,18 @@ export default class JobFormDialog extends Vue {
                 await this.createItemOnJob(row)
             }
         }
+    }
+
+    /** A PO with exactly one part: preselect it on a new plate (1 per plate). */
+    defaultParts(): PartLinkPayload[] {
+        return this.partOptions.length === 1 ? [{ part_id: this.partOptions[0].part_id, qty_per_run: 1 }] : []
+    }
+
+    /** Create payload: item fields plus the plate's PO parts when a PO is set. */
+    createPayload(row: ItemRow): JobItemCreatePayload {
+        const payload = this.itemPayload(row)
+        if (this.po) payload.parts = cleanLinks(row.parts)
+        return payload
     }
 
     itemPayload(row: ItemRow): JobItemCreatePayload {
@@ -374,11 +470,12 @@ export default class JobFormDialog extends Vue {
         try {
             const item: FleetJobItem = await this.$store.dispatch('fleet/jobs/addItem', {
                 jobId: this.job.job.id,
-                ...this.itemPayload(row),
+                ...this.createPayload(row),
             })
             row.id = item.id
             row.key = `item-${item.id}`
             row.persisted = JSON.stringify(this.itemPayload(row))
+            row.partsPersisted = JSON.stringify(cleanLinks(row.parts))
         } catch (e: any) {
             this.error = e?.message ?? String(e)
         } finally {
@@ -483,6 +580,19 @@ export default class JobFormDialog extends Vue {
                 for (const row of this.changedRows()) {
                     await this.saveItem(row)
                 }
+                // Gcode -> PO part links changed on existing rows (PO-linked job).
+                if (this.po) {
+                    for (const row of this.items) {
+                        const links = cleanLinks(row.parts)
+                        if (row.id === null || row.partsPersisted === JSON.stringify(links)) continue
+                        await this.$store.dispatch('fleet/purchaseOrders/setGcodeParts', {
+                            jobId: this.job.job.id,
+                            itemId: row.id,
+                            parts: links,
+                        })
+                        row.partsPersisted = JSON.stringify(links)
+                    }
+                }
                 this.$emit('saved', this.job.job.id)
             } else {
                 const payload: JobCreatePayload = {
@@ -494,8 +604,9 @@ export default class JobFormDialog extends Vue {
                     priority: this.form.priority as any,
                     quantity: Math.max(1, Number(this.form.quantity) || 1),
                     due_date: this.dueDateIso(),
-                    items: this.items.map((r) => this.itemPayload(r)),
+                    items: this.items.map((r) => this.createPayload(r)),
                 }
+                if (this.po) payload.po_id = this.po.po.id
                 const detail: FleetJobDetail = await this.$store.dispatch('fleet/jobs/createJob', payload)
                 this.$emit('saved', detail.job.id)
             }
@@ -512,3 +623,9 @@ export default class JobFormDialog extends Vue {
     }
 }
 </script>
+
+<style scoped>
+.po-warn-border {
+    border-color: #ffa000 !important;
+}
+</style>

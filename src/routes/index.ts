@@ -23,6 +23,7 @@ import {
     mdiPrinter3dNozzle,
     mdiHeartPulse,
     mdiBriefcaseOutline,
+    mdiFileDocumentEditOutline,
 } from '@mdi/js'
 import { mdiAirSensor } from '@/components/panels/airSensorIcon'
 
@@ -102,6 +103,16 @@ const routes: AppRoute[] = [
         showInNavi: true,
         position: 60,
         fullscreen: true,
+    },
+    {
+        name: 'purchase-orders',
+        title: 'Purchase Orders',
+        path: '/purchase-orders',
+        icon: mdiFileDocumentEditOutline,
+        component: () => import('../pages/PurchaseOrders.vue'),
+        alwaysShow: true,
+        showInNavi: true,
+        position: 63,
     },
     {
         name: 'jobs',

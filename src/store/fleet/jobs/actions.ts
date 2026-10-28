@@ -56,6 +56,17 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
         }
     },
 
+    /** GET /jobs/{id} without touching currentJob (PO dialogs read a job's gcodes). */
+    async fetchJob({ rootGetters }, id: number): Promise<FleetJobDetail> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.get(`${baseUrl}/jobs/${id}`)
+            return response.data
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
     /** POST /jobs — job + items in one call. Returns the detail. */
     async createJob({ commit, rootGetters }, payload: JobCreatePayload): Promise<FleetJobDetail> {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
@@ -95,6 +106,28 @@ export const actions: ActionTree<FleetJobsState, RootState> = {
         const baseUrl = rootGetters['gui/fleetDaemonUrl']
         try {
             const response = await axios.post(`${baseUrl}/jobs/${payload.id}/status`, { status: payload.status })
+            const detail: FleetJobDetail = response.data
+            commit('upsertJob', detail.job)
+            commit('setCurrentJobIfMatches', detail)
+            return detail
+        } catch (error) {
+            throw toApiError(error)
+        }
+    },
+
+    /**
+     * POST /jobs/{id}/end — stop early: queued runs are cancelled and the job is
+     * closed as complete; prints already running finish and still count.
+     */
+    async endJob(
+        { commit, rootGetters },
+        payload: { id: number; operator_name?: string | null }
+    ): Promise<FleetJobDetail> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            const response = await axios.post(`${baseUrl}/jobs/${payload.id}/end`, {
+                operator_name: payload.operator_name ?? null,
+            })
             const detail: FleetJobDetail = response.data
             commit('upsertJob', detail.job)
             commit('setCurrentJobIfMatches', detail)

@@ -55,9 +55,28 @@ export default class TheFullscreenUpload extends Mixins(BaseMixin) {
         this.visible = false
     }
 
+    /**
+     * True while a component that takes its own file drops is on screen (e.g. the
+     * purchase-order PDF upload). Elements mark themselves with data-fleet-dropzone;
+     * v-dialog keeps closed content in the DOM, so only visible ones count.
+     */
+    fleetDropzoneActive(): boolean {
+        const zones = document.querySelectorAll('[data-fleet-dropzone]')
+        return Array.from(zones).some((el) => (el as HTMLElement).getClientRects().length > 0)
+    }
+
     onDragOverWindow(e: any) {
         const types = e.dataTransfer?.types ?? []
         if (!types.includes('Files')) return
+        if (this.fleetDropzoneActive()) {
+            // The dropzone handles its own events (and stops propagation). Anywhere
+            // else: refuse the drop so the browser does not open the file, and never
+            // show the Moonraker upload overlay.
+            e.preventDefault()
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'
+            this.hideDropZone()
+            return
+        }
 
         e.preventDefault()
         if (this.visible) return
@@ -73,6 +92,7 @@ export default class TheFullscreenUpload extends Mixins(BaseMixin) {
     async onDrop(e: any) {
         e.preventDefault()
         this.hideDropZone()
+        if (this.fleetDropzoneActive()) return
 
         if (e.dataTransfer?.files?.length) {
             const files = [...e.dataTransfer.files]

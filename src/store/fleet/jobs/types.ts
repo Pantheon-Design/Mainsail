@@ -54,6 +54,10 @@ export interface FleetJob {
     hold_reason: string | null
     /** Last scheduler-initiated hold; persists after resume */
     auto_held_at: string | null
+    /** Purchase order this job fulfills (null = none) */
+    po_id?: number | null
+    /** Joined from fleet_po */
+    po_number?: string | null
     created_at: string
     updated_at: string
     // Aggregates from the list query
@@ -92,6 +96,18 @@ export interface FleetJobItem {
     total_runs: number
     runs_per_copy: number
     remaining: number
+    /** PO parts this gcode produces (GET /jobs/{id}; only when the job is linked to a PO) */
+    parts?: JobItemPartLinkRow[]
+}
+
+/** One gcode -> PO part link as returned by GET /jobs/{id} and PUT /jobs/{id}/items/{item}/parts. */
+export interface JobItemPartLinkRow {
+    part_id: number
+    part_name: string
+    /** PO item the part belongs to */
+    item_id: number
+    /** parts per plate (run) */
+    qty_per_run: number
 }
 
 export interface FleetJobRun {
@@ -292,6 +308,8 @@ export interface JobItemCreatePayload {
     notes?: string | null
     /** false = the daemon must NOT read the gcode footer to fill blanks (UI prefills from the file name only) */
     autofill_from_gcode?: boolean
+    /** PO parts this gcode produces (job must be linked to a PO) */
+    parts?: { part_id: number; qty_per_run: number }[]
 }
 
 export interface JobItemUpdatePayload {
@@ -319,6 +337,8 @@ export interface JobCreatePayload {
     /** ISO 8601 */
     due_date?: string | null
     items: JobItemCreatePayload[]
+    /** purchase order this job fulfills */
+    po_id?: number | null
 }
 
 export interface JobUpdatePayload {

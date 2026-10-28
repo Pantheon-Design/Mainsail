@@ -8,6 +8,17 @@
                     {{ detail.job.hold_reason ? 'paused' : statusLabel(detail.job.status) }}
                 </v-chip>
                 <v-chip small outlined :color="priorityColor(detail.job.priority)">{{ detail.job.priority }}</v-chip>
+                <v-chip
+                    v-if="detail.job.po_id"
+                    small
+                    outlined
+                    color="primary"
+                    class="ml-2"
+                    title="Open purchase order"
+                    @click="openPo(detail.job.po_id)">
+                    <v-icon x-small left>{{ mdiFileDocumentOutline }}</v-icon>
+                    PO {{ detail.job.po_number || '#' + detail.job.po_id }}
+                </v-chip>
                 <v-spacer />
                 <v-btn small text @click="$emit('edit', detail)"><v-icon small left>{{ mdiPencil }}</v-icon> Edit</v-btn>
                 <v-menu offset-y>
@@ -17,6 +28,9 @@
                     <v-list dense>
                         <v-list-item v-for="s in statusTransitions" :key="s.value" @click="setStatus(s.value)">
                             <v-list-item-title>{{ s.text }}</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item v-if="isOpenJob" @click="endDialog = true">
+                            <v-list-item-title>End job (stop early)</v-list-item-title>
                         </v-list-item>
                     </v-list>
                 </v-menu>
@@ -85,6 +99,31 @@
                             </span>
                             <span v-if="item.remaining"> · {{ item.remaining }} remaining</span>
                         </span>
+                    </div>
+                    <!-- PO parts this gcode produces -->
+                    <div v-if="detail.job.po_id" class="d-flex align-center flex-wrap mt-1">
+                        <span class="text-caption text--secondary mr-2">Parts / plate:</span>
+                        <v-chip
+                            v-for="pl in item.parts || []"
+                            :key="'pl-' + item.id + '-' + pl.part_id"
+                            x-small
+                            class="mr-1"
+                            @click="editLinks(item)">
+                            {{ pl.qty_per_run }}× {{ pl.part_name }}
+                        </v-chip>
+                        <v-chip
+                            v-if="!(item.parts || []).length"
+                            x-small
+                            color="amber darken-2"
+                            text-color="white"
+                            title="Link this gcode to PO parts"
+                            @click="editLinks(item)">
+                            <v-icon x-small left>{{ mdiAlertOutline }}</v-icon>
+                            no part
+                        </v-chip>
+                        <v-btn x-small icon title="Edit parts" @click="editLinks(item)">
+                            <v-icon x-small>{{ mdiPencil }}</v-icon>
+                        </v-btn>
                     </div>
                     <div class="run-bar mt-2" :title="barTitle(item)">
                         <div class="seg seg-passed" :style="{ width: stats(item).percentages.passed + '%' }" />
@@ -185,6 +224,30 @@
         <v-card v-else>
             <v-card-text class="text-center pa-6"><v-progress-circular indeterminate /></v-card-text>
         </v-card>
+
+        <gcode-parts-edit-dialog
+            v-model="linksDialog"
+            :job-id="detail ? detail.job.id : 0"
+            :item-id="linksItem ? linksItem.id : 0"
+            :gcode-filename="linksItem ? linksItem.gcode_filename : ''"
+            :links="linksItem ? linksItem.parts || [] : []"
+            :po-id="detail && detail.job.po_id ? detail.job.po_id : 0"
+            @saved="reloadJob" />
+
+        <v-dialog v-model="endDialog" max-width="460">
+            <v-card>
+                <v-card-title>End job</v-card-title>
+                <v-card-text>
+                    End <strong>{{ detail ? detail.job.name : '' }}</strong> now? Queued runs are cancelled and the job is
+                    closed as complete. Prints already running finish and still count.
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="endDialog = false">Cancel</v-btn>
+                    <v-btn color="orange" dark :loading="ending" @click="endJob">End job</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </v-dialog>
 </template>
 
@@ -192,16 +255,29 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Prop } from 'vue-property-decorator'
-import { mdiAlertCircle, mdiChevronDown, mdiClose, mdiFile, mdiHandBackRight, mdiPencil, mdiPlay } from '@mdi/js'
+import {
+    mdiAlertCircle,
+    mdiAlertOutline,
+    mdiChevronDown,
+    mdiClose,
+    mdiFile,
+    mdiFileDocumentOutline,
+    mdiHandBackRight,
+    mdiPencil,
+    mdiPlay,
+} from '@mdi/js'
 import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
 import { formatHoursDh } from '@/store/fleet/forecast'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
+import GcodePartsEditDialog from '@/components/po/GcodePartsEditDialog.vue'
 
-@Component({ components: { FleetHistoryRecordDialog } })
+@Component({ components: { FleetHistoryRecordDialog, GcodePartsEditDialog } })
 export default class JobDetailsDialog extends Vue {
     mdiAlertCircle = mdiAlertCircle
+    mdiAlertOutline = mdiAlertOutline
+    mdiFileDocumentOutline = mdiFileDocumentOutline
     mdiChevronDown = mdiChevronDown
     mdiClose = mdiClose
     mdiFile = mdiFile
@@ -213,6 +289,10 @@ export default class JobDetailsDialog extends Vue {
 
     error = ''
     resuming = false
+    endDialog = false
+    ending = false
+    linksDialog = false
+    linksItem: FleetJobItem | null = null
 
     // Run -> record lookup
     selectedRun: FleetJobRun | null = null
@@ -246,6 +326,41 @@ export default class JobDetailsDialog extends Vue {
         if (s !== 'cancelled' && s !== 'complete') t.push({ text: 'Cancel job', value: 'cancelled' })
         if (s === 'in_progress' || s === 'pending') t.push({ text: 'Mark complete', value: 'complete' })
         return t
+    }
+
+    get isOpenJob(): boolean {
+        const s = this.detail?.job.status
+        return s === 'pending' || s === 'in_progress' || s === 'on_hold'
+    }
+
+    openPo(poId: number) {
+        this.$emit('input', false)
+        this.$router.push({ path: '/purchase-orders', query: { openPo: String(poId) } }).catch(() => {})
+    }
+
+    editLinks(item: FleetJobItem) {
+        this.linksItem = item
+        this.linksDialog = true
+    }
+
+    async reloadJob() {
+        if (!this.detail) return
+        await this.$store.dispatch('fleet/jobs/loadJob', this.detail.job.id).catch(() => {})
+    }
+
+    /** POST /jobs/{id}/end: queued runs cancelled, job complete, running prints still count. */
+    async endJob() {
+        if (!this.detail) return
+        this.ending = true
+        this.error = ''
+        try {
+            await this.$store.dispatch('fleet/jobs/endJob', { id: this.detail.job.id })
+        } catch (e: any) {
+            this.error = e?.message ?? String(e)
+        } finally {
+            this.ending = false
+            this.endDialog = false
+        }
     }
 
     get runsPerCopy(): number {

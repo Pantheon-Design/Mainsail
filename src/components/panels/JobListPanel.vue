@@ -50,6 +50,19 @@
             dense
             class="job-table file-list-cursor"
             @click:row="openDetails($event.id)">
+            <template #item.name="{ item }">
+                {{ item.name }}
+                <v-chip
+                    v-if="item.po_id"
+                    x-small
+                    outlined
+                    color="primary"
+                    class="ml-1"
+                    title="Open purchase order"
+                    @click.stop="openPo(item.po_id)">
+                    PO {{ item.po_number || '#' + item.po_id }}
+                </v-chip>
+            </template>
             <template #item.customer_name="{ item }">{{ item.customer_name || '—' }}</template>
             <template #item.priority="{ item }">
                 <v-chip x-small outlined :color="priorityColor(item.priority)">{{ item.priority }}</v-chip>
@@ -114,6 +127,9 @@
                         <v-list-item v-if="item.status === 'on_hold' || item.status === 'cancelled' || item.status === 'complete'" @click="setStatus(item, 'pending')">
                             <v-list-item-title>{{ item.status === 'on_hold' ? 'Resume' : 'Reopen' }}</v-list-item-title>
                         </v-list-item>
+                        <v-list-item v-if="isOpen(item)" @click="confirmEnd(item)">
+                            <v-list-item-title>End job (stop early)</v-list-item-title>
+                        </v-list-item>
                         <v-list-item v-if="item.status !== 'cancelled' && item.status !== 'complete'" @click="setStatus(item, 'cancelled')">
                             <v-list-item-title>Cancel job</v-list-item-title>
                         </v-list-item>
@@ -134,6 +150,21 @@
                     <v-spacer />
                     <v-btn text @click="deleteDialog = false">Cancel</v-btn>
                     <v-btn color="error" :loading="saving" @click="doDelete">Delete</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
+        <v-dialog v-model="endDialog" max-width="460">
+            <v-card>
+                <v-card-title>End job</v-card-title>
+                <v-card-text>
+                    End <strong>{{ endTarget?.name }}</strong> now? Queued runs are cancelled and the job is closed as
+                    complete. Prints already running finish and still count.
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="endDialog = false">Cancel</v-btn>
+                    <v-btn color="orange" dark :loading="saving" @click="doEnd">End job</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -167,6 +198,8 @@ export default class JobListPanel extends Vue {
     saving = false
     editingJob: FleetJobDetail | null = null
     deleteTarget: FleetJob | null = null
+    endDialog = false
+    endTarget: FleetJob | null = null
 
     snackbar = false
     snackbarText = ''
@@ -242,6 +275,34 @@ export default class JobListPanel extends Vue {
             this.reload()
         } catch (e: any) {
             this.toast(e?.message ?? String(e), 'error')
+        }
+    }
+
+    isOpen(job: FleetJob): boolean {
+        return job.status === 'pending' || job.status === 'in_progress' || job.status === 'on_hold'
+    }
+
+    openPo(poId: number) {
+        this.$router.push({ path: '/purchase-orders', query: { openPo: String(poId) } }).catch(() => {})
+    }
+
+    confirmEnd(job: FleetJob) {
+        this.endTarget = job
+        this.endDialog = true
+    }
+
+    async doEnd() {
+        if (!this.endTarget) return
+        this.saving = true
+        try {
+            await this.$store.dispatch('fleet/jobs/endJob', { id: this.endTarget.id })
+            this.toast('Job ended', 'success')
+            this.endDialog = false
+            this.reload()
+        } catch (e: any) {
+            this.toast(e?.message ?? String(e), 'error')
+        } finally {
+            this.saving = false
         }
     }
 
