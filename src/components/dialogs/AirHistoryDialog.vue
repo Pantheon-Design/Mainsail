@@ -83,27 +83,19 @@
                         @select="selectFromChart" />
                 </template>
 
-                <!-- The same two floors as the live page, fed the selected hour instead of the live socket -->
+                <!-- The same floor plans as the live page, fed the selected hour instead of the live socket -->
                 <template v-if="hours.length && view === 0">
-                    <farm-map-section
-                        mode="air"
-                        location="farm"
-                        name="Print Farm"
+                    <sensor-floor-plan-section
+                        v-for="(floor, i) in floors"
+                        :key="floor.location"
+                        :location="floor.location"
+                        :name="floor.name"
                         readonly
                         :readonly-hint="$t('AirQuality.HistoryHint')"
                         :metric-key="metricKey"
                         :air-frames="framesAtHour"
                         :air-frames-label="hourLabel"
-                        class="mb-8" />
-                    <farm-map-section
-                        mode="air"
-                        location="ground"
-                        name="Ground Floor"
-                        readonly
-                        :readonly-hint="$t('AirQuality.HistoryHint')"
-                        :metric-key="metricKey"
-                        :air-frames="framesAtHour"
-                        :air-frames-label="hourLabel" />
+                        :class="{ 'mb-8': i < floors.length - 1 }" />
                 </template>
             </v-card-text>
         </v-card>
@@ -115,15 +107,16 @@
  * Air Quality history (`GET /air/history`, hourly): the daemon averages each sensor's
  * per-minute readings per hour (valid readings only; hours before the per-minute recorder
  * existed come from the legacy hourly snapshots). Two views share the hour timeline:
- *  - Map: the live page's two maps rendered for the selected hour; hover a sensor for its
- *    readings at that hour. Sensor positions are the current roster positions.
+ *  - Map: the live page's two floor plans rendered for the selected hour; hover a sensor for
+ *    its readings at that hour. Sensor positions are the current roster positions.
  *  - Chart: the selected metric over the whole range, one line per sensor; click a point
  *    to select its hour (then switch back to the map).
  */
 import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
 import { mdiChevronLeft, mdiChevronRight, mdiClose, mdiHistory } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
-import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import SensorFloorPlanSection from '@/components/panels/SensorFloorPlanSection.vue'
+import { SENSOR_FLOORS } from '@/components/panels/sensorFloorPlan'
 import AirHistoryChart, { AirChartSensor } from '@/components/charts/AirHistoryChart.vue'
 import { AirHistoryHour, AirHistoryResponse, AirMetric } from '@/store/fleet/air/types'
 import { AirSensorFrame } from '@/store/farm/types'
@@ -134,12 +127,13 @@ interface Range {
     label: string
 }
 
-@Component({ components: { FarmMapSection, AirHistoryChart } })
+@Component({ components: { SensorFloorPlanSection, AirHistoryChart } })
 export default class AirHistoryDialog extends Mixins(BaseMixin) {
     mdiChevronLeft = mdiChevronLeft
     mdiChevronRight = mdiChevronRight
     mdiClose = mdiClose
     mdiHistory = mdiHistory
+    readonly floors = SENSOR_FLOORS
 
     readonly RANGES: Range[] = [
         { days: 1, label: '24 h' },

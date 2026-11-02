@@ -72,6 +72,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                     // NEW: air sensor vendor + serial (null = Panda Sense Pro / not a sensor)
                     sensorVendor: state.printers[id].sensorVendor ?? null,
                     sensorSerial: state.printers[id].sensorSerial ?? null,
+                    // NEW: air sensor floor-plan position (null = unplaced / not a sensor)
+                    mapPosition: state.printers[id].mapPosition ?? null,
                 })
             })
 
@@ -97,6 +99,8 @@ export const actions: ActionTree<GuiRemoteprintersState, RootState> = {
                 // NEW: air sensor vendor + serial (null = Panda Sense Pro / not a sensor)
                 sensorVendor: state.printers[id].sensorVendor ?? null,
                 sensorSerial: state.printers[id].sensorSerial ?? null,
+                // NEW: air sensor floor-plan position (null = unplaced / not a sensor)
+                mapPosition: state.printers[id].mapPosition ?? null,
             }
 
             Vue.$socket.emit('server.database.post_item', {

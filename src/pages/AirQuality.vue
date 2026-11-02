@@ -54,9 +54,14 @@
             </span>
         </div>
 
-        <!-- Two floors, same grid as the Fleet Map (positions are shared) -->
-        <farm-map-section mode="air" location="farm" name="Print Farm" :metric-key="metricKey" class="mb-8" />
-        <farm-map-section mode="air" location="ground" name="Ground Floor" :metric-key="metricKey" />
+        <!-- Air sensor floor plan, one per floor (sensors only; printers stay on the Fleet Map) -->
+        <sensor-floor-plan-section
+            v-for="(floor, i) in floors"
+            :key="floor.location"
+            :location="floor.location"
+            :name="floor.name"
+            :metric-key="metricKey"
+            :class="{ 'mb-8': i < floors.length - 1 }" />
     </div>
 </template>
 
@@ -64,7 +69,8 @@
 import { Component, Mixins } from 'vue-property-decorator'
 import BaseMixin from '@/components/mixins/base'
 import { mdiHistory } from '@mdi/js'
-import FarmMapSection from '@/components/panels/FarmMapSection.vue'
+import SensorFloorPlanSection from '@/components/panels/SensorFloorPlanSection.vue'
+import { SENSOR_FLOORS } from '@/components/panels/sensorFloorPlan'
 import AirHistoryDialog from '@/components/dialogs/AirHistoryDialog.vue'
 import { fleetDaemonEvents } from '@/plugins/fleetDaemonClient'
 import { hostKey } from '@/plugins/hostKey'
@@ -73,14 +79,15 @@ import { AirSensorFrame } from '@/store/farm/types'
 import { AIR_NEUTRAL_COLOR, bandRangeText, isSensorOnline, metricUnit } from '@/components/panels/airQualityBands'
 
 /**
- * Air Quality page: the fleet map (both floors) with minimal printer markers, the air
+ * Air Quality page: the air sensor floor plan (both floors, CAD-based office plan) with the
  * sensors coloured by the selected metric's quality band and the colour field underneath.
+ * Printers are not shown here; they live on the Fleet Map's grid.
  * Metric definitions come from fleet_daemon (`GET /air/metrics`); live readings arrive as
  * `device_type: "air_sensor"` frames on the daemon websocket (farm.fleetDaemonAirSensors).
  */
 @Component({
     components: {
-        FarmMapSection,
+        SensorFloorPlanSection,
         AirHistoryDialog,
     },
 })
@@ -89,6 +96,7 @@ export default class PageAirQuality extends Mixins(BaseMixin) {
     mdiHistory = mdiHistory
 
     historyOpen = false
+    readonly floors = SENSOR_FLOORS
 
     private reloadTimer: ReturnType<typeof setTimeout> | null = null
 

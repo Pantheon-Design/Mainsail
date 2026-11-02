@@ -2,6 +2,7 @@
  * Fleet map geometry + roster lookups shared by FarmMapSection (full map) and
  * DashboardFleetMap (condensed read-only map). Positions live on the
  * gui/remoteprinters roster: `location` (floor) and `gridPosition` (1-based cell).
+ * Printers and ovens only: air sensors are placed on the sensor floor plan (sensorFloorPlan.ts).
  */
 import { hostKey } from '@/plugins/hostKey'
 import { PrinterModel } from '@/store/gui/remoteprinters/types'
@@ -103,21 +104,6 @@ export function ovenHostnames(roster: Roster, location: MapLocation): string[] {
     const out: string[] = []
     for (const entry of Object.values(roster)) {
         if (!isOvenEntry(entry) || !entry.hostname) continue
-        if (((entry.location as MapLocation) ?? 'farm') !== location) continue
-        const key = hostKey(entry.hostname)
-        if (seen.has(key)) continue
-        seen.add(key)
-        out.push(entry.hostname)
-    }
-    return out.sort((a, b) => a.localeCompare(b))
-}
-
-/** Roster air sensors placed on a floor (deduplicated by hostname), sorted by hostname. */
-export function airSensorHostnames(roster: Roster, location: MapLocation): string[] {
-    const seen = new Set<string>()
-    const out: string[] = []
-    for (const entry of Object.values(roster)) {
-        if (!isAirSensorEntry(entry) || !entry.hostname) continue
         if (((entry.location as MapLocation) ?? 'farm') !== location) continue
         const key = hostKey(entry.hostname)
         if (seen.has(key)) continue

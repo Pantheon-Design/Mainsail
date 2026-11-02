@@ -47,12 +47,8 @@ import { mdiCheckCircle } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
 import { mdiAirSensor } from '@/components/panels/airSensorIcon'
-import {
-    MAP_LOCATIONS,
-    MapLocation,
-    airSensorHostnames,
-    printerGridPosition,
-} from '@/components/panels/farmMapGeometry'
+import { MapLocation } from '@/components/panels/farmMapGeometry'
+import { resolveSensorPlacement, SENSOR_FLOORS } from '@/components/panels/sensorFloorPlan'
 import {
     formatMetricReading,
     hexToRgb,
@@ -101,11 +97,9 @@ export default class DashboardAirPanel extends Mixins(BaseMixin) {
     mdiCheckCircle = mdiCheckCircle
     hoverHostname = ''
 
-    /** Hovering a row emits `hover` so the page can halo the sensor on the map (like the workers list). */
+    /** Row hover highlight (sensors are not on the dashboard's printer maps, so nothing is emitted). */
     setHover(hostname: string) {
-        if (this.hoverHostname === hostname) return
         this.hoverHostname = hostname
-        this.$emit('hover', hostname)
     }
 
     get roster(): Record<string, any> {
@@ -124,13 +118,19 @@ export default class DashboardAirPanel extends Mixins(BaseMixin) {
         return this.$store.getters['fleet/air/getMetrics'] ?? []
     }
 
-    /** Every registered sensor (roster-driven, deduplicated by hostKey), with its floor. */
+    /** Every registered sensor (roster-driven, deduplicated by hostKey), with its floor on the sensor floor plan. */
     get sensorHostnames(): { hostname: string; location: MapLocation }[] {
+        const seen = new Set<string>()
         const out: { hostname: string; location: MapLocation }[] = []
-        for (const { location } of MAP_LOCATIONS) {
-            for (const hostname of airSensorHostnames(this.roster, location)) out.push({ hostname, location })
+        for (const entry of Object.values(this.roster) as any[]) {
+            if (entry?.deviceType !== 'air_sensor' || !entry.hostname) continue
+            const key = hostKey(entry.hostname)
+            if (seen.has(key)) continue
+            seen.add(key)
+            const location = resolveSensorPlacement(entry)?.location ?? (entry.location as MapLocation) ?? 'farm'
+            out.push({ hostname: entry.hostname, location })
         }
-        return out
+        return out.sort((a, b) => a.hostname.localeCompare(b.hostname))
     }
 
     frameFor(hostname: string): AirSensorFrame | null {
@@ -161,8 +161,7 @@ export default class DashboardAirPanel extends Mixins(BaseMixin) {
         for (const { hostname, location } of this.sensorHostnames) {
             const frame = this.frameFor(hostname)
             if (!isSensorOnline(frame, this.connected)) continue
-            const floor = MAP_LOCATIONS.find((l) => l.location === location)?.name ?? location
-            const pos = printerGridPosition(this.roster, hostname)
+            const floor = SENSOR_FLOORS.find((f) => f.location === location)?.name ?? location
             const sensor = this.labelFor(hostname)
             for (const r of readingStates(this.metrics, frame)) {
                 if (r.severity <= SEVERITY_ATTENTION) continue
@@ -170,7 +169,7 @@ export default class DashboardAirPanel extends Mixins(BaseMixin) {
                     key: `${hostKey(hostname)}/${r.metric.key}`,
                     hostname,
                     sensor,
-                    where: `${floor} · ${pos.x},${pos.y}`,
+                    where: floor,
                     metric: r.metric.label,
                     reading: formatMetricReading(r.metric, r.value),
                     band: r.band.name,

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="980" viewBox="0 0 1200 980" role="img" aria-labelledby="title desc">
+<title id="title">downstairs floor occupancy mask</title><desc id="desc">White indicates modeled floor surfaces; black excludes the central void and area beyond the floors. This is a visual occupancy mask, not an airflow model.</desc><defs>
+ <pattern id="void-hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="14" fill="#e9e7e1"/><path d="M0 0V14" stroke="#d8d5cd" stroke-width="1"/></pattern>
+ <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#969289" stroke-width="1.4"/></marker>
+ </defs>
+ <style>text{font-family:'Roboto Mono',Consolas,'Liberation Mono',monospace}.label{font-weight:600;letter-spacing:1.6px}.minor{letter-spacing:.5px}.sensor-label{font-family:Arial,sans-serif;font-weight:600;letter-spacing:0}.sensor-id{font-size:12px;font-weight:400;fill:#496a80;letter-spacing:.3px}.sensor{cursor:pointer}.sensor:focus{outline:none}.sensor:focus .pin{stroke:#111;stroke-width:4}</style>
+
+<rect width="1200" height="980" fill="black"/><polygon points="43.54,43.54 1154.99,43.54 1154.99,929.22 43.54,929.22" fill="white" stroke="none" stroke-width="1" /></svg>

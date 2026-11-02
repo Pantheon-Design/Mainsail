@@ -996,9 +996,9 @@
             "Location": "Location",
             "NoSensors": "No air sensors yet.",
             "Range": "Range",
-            "RangeDescription": "Grid cells around the sensor its reading is painted over on the Air Quality map ({min}-{max}); the colour fades out beyond it.",
+            "RangeDescription": "Metres around the sensor its reading is painted over on the air sensor floor plan ({min}-{max}); the colour fades out beyond it.",
             "RangeInvalid": "Enter a whole number between {min} and {max}",
-            "RangeShort": "range {n}",
+            "RangeShort": "range {n} m",
             "RosterRefreshed": "Air sensor list refreshed",
             "Serial": "Serial",
             "SerialDescription": {

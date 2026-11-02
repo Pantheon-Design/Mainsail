@@ -109,7 +109,7 @@ Root store `src/store/index.ts`; each module follows the `index.ts / actions.ts 
 | `farm` | `src/store/farm/` | Multi-printer live state (see §6) |
 | `fleet` * | `src/store/fleet/` | Fleet-daemon aggregate data; sub-modules: `gcodes`, `history`, `spools`, `archive` (see §7) |
 
-Core domain types: `src/store/types.ts` (`RootState`), `src/store/printer/types.ts` (`PrinterState` + typed heater/fan/sensor interfaces), `src/store/farm/printer/types.ts` (`FarmPrinterState`), `src/store/gui/remoteprinters/types.ts` (`GuiRemoteprintersStatePrinter` — persisted printer descriptor incl. fork-specific `printerModel: 'HS-3' | 'HS-Pro'` and map `position`/`gridPosition`).
+Core domain types: `src/store/types.ts` (`RootState`), `src/store/printer/types.ts` (`PrinterState` + typed heater/fan/sensor interfaces), `src/store/farm/printer/types.ts` (`FarmPrinterState`), `src/store/gui/remoteprinters/types.ts` (`GuiRemoteprintersStatePrinter` — persisted printer descriptor incl. fork-specific `printerModel: 'HS-3' | 'HS-Pro'` and map `position`/`gridPosition`; air sensors instead use `mapPosition` `{layoutId, x, y}` on the CAD-based air sensor floor plan — `src/components/panels/sensorFloorPlan.ts` + `SensorFloorPlanSection.vue`, plan SVGs/masks in `public/img/floorplans/sf/` — and are not drawn on the printer grid).
 
 ## 5. Moonraker Data Flow (single active printer)
 

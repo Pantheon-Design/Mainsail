@@ -37,7 +37,7 @@ export function airSensorVendor(entry: { sensorVendor?: string | null } | null |
     const v = entry?.sensorVendor
     return v === 'airgradient' || v === 'dyson' ? v : 'pandasense'
 }
-/** Air sensors: radius (grid cells) the reading is drawn over on the Air Quality map. */
+/** Air sensors: radius (metres) the reading is drawn over on the air sensor floor plan. */
 export const DEFAULT_SENSOR_RANGE = 3
 export const MIN_SENSOR_RANGE = 1
 export const MAX_SENSOR_RANGE = 25
@@ -79,12 +79,16 @@ export interface GuiRemoteprintersStatePrinter {
     maxSpools?: number
     // NEW: optional display name (air sensors; shown instead of the hostname on the map/settings).
     label?: string | null
-    // NEW: air sensors only. Radius in grid cells the reading is painted over on the
-    // Air Quality map (default DEFAULT_SENSOR_RANGE). Absent/null = default.
+    // NEW: air sensors only. Radius in metres the reading is painted over on the air
+    // sensor floor plan (default DEFAULT_SENSOR_RANGE). Absent/null = default.
     sensorRange?: number | null
     // NEW: air sensors only. Vendor (absent = 'pandasense', see airSensorVendor) and the
     // device serial (AirGradient: 12 hex digits, checked against every response; Dyson:
     // the MQTT username and the key into the daemon's credential file).
     sensorVendor?: AirSensorVendor | null
     sensorSerial?: string | null
+    // NEW: air sensors only. Position on the air sensor floor plan (sensorFloorPlan.ts), in
+    // plan SVG units of `layoutId`. Separate from gridPosition, which is the printer-grid cell
+    // and is never used to place sensors. Absent/null = unplaced (or surveyed default).
+    mapPosition?: { layoutId: string; x: number; y: number } | null
 }

@@ -131,6 +131,7 @@ import {
     MIN_SENSOR_RANGE,
 } from '@/store/gui/remoteprinters/types'
 import { mdiDelete, mdiPencil, mdiAlertOutline } from '@mdi/js'
+import { SENSOR_FLOORS } from '@/components/panels/sensorFloorPlan'
 import Vue from 'vue'
 
 interface AirSensorForm {
@@ -176,10 +177,8 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
     readonly MIN_SENSOR_RANGE = MIN_SENSOR_RANGE
     readonly MAX_SENSOR_RANGE = MAX_SENSOR_RANGE
 
-    readonly locationItems = [
-        { text: 'Print Farm', value: 'farm' },
-        { text: 'Ground Floor', value: 'ground' },
-    ]
+    // Floors of the air sensor floor plan ('farm' = upstairs incl. mezzanine).
+    readonly locationItems = SENSOR_FLOORS.map((f) => ({ text: f.name, value: f.location }))
 
     readonly vendorItems = AIR_SENSOR_VENDORS.map((value) => ({ text: AIR_SENSOR_VENDOR_LABELS[value], value }))
 
@@ -245,7 +244,8 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
     }
 
     locationLabel(location?: 'farm' | 'ground') {
-        return (location ?? 'farm') === 'ground' ? 'Ground Floor' : 'Print Farm'
+        const loc = location ?? 'farm'
+        return SENSOR_FLOORS.find((f) => f.location === loc)?.name ?? loc
     }
 
     sensorTitle(sensor: GuiRemoteprintersStatePrinter) {
@@ -338,7 +338,12 @@ export default class SettingsAirSensorsTab extends Mixins(BaseMixin) {
 
     updateSensor() {
         if (!this.formValid) return
-        this.$store.dispatch('gui/remoteprinters/update', { id: this.form.id, values: this.formValues })
+        const previous = this.form.id ? this.$store.state.gui.remoteprinters.printers[this.form.id] : null
+        const values: Record<string, any> = { ...this.formValues }
+        // A saved floor-plan position belongs to its floor: moving the sensor to the other floor
+        // leaves it unplaced there (listed under the plan) instead of at the same x/y.
+        if (previous?.mapPosition && (previous.location ?? 'farm') !== values.location) values.mapPosition = null
+        this.$store.dispatch('gui/remoteprinters/update', { id: this.form.id, values })
         this.form = this.blankForm()
         this.refreshDaemonRoster()
     }
