@@ -65,7 +65,7 @@
             </template>
             <template #item.customer_name="{ item }">{{ item.customer_name || '—' }}</template>
             <template #item.priority="{ item }">
-                <v-chip x-small outlined :color="priorityColor(item.priority)">{{ item.priority }}</v-chip>
+                <v-chip x-small outlined :color="priorityColor(item.priority)">P{{ item.priority }}</v-chip>
             </template>
             <template #item.status="{ item }">
                 <v-tooltip v-if="item.hold_reason" bottom max-width="420">
@@ -180,7 +180,7 @@ import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPlay, mdiPlus } from '@
 import JobFormDialog from '@/components/dialogs/JobFormDialog.vue'
 import JobDetailsDialog from '@/components/dialogs/JobDetailsDialog.vue'
 import FleetNasBanner from '@/components/panels/FleetNasBanner.vue'
-import { FleetJob, FleetJobDetail } from '@/store/fleet/jobs/types'
+import { FleetJob, FleetJobDetail, jobPriorityColor } from '@/store/fleet/jobs/types'
 
 @Component({ components: { JobFormDialog, JobDetailsDialog, FleetNasBanner } })
 export default class JobListPanel extends Vue {
@@ -331,8 +331,8 @@ export default class JobListPanel extends Vue {
         return checked ? Math.round((100 * (job.qty_qc_failed || 0)) / checked) : 0
     }
 
-    priorityColor(p: string) {
-        return { high: 'red', medium: 'orange', low: 'grey' }[p] ?? 'grey'
+    priorityColor(p: number) {
+        return jobPriorityColor(p)
     }
 
     statusColor(s: string) {

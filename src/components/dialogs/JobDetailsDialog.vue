@@ -7,7 +7,9 @@
                     <v-icon v-if="detail.job.hold_reason" x-small left>{{ mdiAlertCircle }}</v-icon>
                     {{ detail.job.hold_reason ? 'paused' : statusLabel(detail.job.status) }}
                 </v-chip>
-                <v-chip small outlined :color="priorityColor(detail.job.priority)">{{ detail.job.priority }}</v-chip>
+                <v-chip small outlined :color="priorityColor(detail.job.priority)" title="Priority (1 lowest, 10 highest)">
+                    P{{ detail.job.priority }}
+                </v-chip>
                 <v-chip
                     v-if="detail.job.po_id"
                     small
@@ -266,7 +268,7 @@ import {
     mdiPencil,
     mdiPlay,
 } from '@mdi/js'
-import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun } from '@/store/fleet/jobs/types'
+import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, jobPriorityColor } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
 import { formatHoursDh } from '@/store/fleet/forecast'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
@@ -398,8 +400,8 @@ export default class JobDetailsDialog extends Vue {
         return s.replace('_', ' ')
     }
 
-    priorityColor(p: string) {
-        return { high: 'red', medium: 'orange', low: 'grey' }[p] ?? 'grey'
+    priorityColor(p: number) {
+        return jobPriorityColor(p)
     }
 
     runColor(s: string) {

@@ -17,8 +17,14 @@
                     <span class="dash-job__name text-truncate" :title="j.name">{{ j.name }}</span>
                     <span v-if="j.customer_name" class="dash-job__customer text-truncate">{{ j.customer_name }}</span>
                     <v-chip x-small :color="statusColor(j)" text-color="white" class="ml-1">{{ statusText(j) }}</v-chip>
-                    <v-chip v-if="j.priority === 'high'" x-small color="error" text-color="white" class="ml-1">
-                        high
+                    <v-chip
+                        v-if="j.priority >= highPriority"
+                        x-small
+                        color="error"
+                        text-color="white"
+                        class="ml-1"
+                        title="Priority (1 lowest, 10 highest)">
+                        P{{ j.priority }}
                     </v-chip>
                     <span class="dash-job__workers" :title="j.workers.join('\n')">
                         <v-icon small color="orange">{{ mdiHammer }}</v-icon>
@@ -74,7 +80,7 @@
 import { Component, Mixins } from 'vue-property-decorator'
 import { mdiBriefcaseOutline, mdiHammer, mdiWeight } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
-import { FleetJobForecast } from '@/store/fleet/jobs/types'
+import { FleetJobForecast, JOB_PRIORITY_HIGH } from '@/store/fleet/jobs/types'
 import { formatGrams, formatHoursDh } from '@/store/fleet/forecast'
 
 /** Open fleet jobs (in_progress + pending) with workers, print-time and filament progress. */
@@ -84,6 +90,7 @@ export default class DashboardJobsPanel extends Mixins(BaseMixin) {
     mdiHammer = mdiHammer
     mdiWeight = mdiWeight
     formatHoursDh = formatHoursDh
+    highPriority = JOB_PRIORITY_HIGH
     formatGrams = formatGrams
 
     get jobs(): FleetJobForecast[] {

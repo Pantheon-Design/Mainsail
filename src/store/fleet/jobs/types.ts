@@ -5,7 +5,8 @@
  */
 
 export type JobStatus = 'pending' | 'in_progress' | 'on_hold' | 'complete' | 'cancelled'
-export type JobPriority = 'low' | 'medium' | 'high'
+/** 1 (lowest) .. 10 (highest). */
+export type JobPriority = number
 export type JobType = 'sample' | 'production'
 export type RunStatus = 'queued' | 'uploading' | 'starting' | 'printing' | 'success' | 'failed' | 'cancelled'
 export type RunSource = 'auto' | 'manual'
@@ -14,7 +15,24 @@ export type FleetPrinterModel = 'HS-3' | 'HS-Pro' | 'Tallboi'
 export type ItemPrinterModelChoice = FleetPrinterModel | 'any' | null
 
 export const JOB_STATUSES: JobStatus[] = ['pending', 'in_progress', 'on_hold', 'complete', 'cancelled']
-export const JOB_PRIORITIES: JobPriority[] = ['low', 'medium', 'high']
+export const JOB_PRIORITY_MIN = 1
+export const JOB_PRIORITY_MAX = 10
+export const JOB_PRIORITY_DEFAULT = 5
+/** Priority at or above which a job is flagged as high priority on the dashboard. */
+export const JOB_PRIORITY_HIGH = 8
+export const JOB_PRIORITIES: JobPriority[] = Array.from(
+    { length: JOB_PRIORITY_MAX - JOB_PRIORITY_MIN + 1 },
+    (_, i) => JOB_PRIORITY_MIN + i
+)
+
+/** Chip color for a 1..10 priority: 8-10 red, 5-7 orange, 3-4 blue-grey, 1-2 grey. */
+export function jobPriorityColor(p: number | null | undefined): string {
+    const n = Number(p) || 0
+    if (n >= JOB_PRIORITY_HIGH) return 'red'
+    if (n >= 5) return 'orange'
+    if (n >= 3) return 'blue-grey'
+    return 'grey'
+}
 export const JOB_TYPES: JobType[] = ['sample', 'production']
 export const ACTIVE_RUN_STATUSES: RunStatus[] = ['queued', 'uploading', 'starting', 'printing']
 export const CLOSED_JOB_STATUSES: JobStatus[] = ['complete', 'cancelled']

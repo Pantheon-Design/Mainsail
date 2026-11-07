@@ -212,6 +212,10 @@ import {
     FLEET_PRINTER_MODELS,
     NOZZLE_SIZES,
     JobCreatePayload,
+    JOB_PRIORITIES,
+    JOB_PRIORITY_DEFAULT,
+    JOB_PRIORITY_MAX,
+    JOB_PRIORITY_MIN,
     JobItemCreatePayload,
     ItemPrinterModelChoice,
 } from '@/store/fleet/jobs/types'
@@ -270,11 +274,11 @@ export default class JobFormDialog extends Vue {
         { text: 'Production', value: 'production' },
         { text: 'Sample', value: 'sample' },
     ]
-    priorityOptions = [
-        { text: 'Low', value: 'low' },
-        { text: 'Medium', value: 'medium' },
-        { text: 'High', value: 'high' },
-    ]
+    // 10 = highest priority (listed first), 1 = lowest.
+    priorityOptions = [...JOB_PRIORITIES].reverse().map((p) => ({
+        text: p === JOB_PRIORITY_MAX ? `${p} (highest)` : p === JOB_PRIORITY_MIN ? `${p} (lowest)` : String(p),
+        value: p,
+    }))
     modelOptions = [{ text: 'Any printer', value: 'any' }, ...FLEET_PRINTER_MODELS.map((m) => ({ text: m, value: m }))]
     filamentSuggestions = ['PETG-CF', 'PA-CF', 'PA-GF', 'PETG', 'PLA', 'ABS', 'TPU']
     nozzleOptions = NOZZLE_SIZES.map((n) => String(n))
@@ -343,7 +347,7 @@ export default class JobFormDialog extends Vue {
             name: '',
             customer_id: null as number | null,
             job_type: 'production',
-            priority: 'medium',
+            priority: JOB_PRIORITY_DEFAULT as number,
             quantity: 1,
             operator_name: '',
             description: '',
@@ -601,7 +605,7 @@ export default class JobFormDialog extends Vue {
                     description: this.form.description || null,
                     operator_name: this.form.operator_name || null,
                     job_type: this.form.job_type as any,
-                    priority: this.form.priority as any,
+                    priority: this.form.priority,
                     quantity: Math.max(1, Number(this.form.quantity) || 1),
                     due_date: this.dueDateIso(),
                     items: this.items.map((r) => this.createPayload(r)),
