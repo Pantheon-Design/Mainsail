@@ -280,7 +280,28 @@ export default class JobFormDialog extends Vue {
         value: p,
     }))
     modelOptions = [{ text: 'Any printer', value: 'any' }, ...FLEET_PRINTER_MODELS.map((m) => ({ text: m, value: m }))]
-    filamentSuggestions = ['PETG-CF', 'PA-CF', 'PA-GF', 'PETG', 'PLA', 'ABS', 'TPU']
+    /** Shown only while the fleet database's filament table has no materials. */
+    filamentPresets = ['PETG-CF', 'PA-CF', 'PA-GF', 'PETG', 'PLA', 'ABS', 'TPU']
+
+    /** Filament dropdown: distinct materials of the fleet `fleet_filament` table
+     *  (loaded on open), falling back to filamentPresets when it is empty or
+     *  unreachable. The combobox still accepts any typed value. Materials that
+     *  differ only in case / spaces / '_' vs '-' (the daemon's
+     *  normalize_filament treats them as one) are listed once. */
+    get filamentSuggestions(): string[] {
+        const materials: string[] = this.$store.getters['fleet/spools/getMaterials'] ?? []
+        const seen = new Set<string>()
+        const out: string[] = []
+        for (const m of materials) {
+            const name = (m ?? '').trim()
+            const key = name.toUpperCase().replace(/_/g, '-').replace(/\s+/g, '')
+            if (!key || seen.has(key)) continue
+            seen.add(key)
+            out.push(name)
+        }
+        return out.length ? out : this.filamentPresets
+    }
+
     nozzleOptions = NOZZLE_SIZES.map((n) => String(n))
 
     nozzleValue(row: ItemRow): number | null {
@@ -360,6 +381,11 @@ export default class JobFormDialog extends Vue {
         if (!open) return
         this.error = ''
         this.quickAdd = { show: false, name: '', saving: false }
+        // Refresh the filament dropdown source; on failure the last loaded
+        // list (or the presets) stays.
+        this.$store.dispatch('fleet/spools/loadFilaments').catch((e: Error) => {
+            console.warn('Job form: filament list not loaded, using presets', e.message)
+        })
         if (this.job) {
             const j = this.job.job
             this.form = {
