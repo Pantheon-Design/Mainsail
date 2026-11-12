@@ -55,6 +55,7 @@ export const activityTypeMeta: Record<string, ActivityTypeMeta> = {
     prime_confirmed: { icon: mdiCheckDecagram, color: 'success' },
     prime_reset: { icon: mdiBackupRestore, color: 'grey' },
     fleet_worker_toggled: { icon: mdiRobotIndustrial, color: 'info' },
+    maintenance_toggled: { icon: mdiWrench, color: 'error' },
     gcode: { icon: mdiCodeBraces, color: 'grey' },
     jog: { icon: mdiAxisArrow, color: 'grey' },
     homing: { icon: mdiHome, color: 'grey' },
@@ -128,7 +129,7 @@ export const activityTypeCategories: { key: string; types: string[] }[] = [
     },
     {
         key: 'Fleet',
-        types: ['fleet_worker_toggled', 'fleet_download', 'file_uploaded', 'file_deleted'],
+        types: ['fleet_worker_toggled', 'maintenance_toggled', 'fleet_download', 'file_uploaded', 'file_deleted'],
     },
     { key: 'Motion', types: ['jog', 'homing', 'temperature', 'macro', 'gcode', 'odometer_set', 'tripmeter_reset'] },
     { key: 'Other', types: ['moonraker_started', 'moonraker_exit', 'config_generate'] },
@@ -154,4 +155,5 @@ export const tier1Types: string[] = [
     'prime_confirmed',
     'prime_reset',
     'fleet_worker_toggled',
+    'maintenance_toggled',
 ]

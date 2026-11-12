@@ -5,7 +5,7 @@
             elevate-on-scroll
             :height="topbarHeight"
             class="topbar pa-0"
-            :class="{ 'fleet-worker-topbar': isFleetWorker }"
+            :class="{ 'fleet-worker-topbar': isFleetWorker && !isMaintenance, 'maintenance-topbar': isMaintenance }"
             clipped-left>
             <v-app-bar-nav-icon tile @click.stop="naviDrawer = !naviDrawer" />
             <router-link to="/">
@@ -27,7 +27,22 @@
                 </template>
             </router-link>
             <v-toolbar-title class="text-no-wrap ml-0 pl-2 mr-2">{{ printerName }}</v-toolbar-title>
-            <v-tooltip v-if="isFleetWorker" bottom>
+            <v-tooltip v-if="isMaintenance" bottom>
+                <template #activator="{ on, attrs }">
+                    <v-chip
+                        small
+                        label
+                        color="red darken-2"
+                        text-color="white"
+                        class="fleet-worker-chip font-weight-bold mr-2"
+                        v-bind="attrs"
+                        v-on="on">
+                        {{ $t('App.TopBar.Maintenance') }}
+                    </v-chip>
+                </template>
+                <span>{{ $t('App.TopBar.MaintenanceTooltip') }}</span>
+            </v-tooltip>
+            <v-tooltip v-else-if="isFleetWorker" bottom>
                 <template #activator="{ on, attrs }">
                     <v-chip
                         small
@@ -225,6 +240,11 @@ export default class TheTopbar extends Mixins(BaseMixin) {
         return this.$store.state.printer.machine_state?.is_fleet_worker === 1
     }
 
+    get isMaintenance(): boolean {
+        // Toggled only on the printer's KlipperScreen; owned by Moonraker (machine_state).
+        return this.$store.state.printer.machine_state?.is_maintenance === 1
+    }
+
     get boolHideUploadAndPrintButton() {
         return this.$store.state.gui.uiSettings.boolHideUploadAndPrintButton ?? false
     }
@@ -383,11 +403,13 @@ export default class TheTopbar extends Mixins(BaseMixin) {
 
 /* Fleet-managed worker: pulsing, half-transparent yellow/black construction stripes */
 /*noinspection CssUnusedSymbol*/
-header.topbar.fleet-worker-topbar {
+header.topbar.fleet-worker-topbar,
+header.topbar.maintenance-topbar {
     overflow: hidden;
 }
 /*noinspection CssUnusedSymbol*/
-header.topbar.fleet-worker-topbar::before {
+header.topbar.fleet-worker-topbar::before,
+header.topbar.maintenance-topbar::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -398,12 +420,20 @@ header.topbar.fleet-worker-topbar::before {
     animation: fleet-worker-pulse 1.6s ease-in-out infinite;
 }
 /*noinspection CssUnusedSymbol*/
-::v-deep header.topbar.fleet-worker-topbar .v-toolbar__content {
+/* Maintenance mode: same pattern, red instead of yellow (takes priority over the worker one) */
+/*noinspection CssUnusedSymbol*/
+header.topbar.maintenance-topbar::before {
+    background: repeating-linear-gradient(-45deg, #d32f2f 0 20px, #151515 20px 40px);
+}
+/*noinspection CssUnusedSymbol*/
+::v-deep header.topbar.fleet-worker-topbar .v-toolbar__content,
+::v-deep header.topbar.maintenance-topbar .v-toolbar__content {
     position: relative;
     z-index: 1;
 }
 /*noinspection CssUnusedSymbol*/
-::v-deep header.topbar.fleet-worker-topbar .v-toolbar__title {
+::v-deep header.topbar.fleet-worker-topbar .v-toolbar__title,
+::v-deep header.topbar.maintenance-topbar .v-toolbar__title {
     text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
 }
 @keyframes fleet-worker-pulse {
@@ -416,7 +446,8 @@ header.topbar.fleet-worker-topbar::before {
     }
 }
 @media (prefers-reduced-motion: reduce) {
-    header.topbar.fleet-worker-topbar::before {
+    header.topbar.fleet-worker-topbar::before,
+    header.topbar.maintenance-topbar::before {
         animation: none;
         opacity: 0.5;
     }

@@ -109,6 +109,7 @@
         <prime-printer-dialog :bool="show_prime_printer_dialog"
                               :filename="selectedFilename"
                             @closeDialog="closePrimePrint" />
+        <maintenance-block-dialog :bool="show_maintenance_dialog" @closeDialog="show_maintenance_dialog = false" />
     </div>
 </template>
 
@@ -164,6 +165,7 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     mdiAlertOutline = mdiAlertOutline
 
     show_prime_printer_dialog = false
+    show_maintenance_dialog = false
     selectedFilename = ''
 
     declare $refs: {
@@ -213,7 +215,7 @@ export default class StatusPanel extends Mixins(BaseMixin) {
             }
 
             const stateText = this.printer_state.charAt(0).toUpperCase() + this.printer_state.slice(1)
-            return stateText + this.primeStateSuffix + this.fleetWorkerSuffix
+            return stateText + this.primeStateSuffix + this.fleetWorkerSuffix + this.maintenanceSuffix
         }
 
         return this.$t('Panels.StatusPanel.Unknown')
@@ -232,6 +234,15 @@ export default class StatusPanel extends Mixins(BaseMixin) {
         // mirrored from fleet_daemon's worker list.
         const machineState = this.$store.state?.printer?.machine_state ?? {}
         return machineState.is_fleet_worker === 1 ? ' · Fleet worker' : ''
+    }
+
+    get maintenanceSuffix() {
+        // Idle states only. is_maintenance is owned by Moonraker (machine_state).
+        return this.isMaintenance ? ' · Under maintenance' : ''
+    }
+
+    get isMaintenance(): boolean {
+        return this.$store.state?.printer?.machine_state?.is_maintenance === 1
     }
 
     get toolbarButtons() {
@@ -417,6 +428,10 @@ export default class StatusPanel extends Mixins(BaseMixin) {
     }
 
     btnReprintJob() {
+        if (this.isMaintenance) {
+            this.show_maintenance_dialog = true
+            return
+        }
         // is_primed is owned by Moonraker (machine_state); see GcodefilesPanel.clickRow
         const machineState = this.$store.state?.printer?.machine_state ?? {}
         const primeEnabled = machineState.enable_prime !== 0

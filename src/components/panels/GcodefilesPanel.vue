@@ -645,6 +645,7 @@
         <prime-printer-dialog :bool="show_prime_printer_dialog"
                             :filename="selectedFilename"
                             @closeDialog="closePrimePrint" />
+        <maintenance-block-dialog :bool="show_maintenance_dialog" @closeDialog="show_maintenance_dialog = false" />
     </div>
 </template>
 
@@ -757,6 +758,7 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
     sortFiles = sortFiles
 
     show_prime_printer_dialog = false
+    show_maintenance_dialog = false
     selectedFilename = ''
 
 
@@ -1378,6 +1380,12 @@ export default class GcodefilesPanel extends Mixins(BaseMixin, ControlMixin) {
 
             if (item.isDirectory) {
                 this.currentPath += '/' + item.filename
+            } else if (
+                this.$store.state?.printer?.machine_state?.is_maintenance === 1 &&
+                ((item as any).isFleetRemote || this.isGcodeFile(item))
+            ) {
+                // Maintenance mode replaces the start-print / prime / fleet download dialogs.
+                this.show_maintenance_dialog = true
             } else if ((item as any).isFleetRemote) {
                 // Fleet remote file: show download dialog with live config check
                 this.fleetDialog.show = true

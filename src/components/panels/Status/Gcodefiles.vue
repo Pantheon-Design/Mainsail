@@ -81,6 +81,7 @@
             :bool="showPrimeDialog"
             :filename="primeDialogFilename"
             @closeDialog="closePrimeDialog" />
+        <maintenance-block-dialog :bool="showMaintenanceDialog" @closeDialog="showMaintenanceDialog = false" />
         <v-menu v-model="contextMenu.shown" :position-x="contextMenu.x" :position-y="contextMenu.y" absolute offset-y>
             <v-list>
                 <v-list-item :disabled="printerIsPrinting || !klipperReadyForGui" @click="showDialog(contextMenu.item)">
@@ -237,6 +238,7 @@ export default class StatusPanelGcodefiles extends Mixins(BaseMixin, ControlMixi
     private deleteDialog = false
     private showDialogBool = false
     private showPrimeDialog = false
+    private showMaintenanceDialog = false
     private primeDialogFilename = ''
     private dialogFile: FileStateGcodefile = {
         isDirectory: false,
@@ -409,6 +411,12 @@ export default class StatusPanelGcodefiles extends Mixins(BaseMixin, ControlMixi
 
     showDialog(file: FileStateGcodefile) {
         const machineState = this.$store.state?.printer?.machine_state ?? {}
+
+        // Maintenance mode replaces the start-print / prime dialogs.
+        if (machineState.is_maintenance === 1) {
+            this.showMaintenanceDialog = true
+            return
+        }
 
         if (machineState.is_purging === 1) {
             this.$toast.warning("Purging wet filament. A print has already been started, it will begin after the purge.");

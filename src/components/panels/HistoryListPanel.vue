@@ -967,6 +967,10 @@ export default class HistoryListPanel extends Mixins(BaseMixin) {
     }
 
     startPrint(item: ServerHistoryStateJob) {
+        if (this.$store.state?.printer?.machine_state?.is_maintenance === 1) {
+            this.$toast.error(this.$t('App.Maintenance.BlockText') as string)
+            return
+        }
         if (item.exists)
             this.$socket.emit('printer.print.start', { filename: item.filename }, { action: 'switchToDashboard' })
     }
