@@ -164,8 +164,23 @@
                         pointer-events="none">
                         {{ p.glyph }}
                     </text>
-                    <!-- sticker: flashing "!" when the worker needs attention, else the hammer -->
-                    <g v-if="p.attention" class="dash-map__sticker dash-map__sticker--attention">
+                    <!-- sticker: maintenance (yellow triangle + wrench) first, then flashing "!" when
+                         the worker needs attention, else the hammer -->
+                    <g
+                        v-if="p.maintenance"
+                        class="dash-map__sticker"
+                        :transform="`translate(${p.cx + STICKER_OFF - STICKER_R * 1.25}, ${
+                            p.cy + STICKER_OFF * p.hScale - STICKER_R * 1.3
+                        }) scale(${(STICKER_R * 2.5) / 24})`">
+                        <path
+                            d="M12 2.5 L22.5 21 H1.5 Z"
+                            fill="#fdd835"
+                            stroke="#212121"
+                            stroke-width="1.5"
+                            stroke-linejoin="round" />
+                        <path :d="mdiWrench" fill="#212121" transform="translate(7.5 11) scale(0.375)" />
+                    </g>
+                    <g v-else-if="p.attention" class="dash-map__sticker dash-map__sticker--attention">
                         <circle
                             :cx="p.cx + STICKER_OFF"
                             :cy="p.cy + STICKER_OFF * p.hScale"
@@ -217,7 +232,7 @@
 
 <script lang="ts">
 import { Component, Mixins, Prop, Watch } from 'vue-property-decorator'
-import { mdiExclamationThick, mdiHammer } from '@mdi/js'
+import { mdiExclamationThick, mdiHammer, mdiWrench } from '@mdi/js'
 import BaseMixin from '@/components/mixins/base'
 import { hostKey } from '@/plugins/hostKey'
 import {
@@ -227,6 +242,7 @@ import {
     STATUS_META,
     STATUS_ORDER,
     emptyStatusCounts,
+    printerUnderMaintenance,
 } from '@/components/panels/farmPrinterStatus'
 import {
     CELL,
@@ -260,6 +276,8 @@ interface MarkerVm {
     /** 0..1 while printing (drives the wavy fill), else null */
     progress: number | null
     worker: boolean
+    /** maintenance mode (machine_state.is_maintenance): its sticker wins over the worker ones */
+    maintenance: boolean
     attention: boolean
     reason: string | null
 }
@@ -295,6 +313,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
 
     mdiExclamationThick = mdiExclamationThick
     mdiHammer = mdiHammer
+    mdiWrench = mdiWrench
     readonly CELL = CELL
     /** marker diameter (same 36px as the full map at base scale) */
     readonly MARK = CELL - 10
@@ -364,6 +383,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
                     m.hScale,
                     m.progress === null ? '' : Math.round(m.progress * 100),
                     m.worker ? 1 : 0,
+                    m.maintenance ? 1 : 0,
                     m.attention ? 1 : 0,
                     m.reason ?? '',
                     m.printer?.toolhead?.filament_type ?? '',
@@ -409,6 +429,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
                     glyph,
                     progress,
                     worker: this.inList(this.workerHostnames, hostname),
+                    maintenance: printerUnderMaintenance(printer),
                     attention,
                     reason: attention ? this.reasonFor(hostname) : null,
                 }
@@ -526,6 +547,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         if (p.status === 'printing') lines[0] += ` ${getPrinterPrintPercent(p.printer)}%`
         const filament = p.printer?.toolhead?.filament_type
         if (filament) lines.push(`Filament: ${filament}`)
+        if (p.maintenance) lines.push('Under maintenance (printing blocked, fleet jobs skip it)')
         if (p.worker) lines.push('Fleet worker')
         if (p.attention) lines.push(`Needs attention: ${p.reason || 'see the Workers list'}`)
         return lines.join('\n')

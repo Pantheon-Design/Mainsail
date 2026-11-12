@@ -141,9 +141,22 @@
                             {{ markerGlyph(printer) }}
                         </span>
                     </div>
+                    <!-- Maintenance sticker (yellow triangle + wrench): shown in every mode and takes
+                         priority over the worker stickers below -->
+                    <span v-if="isMaintenance(printer)" class="maintenance-sticker" title="Under maintenance">
+                        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                            <path
+                                d="M12 2.5 L22.5 21 H1.5 Z"
+                                fill="#fdd835"
+                                stroke="#212121"
+                                stroke-width="1.5"
+                                stroke-linejoin="round" />
+                            <path :d="mdiWrench" fill="#212121" transform="translate(7.5 11) scale(0.375)" />
+                        </svg>
+                    </span>
                     <!-- Worker stickers: flashing "!" when the worker needs attention, else the hammer -->
                     <span
-                        v-if="workersVisible && needsAttention(hostname)"
+                        v-else-if="workersVisible && needsAttention(hostname)"
                         class="worker-sticker attention-sticker"
                         :title="attentionReason(hostname) || 'Worker needs attention'">
                         <v-icon size="13" color="#fff">{{ mdiExclamationThick }}</v-icon>
@@ -257,6 +270,7 @@ import {
     PrinterStatus,
     STATUS_META,
     STATUS_ORDER,
+    printerUnderMaintenance,
 } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import { OvenFrame } from '@/store/farm/types'
@@ -282,7 +296,7 @@ import {
     OVEN_LEGEND,
     OVEN_STATUS_META,
 } from '@/components/panels/farmOvenStatus'
-import { mdiExclamationThick, mdiHammer } from '@mdi/js'
+import { mdiExclamationThick, mdiHammer, mdiWrench } from '@mdi/js'
 import { attentionChipTitle } from '@/components/panels/fleetWorkerAttention'
 
 type MapLocation = 'farm' | 'ground'
@@ -327,6 +341,7 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     mdiHammer = mdiHammer
     mdiExclamationThick = mdiExclamationThick
+    mdiWrench = mdiWrench
 
     // Grid geometry
     readonly GRID_COLS = 25
@@ -883,6 +898,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
         return key ? this.attentionReasons[key] || null : null
     }
 
+    isMaintenance(printer: any): boolean {
+        return printerUnderMaintenance(printer)
+    }
+
     isWorker(hostname: string): boolean {
         return this.workerHostKeys.has(hostKey(hostname))
     }
@@ -1310,6 +1329,19 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
             0 0 0 6px rgba(211, 47, 47, 0),
             0 1px 3px rgba(0, 0, 0, 0.5);
     }
+}
+.maintenance-sticker {
+    position: absolute;
+    bottom: -7px;
+    right: -7px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 3;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 .attention-sticker {
     animation: attention-flash 0.8s ease-in-out infinite;

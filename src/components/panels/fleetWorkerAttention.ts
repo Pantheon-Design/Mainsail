@@ -22,9 +22,11 @@ export function nasAttentionReason(scheduler: SchedulerGate): string | null {
  *  primed, not enough filament, or a worn-out / unset nozzle (mirrors
  *  fleet_job_scheduler.attention_category()); or — with `scheduler` given —
  *  any enabled worker while the NAS is offline, because Fleet cannot start
- *  jobs on it until the mount is back (or dispatch is forced). */
+ *  jobs on it until the mount is back (or dispatch is forced).
+ *  A printer in maintenance mode never needs attention: the scheduler just skips it. */
 export function workerNeedsAttention(w: FleetWorker, scheduler?: SchedulerGate): boolean {
     if (!w.enabled) return false
+    if (workerUnderMaintenance(w)) return false
     if (nasDispatchBlocked(scheduler)) return true
     if (!w.connected) return false
     const r = (w.reason || '').toLowerCase()
@@ -35,6 +37,11 @@ export function workerNeedsAttention(w: FleetWorker, scheduler?: SchedulerGate):
         r.startsWith('nozzle worn out') ||
         r.startsWith('nozzle life not set')
     )
+}
+
+/** Maintenance mode (set on the printer's KlipperScreen); daemon reason "under maintenance". */
+export function workerUnderMaintenance(w: FleetWorker): boolean {
+    return w.maintenance === true || w.machine_state?.is_maintenance === 1
 }
 
 /** Hostnames currently enabled as fleet workers. */

@@ -2,11 +2,15 @@
     <div class="printer-tooltip">
         <template v-if="printer">
             <p>{{ printer.socket.hostname }}: {{ printer.print_stats?.state || 'Unknown' }}</p>
+            <p v-if="underMaintenance" class="maintenance-line">
+                <strong>Under maintenance</strong>
+                (printing blocked, fleet jobs skip this printer)
+            </p>
             <p v-if="showWorker">
                 Fleet worker: {{ isWorker ? 'yes' : 'no' }}
                 <span v-if="toggleHint">(click to toggle)</span>
             </p>
-            <p v-if="showWorker && needsAttention" class="attention-reason">
+            <p v-if="showWorker && needsAttention && !underMaintenance" class="attention-reason">
                 <strong>Needs attention:</strong>
                 {{ attentionReason || 'see the Workers list' }}
             </p>
@@ -28,7 +32,11 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator'
-import { computeRemainingFilamentG, getPrinterPrintPercent } from '@/components/panels/farmPrinterStatus'
+import {
+    computeRemainingFilamentG,
+    getPrinterPrintPercent,
+    printerUnderMaintenance,
+} from '@/components/panels/farmPrinterStatus'
 
 /**
  * Hover card with a printer's live fleet_daemon state. Shared by the Fleet Map markers and
@@ -48,6 +56,10 @@ export default class FarmPrinterTooltip extends Vue {
     @Prop({ type: String, default: null }) readonly attentionReason!: string | null
     /** Append "(click to toggle)" to the worker line (Workers map). */
     @Prop({ type: Boolean, default: false }) readonly toggleHint!: boolean
+
+    get underMaintenance(): boolean {
+        return printerUnderMaintenance(this.printer)
+    }
 
     get remainingG(): number | null {
         return this.printer ? computeRemainingFilamentG(this.printer) : null
@@ -73,6 +85,11 @@ export default class FarmPrinterTooltip extends Vue {
 }
 .printer-tooltip p {
     margin: 0;
+}
+.printer-tooltip .maintenance-line {
+    color: #fdd835;
+    white-space: normal;
+    max-width: 300px;
 }
 .printer-tooltip .attention-reason {
     color: #ff8a80;

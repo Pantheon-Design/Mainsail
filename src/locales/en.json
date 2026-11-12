@@ -1647,6 +1647,7 @@
             "klippy_restart": "Klipper restart",
             "klippy_shutdown": "Klipper shutdown",
             "macro": "Macro",
+            "maintenance_toggled": "Maintenance mode toggled",
             "moonraker_exit": "Moonraker stopped",
             "moonraker_started": "Moonraker started",
             "nozzle_life_reset": "Nozzle life reset",

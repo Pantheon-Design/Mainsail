@@ -182,6 +182,8 @@ export interface FleetWorkerMachineState {
     is_primed: number | null
     is_purging: number | null
     enable_prime: number | null
+    /** 1 while the printer is in maintenance mode; newer daemons only */
+    is_maintenance?: number | null
 }
 
 /** One row of GET /workers — every connected printer, worker or not. */
@@ -209,6 +211,8 @@ export interface FleetWorker {
     remaining_nozzle_life?: number | null
     machine_state: FleetWorkerMachineState | null
     primed: boolean | null
+    /** machine_state.is_maintenance === 1 (the scheduler skips it); newer daemons only */
+    maintenance?: boolean
     eligible: boolean
     reason: string | null
     eval_item_id: number | null

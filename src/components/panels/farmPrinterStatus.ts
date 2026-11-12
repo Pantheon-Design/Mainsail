@@ -176,3 +176,10 @@ export function computeRemainingWeightPct(printer: any): number | null {
     if (total <= 0) return null
     return Math.max(0, Math.min(100, (remaining / total) * 100))
 }
+
+/** Maintenance mode, set on the printer's KlipperScreen power panel (Moonraker
+ *  machine_state.is_maintenance, carried in the fleet_daemon frame). The scheduler
+ *  skips these printers; the maps show the wrench sticker instead of the worker one. */
+export function printerUnderMaintenance(printer: any): boolean {
+    return printer?.machine_state?.is_maintenance === 1
+}
