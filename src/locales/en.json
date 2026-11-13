@@ -1411,8 +1411,9 @@
         },
         "ServiceTypes": {
             "bed_leveling": "Bed leveling",
-            "belts_motion": "Belts / motion",
-            "extruder_feeder": "Extruder / feeder",
+            "belts_motion": "Motion system",
+            "door_lid": "Door / lid",
+            "extruder_feeder": "Extruder",
             "firmware_config": "Firmware / config",
             "hotend_service": "Hotend service",
             "inspection": "Inspection",
