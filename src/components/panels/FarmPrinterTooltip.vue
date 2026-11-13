@@ -5,6 +5,8 @@
             <p v-if="underMaintenance" class="maintenance-line">
                 <strong>Under maintenance</strong>
                 (printing blocked, fleet jobs skip this printer)
+                <br />
+                Reason: {{ maintenanceReason || 'none given' }}
             </p>
             <p v-if="showWorker">
                 Fleet worker: {{ isWorker ? 'yes' : 'no' }}
@@ -35,6 +37,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator'
 import {
     computeRemainingFilamentG,
     getPrinterPrintPercent,
+    printerMaintenanceReason,
     printerUnderMaintenance,
 } from '@/components/panels/farmPrinterStatus'
 
@@ -59,6 +62,10 @@ export default class FarmPrinterTooltip extends Vue {
 
     get underMaintenance(): boolean {
         return printerUnderMaintenance(this.printer)
+    }
+
+    get maintenanceReason(): string {
+        return printerMaintenanceReason(this.printer)
     }
 
     get remainingG(): number | null {

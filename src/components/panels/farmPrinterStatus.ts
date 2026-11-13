@@ -183,3 +183,15 @@ export function computeRemainingWeightPct(printer: any): number | null {
 export function printerUnderMaintenance(printer: any): boolean {
     return printer?.machine_state?.is_maintenance === 1
 }
+
+/** Reason picked on KlipperScreen when maintenance was turned on ('' when none / not reported). */
+export function printerMaintenanceReason(printer: any): string {
+    const r = printer?.machine_state?.maintenance_reason
+    return typeof r === 'string' ? r.trim() : ''
+}
+
+/** "Under maintenance" plus the reason when there is one (sticker / marker titles). */
+export function maintenanceTitle(printer: any): string {
+    const reason = printerMaintenanceReason(printer)
+    return reason ? `Under maintenance: ${reason}` : 'Under maintenance (no reason given)'
+}

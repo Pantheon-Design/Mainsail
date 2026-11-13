@@ -184,6 +184,8 @@ export interface FleetWorkerMachineState {
     enable_prime: number | null
     /** 1 while the printer is in maintenance mode; newer daemons only */
     is_maintenance?: number | null
+    /** reason picked on KlipperScreen ('' = none given); newer daemons only */
+    maintenance_reason?: string | null
 }
 
 /** One row of GET /workers — every connected printer, worker or not. */

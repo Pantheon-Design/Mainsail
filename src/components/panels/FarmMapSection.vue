@@ -143,7 +143,7 @@
                     </div>
                     <!-- Maintenance sticker (yellow triangle + wrench): shown in every mode and takes
                          priority over the worker stickers below -->
-                    <span v-if="isMaintenance(printer)" class="maintenance-sticker" title="Under maintenance">
+                    <span v-if="isMaintenance(printer)" class="maintenance-sticker" :title="maintenanceTitle(printer)">
                         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                             <path
                                 d="M12 2.5 L22.5 21 H1.5 Z"
@@ -271,6 +271,7 @@ import {
     STATUS_META,
     STATUS_ORDER,
     printerUnderMaintenance,
+    maintenanceTitle,
 } from '@/components/panels/farmPrinterStatus'
 import { PrinterModel, SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
 import { OvenFrame } from '@/store/farm/types'
@@ -900,6 +901,10 @@ export default class FarmMapSection extends Mixins(BaseMixin) {
 
     isMaintenance(printer: any): boolean {
         return printerUnderMaintenance(printer)
+    }
+
+    maintenanceTitle(printer: any): string {
+        return maintenanceTitle(printer)
     }
 
     isWorker(hostname: string): boolean {

@@ -243,6 +243,7 @@ import {
     STATUS_ORDER,
     emptyStatusCounts,
     printerUnderMaintenance,
+    printerMaintenanceReason,
 } from '@/components/panels/farmPrinterStatus'
 import {
     CELL,
@@ -384,6 +385,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
                     m.progress === null ? '' : Math.round(m.progress * 100),
                     m.worker ? 1 : 0,
                     m.maintenance ? 1 : 0,
+                    m.maintenance ? printerMaintenanceReason(m.printer) : '',
                     m.attention ? 1 : 0,
                     m.reason ?? '',
                     m.printer?.toolhead?.filament_type ?? '',
@@ -547,7 +549,10 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         if (p.status === 'printing') lines[0] += ` ${getPrinterPrintPercent(p.printer)}%`
         const filament = p.printer?.toolhead?.filament_type
         if (filament) lines.push(`Filament: ${filament}`)
-        if (p.maintenance) lines.push('Under maintenance (printing blocked, fleet jobs skip it)')
+        if (p.maintenance) {
+            lines.push('Under maintenance (printing blocked, fleet jobs skip it)')
+            lines.push(`Reason: ${printerMaintenanceReason(p.printer) || 'none given'}`)
+        }
         if (p.worker) lines.push('Fleet worker')
         if (p.attention) lines.push(`Needs attention: ${p.reason || 'see the Workers list'}`)
         return lines.join('\n')
