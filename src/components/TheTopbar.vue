@@ -40,7 +40,17 @@
                         {{ $t('App.TopBar.Maintenance') }}
                     </v-chip>
                 </template>
-                <span>{{ $t('App.TopBar.MaintenanceTooltip') }}</span>
+                <div class="maintenance-tooltip">
+                    <div class="font-weight-bold">
+                        {{
+                            maintenanceReason
+                                ? $t('App.TopBar.MaintenanceReason', { reason: maintenanceReason })
+                                : $t('App.TopBar.MaintenanceNoReason')
+                        }}
+                    </div>
+                    <div v-if="maintenanceSince">{{ $t('App.TopBar.MaintenanceSince', { since: maintenanceSince }) }}</div>
+                    <div>{{ $t('App.TopBar.MaintenanceTooltip') }}</div>
+                </div>
             </v-tooltip>
             <v-tooltip v-else-if="isFleetWorker" bottom>
                 <template #activator="{ on, attrs }">
@@ -245,6 +255,17 @@ export default class TheTopbar extends Mixins(BaseMixin) {
         return this.$store.state.printer.machine_state?.is_maintenance === 1
     }
 
+    get maintenanceReason(): string {
+        const r = this.$store.state.printer.machine_state?.maintenance_reason
+        return typeof r === 'string' ? r.trim() : ''
+    }
+
+    get maintenanceSince(): string {
+        const ts = Number(this.$store.state.printer.machine_state?.maintenance_since ?? 0)
+        if (!ts || ts < 1.6e9) return ''
+        return new Date(ts * 1000).toLocaleString()
+    }
+
     get boolHideUploadAndPrintButton() {
         return this.$store.state.gui.uiSettings.boolHideUploadAndPrintButton ?? false
     }
@@ -399,6 +420,11 @@ export default class TheTopbar extends Mixins(BaseMixin) {
     header.topbar {
         z-index: 8 !important;
     }
+}
+
+.maintenance-tooltip {
+    max-width: 360px;
+    white-space: normal;
 }
 
 /* Fleet-managed worker: pulsing, half-transparent yellow/black construction stripes */
