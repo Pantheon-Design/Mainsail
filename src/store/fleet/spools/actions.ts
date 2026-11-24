@@ -78,13 +78,30 @@ export const actions: ActionTree<FleetSpoolsState, RootState> = {
             const params = new URLSearchParams()
             if (filters.vendor_id != null) params.set('vendor_id', String(filters.vendor_id))
             if (filters.material) params.set('material', filters.material)
+            // The daemon leaves out printer-hidden filaments by default, because
+            // KlipperScreen reads the same endpoint. Mainsail manages the whole library.
+            params.set('include_hidden', 'true')
             const qs = params.toString()
-            const response = await axios.get(`${baseUrl}/spool/filaments${qs ? '?' + qs : ''}`)
+            const response = await axios.get(`${baseUrl}/spool/filaments?${qs}`)
             commit('setFilaments', response.data)
         } catch (error) {
             const msg = extractError(error)
             console.error('Failed to load filaments:', msg)
             throw new Error(`Load filaments failed: ${msg}`)
+        }
+    },
+
+    /** PUT /spool/filament-visibility: show/hide filaments in this site's KlipperScreen picker (site-local). */
+    async setFilamentPrinterVisibility({ commit, rootGetters }, payload: { ids: number[]; visible: boolean }) {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        try {
+            await axios.put(`${baseUrl}/spool/filament-visibility`, {
+                filament_ids: payload.ids,
+                visible: payload.visible,
+            })
+            commit('setFilamentPrinterVisibility', payload)
+        } catch (error) {
+            throw new Error(extractError(error))
         }
     },
 

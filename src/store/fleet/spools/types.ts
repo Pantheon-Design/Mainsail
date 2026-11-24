@@ -24,6 +24,12 @@ export interface FleetFilament {
     dry_time_hours: number | null
     comment: string | null
     registered: string
+    /**
+     * Site-local: whether this daemon's printers (KlipperScreen filament picker)
+     * see this filament. Absent on daemons that predate the feature, so treat
+     * anything but `false` as visible.
+     */
+    printer_visible?: boolean
 }
 
 export interface FleetSpool {

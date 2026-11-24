@@ -3,6 +3,9 @@
         <v-card-title class="d-flex align-center">
             <span>Filaments</span>
             <v-spacer />
+            <v-btn small color="primary" outlined class="mr-2" @click="openVisibilityDialog">
+                <v-icon small left>{{ mdiEyeSettingsOutline }}</v-icon> Toggle visibility on printers
+            </v-btn>
             <v-btn small color="primary" outlined @click="openAddDialog">
                 <v-icon small left>{{ mdiPlus }}</v-icon> Add Filament
             </v-btn>
@@ -147,6 +150,71 @@
             </v-card>
         </v-dialog>
 
+        <!-- Printer visibility (site-local: what this daemon's KlipperScreens list) -->
+        <v-dialog v-model="visibilityDialog" max-width="650" scrollable>
+            <v-card>
+                <v-card-title>Visibility on printers</v-card-title>
+                <v-card-subtitle class="pt-1">
+                    Choose which filaments this site's printers list in the KlipperScreen filament picker.
+                    This setting applies only to this fleet daemon. Other sites keep their own list.
+                    KlipperScreen shows one entry per material, so a material stays listed while any
+                    visible filament uses it.
+                </v-card-subtitle>
+                <v-card-text class="pb-0" style="flex: 0 0 auto">
+                    <v-row dense align="center">
+                        <v-col cols="12" sm="6">
+                            <v-text-field
+                                v-model="visibilitySearch"
+                                label="Search"
+                                :prepend-inner-icon="mdiMagnify"
+                                clearable dense outlined hide-details />
+                        </v-col>
+                        <v-col cols="12" sm="6" class="d-flex justify-end">
+                            <v-btn small text :disabled="visibilityBulkBusy" @click="setVisibleBulk(true)">Show all</v-btn>
+                            <v-btn small text :disabled="visibilityBulkBusy" @click="setVisibleBulk(false)">Hide all</v-btn>
+                        </v-col>
+                    </v-row>
+                    <div class="text-caption mt-2 mb-1">
+                        {{ visibleCount }} of {{ filaments.length }} visible on printers
+                    </div>
+                </v-card-text>
+                <v-divider />
+                <v-card-text style="height: 60vh" class="px-2">
+                    <v-list dense>
+                        <v-list-item v-for="f in visibilityFilaments" :key="f.id">
+                            <v-list-item-avatar size="20" class="my-0 mr-3">
+                                <div
+                                    :style="{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: f.color_hex ? '#' + f.color_hex : 'transparent', border: '1px solid rgba(255,255,255,0.3)' }" />
+                            </v-list-item-avatar>
+                            <v-list-item-content>
+                                <v-list-item-title :class="{ 'text--disabled': !isPrinterVisible(f) }">
+                                    {{ f.vendor_name ? f.vendor_name + ' · ' : '' }}{{ f.name || f.material }}
+                                </v-list-item-title>
+                                <v-list-item-subtitle>{{ f.material }} · #{{ f.id }}</v-list-item-subtitle>
+                            </v-list-item-content>
+                            <v-list-item-action class="my-0">
+                                <v-switch
+                                    :key="`vis-${f.id}-${visibilityRenderKey}`"
+                                    :input-value="isPrinterVisible(f)"
+                                    :loading="visibilityPending.includes(f.id)"
+                                    :disabled="visibilityPending.includes(f.id) || visibilityBulkBusy"
+                                    dense hide-details inset class="mt-0"
+                                    @change="setVisible([f.id], !!$event)" />
+                            </v-list-item-action>
+                        </v-list-item>
+                        <v-list-item v-if="!visibilityFilaments.length">
+                            <v-list-item-content class="text-center text--secondary">No filaments match</v-list-item-content>
+                        </v-list-item>
+                    </v-list>
+                </v-card-text>
+                <v-divider />
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn text @click="visibilityDialog = false">Close</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
+
         <!-- Delete Confirmation -->
         <v-dialog v-model="deleteDialog" max-width="400">
             <v-card>
@@ -172,7 +240,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js'
+import { mdiPlus, mdiPencil, mdiDelete, mdiEyeSettingsOutline, mdiMagnify } from '@mdi/js'
 import { FleetFilament, FleetVendor } from '@/store/fleet/spools/types'
 
 @Component
@@ -180,8 +248,16 @@ export default class FilamentListPanel extends Vue {
     mdiPlus = mdiPlus
     mdiPencil = mdiPencil
     mdiDelete = mdiDelete
+    mdiEyeSettingsOutline = mdiEyeSettingsOutline
+    mdiMagnify = mdiMagnify
 
     editDialog = false
+    visibilityDialog = false
+    visibilitySearch: string | null = null
+    visibilityPending: number[] = []
+    visibilityBulkBusy = false
+    // Bumped on a failed toggle so the switch re-renders from the store value.
+    visibilityRenderKey = 0
     deleteDialog = false
     saving = false
     editingFilament: FleetFilament | null = null
@@ -241,6 +317,66 @@ export default class FilamentListPanel extends Vue {
             if (this.filterMaterial && f.material !== this.filterMaterial) return false
             return true
         })
+    }
+
+    /** Daemons without the feature send no flag: treat as visible. */
+    isPrinterVisible(f: FleetFilament): boolean {
+        return f.printer_visible !== false
+    }
+
+    get visibleCount(): number {
+        return this.filaments.filter((f) => this.isPrinterVisible(f)).length
+    }
+
+    get visibilityFilaments(): FleetFilament[] {
+        const q = (this.visibilitySearch || '').trim().toLowerCase()
+        const rows = q
+            ? this.filaments.filter((f) =>
+                  [f.vendor_name, f.name, f.material, String(f.id)].some((s) => (s || '').toLowerCase().includes(q))
+              )
+            : this.filaments
+        return [...rows].sort(
+            (a, b) =>
+                (a.vendor_name || '').localeCompare(b.vendor_name || '') ||
+                (a.name || a.material).localeCompare(b.name || b.material) ||
+                a.id - b.id
+        )
+    }
+
+    async openVisibilityDialog() {
+        this.visibilitySearch = null
+        this.visibilityDialog = true
+        try {
+            // Refresh so the switches reflect the daemon's current list.
+            await this.$store.dispatch('fleet/spools/loadFilaments')
+        } catch (err: any) {
+            this.showSnackbar(err?.message || 'Failed to load filaments', 'error')
+        }
+    }
+
+    async setVisible(ids: number[], visible: boolean) {
+        if (!ids.length) return
+        this.visibilityPending.push(...ids)
+        try {
+            await this.$store.dispatch('fleet/spools/setFilamentPrinterVisibility', { ids, visible })
+        } catch (err: any) {
+            this.visibilityRenderKey++
+            this.showSnackbar(err?.message || 'Failed to update visibility', 'error')
+        } finally {
+            this.visibilityPending = this.visibilityPending.filter((id) => !ids.includes(id))
+        }
+    }
+
+    /** Show all / Hide all applies to the rows currently matching the search. */
+    async setVisibleBulk(visible: boolean) {
+        const ids = this.visibilityFilaments.filter((f) => this.isPrinterVisible(f) !== visible).map((f) => f.id)
+        if (!ids.length) return
+        this.visibilityBulkBusy = true
+        try {
+            await this.setVisible(ids, visible)
+        } finally {
+            this.visibilityBulkBusy = false
+        }
     }
 
     emptyForm() {

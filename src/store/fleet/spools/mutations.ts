@@ -44,7 +44,17 @@ export const mutations: MutationTree<FleetSpoolsState> = {
 
     updateFilament(state, updated: FleetFilament) {
         const idx = state.filaments.findIndex((f) => f.id === updated.id)
-        if (idx !== -1) Vue.set(state.filaments, idx, updated)
+        if (idx === -1) return
+        // Keep the site-local visibility flag if the response doesn't carry it.
+        const printer_visible = updated.printer_visible ?? state.filaments[idx].printer_visible
+        Vue.set(state.filaments, idx, { ...updated, printer_visible })
+    },
+
+    setFilamentPrinterVisibility(state, payload: { ids: number[]; visible: boolean }) {
+        const ids = new Set(payload.ids)
+        state.filaments.forEach((f, idx) => {
+            if (ids.has(f.id)) Vue.set(state.filaments, idx, { ...f, printer_visible: payload.visible })
+        })
     },
 
     removeFilament(state, id: number) {
