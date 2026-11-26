@@ -73,6 +73,14 @@
                             <v-date-picker v-model="form.due_date" @input="dueMenu = false" />
                         </v-menu>
                         <v-textarea v-model="form.description" label="Description" dense outlined rows="3" />
+                        <v-switch
+                            v-model="form.next_gcode_only"
+                            label="Next-gcode only"
+                            hint="Regular dispatch skips this job; it prints only on printers whose next-gcode points at it"
+                            persistent-hint
+                            dense
+                            inset
+                            class="mt-0" />
                     </v-col>
 
                     <!-- Items -->
@@ -373,6 +381,7 @@ export default class JobFormDialog extends Vue {
             operator_name: '',
             description: '',
             due_date: '' as string | null,
+            next_gcode_only: false,
         }
     }
 
@@ -397,6 +406,7 @@ export default class JobFormDialog extends Vue {
                 operator_name: j.operator_name ?? '',
                 description: j.description ?? '',
                 due_date: j.due_date ? j.due_date.slice(0, 10) : '',
+                next_gcode_only: !!j.next_gcode_only,
             }
             this.items = this.job.items.map((i) => {
                 const row = this.rowFromItem(i)
@@ -601,6 +611,7 @@ export default class JobFormDialog extends Vue {
                     operator_name: this.form.operator_name || '',
                     description: this.form.description || '',
                     due_date: this.dueDateIso() ?? '',
+                    next_gcode_only: !!this.form.next_gcode_only,
                 })
                 // Item edits (quantity, model, filament, nozzle, grams) are saved here too;
                 // rows picked in edit mode before a nozzle was entered are created now.
@@ -635,6 +646,7 @@ export default class JobFormDialog extends Vue {
                     quantity: Math.max(1, Number(this.form.quantity) || 1),
                     due_date: this.dueDateIso(),
                     items: this.items.map((r) => this.createPayload(r)),
+                    next_gcode_only: !!this.form.next_gcode_only,
                 }
                 if (this.po) payload.po_id = this.po.po.id
                 const detail: FleetJobDetail = await this.$store.dispatch('fleet/jobs/createJob', payload)

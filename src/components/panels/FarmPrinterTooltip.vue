@@ -16,6 +16,12 @@
                 <strong>Needs attention:</strong>
                 {{ attentionReason || 'see the Workers list' }}
             </p>
+            <p
+                v-for="(line, i) in nextGcodeText"
+                :key="'ng' + i"
+                :class="i === 0 ? 'next-gcode-line' : nextGcodeHolding ? 'attention-reason' : 'next-gcode-state'">
+                {{ line }}
+            </p>
             <p>IsConnected: {{ printer.socket.isConnected }}</p>
             <p>Filament: {{ printer.toolhead?.filament_type || 'N/A' }}</p>
             <p>Nozzle: {{ printer.toolhead?.nozzle_size || 'N/A' }}</p>
@@ -40,6 +46,8 @@ import {
     printerMaintenanceReason,
     printerUnderMaintenance,
 } from '@/components/panels/farmPrinterStatus'
+import { nextGcodeLines, workerForHost } from '@/components/panels/fleetWorkerAttention'
+import { FleetWorker, FleetWorkerNextGcode } from '@/store/fleet/jobs/types'
 
 /**
  * Hover card with a printer's live fleet_daemon state. Shared by the Fleet Map markers and
@@ -75,6 +83,20 @@ export default class FarmPrinterTooltip extends Vue {
     get printPercent(): number {
         return getPrinterPrintPercent(this.printer)
     }
+
+    /** This printer's next-gcode, from the Workers list in the store (null when none / not loaded). */
+    get nextGcode(): FleetWorkerNextGcode | null {
+        const workers: FleetWorker[] = this.$store.getters['fleet/workers/getWorkers'] || []
+        return workerForHost(workers, this.printer?.socket?.hostname || this.hostname)?.next_gcode ?? null
+    }
+
+    get nextGcodeText(): string[] {
+        return nextGcodeLines(this.nextGcode).map((l) => l.trim())
+    }
+
+    get nextGcodeHolding(): boolean {
+        return this.nextGcode?.state === 'holding'
+    }
 }
 </script>
 
@@ -102,6 +124,16 @@ export default class FarmPrinterTooltip extends Vue {
     color: #ff8a80;
     white-space: normal;
     max-width: 300px;
+}
+.printer-tooltip .next-gcode-line {
+    color: #b39ddb;
+    white-space: normal;
+    max-width: 300px;
+}
+.printer-tooltip .next-gcode-state {
+    white-space: normal;
+    max-width: 300px;
+    opacity: 0.85;
 }
 .printer-tooltip .webhook-message {
     white-space: pre-wrap;

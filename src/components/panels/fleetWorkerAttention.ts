@@ -1,4 +1,9 @@
-import { FleetSchedulerStatus, FleetWorker } from '@/store/fleet/jobs/types'
+import { FleetSchedulerStatus, FleetWorker, FleetWorkerNextGcode } from '@/store/fleet/jobs/types'
+import { hostKey } from '@/plugins/hostKey'
+
+/** Daemon worker reason while a no-fallback next-gcode is blocked
+ *  (fleet_job_scheduler.NG_HOLD_PREFIX): the printer is held idle. */
+export const NEXT_GCODE_HOLD_PREFIX = 'next-gcode (no fallback) blocked'
 
 /** Scheduler gate state the helpers below need; the full FleetSchedulerStatus also fits. */
 export type SchedulerGate = Pick<FleetSchedulerStatus, 'storage_available' | 'force_dispatch'> | null | undefined
@@ -35,8 +40,43 @@ export function workerNeedsAttention(w: FleetWorker, scheduler?: SchedulerGate):
         (r.startsWith('filament') && r.includes('needed')) ||
         r.startsWith('remaining_weight unknown') ||
         r.startsWith('nozzle worn out') ||
-        r.startsWith('nozzle life not set')
+        r.startsWith('nozzle life not set') ||
+        r.startsWith(NEXT_GCODE_HOLD_PREFIX) ||
+        w.next_gcode?.state === 'holding'
     )
+}
+
+/** Worker entry for a hostname from any source (roster, daemon frame, worker list). */
+export function workerForHost(workers: FleetWorker[], hostname: string | null | undefined): FleetWorker | undefined {
+    const h = hostKey(hostname)
+    if (!h) return undefined
+    return workers.find((w) => hostKey(w.printer_hostname) === h)
+}
+
+/** Hover lines for a printer's next-gcode: what is pinned, then its live state. */
+export function nextGcodeLines(ng: FleetWorkerNextGcode | null | undefined): string[] {
+    if (!ng) return []
+    const job = `job #${ng.job_id}${ng.job_name ? ` '${ng.job_name}'` : ''}`
+    const lines = [`Next-gcode: ${ng.gcode_filename} (${job})${ng.fallback === false ? ' · no fallback' : ''}`]
+    const why = ng.blocked_reason || 'unknown'
+    switch (ng.state) {
+        case 'waiting':
+            lines.push('  waiting for this printer to be free')
+            break
+        case 'dispatching':
+            lines.push('  starting now')
+            break
+        case 'fallback_dispatching':
+            lines.push('  blocked; a regular job is starting instead (clears the next-gcode)')
+            break
+        case 'blocked':
+            lines.push(`  blocked: ${why} (regular jobs may run instead)`)
+            break
+        case 'holding':
+            lines.push(`  blocked: ${why}; printer kept idle (no fallback)`)
+            break
+    }
+    return lines
 }
 
 /** Maintenance mode (set on the printer's KlipperScreen); daemon reason "under maintenance". */
@@ -70,6 +110,7 @@ export function attentionWorkerReasons(workers: FleetWorker[], scheduler?: Sched
 
 /** Hover text for a "N need attention" chip: `host: reason` per worker, or what the chip means when 0. */
 export function attentionChipTitle(hostnames: string[], reasons: Record<string, string>): string {
-    if (!hostnames.length) return 'Workers that could run a job but are blocked by low filament, not primed, a worn-out / unset nozzle, or the NAS being offline'
+    if (!hostnames.length)
+        return 'Workers that could run a job but are blocked by low filament, not primed, a worn-out / unset nozzle, a blocked no-fallback next-gcode, or the NAS being offline'
     return hostnames.map((h) => (reasons[h] ? `${h}: ${reasons[h]}` : h)).join('\n')
 }

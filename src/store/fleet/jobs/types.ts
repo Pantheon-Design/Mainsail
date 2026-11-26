@@ -76,6 +76,9 @@ export interface FleetJob {
     po_id?: number | null
     /** Joined from fleet_po */
     po_number?: string | null
+    /** Regular dispatch skips the job; it runs only where a printer's next-gcode
+     *  points at it. Newer daemons only. */
+    next_gcode_only?: boolean
     created_at: string
     updated_at: string
     // Aggregates from the list query
@@ -221,6 +224,35 @@ export interface FleetWorker {
     eval_job_name: string | null
     evaluated_at: string | null
     active_run: FleetWorkerActiveRun | null
+    /** Pinned next print (PUT /workers/{hostname}/next-gcode); null = none. Newer daemons only. */
+    next_gcode?: FleetWorkerNextGcode | null
+}
+
+/** Live state of a printer's next-gcode:
+ *  waiting = set, printer not free yet; dispatching = it is being started;
+ *  blocked = cannot run, regular jobs may run instead (that clears it);
+ *  holding = cannot run and fallback is off, so the printer is kept idle;
+ *  fallback_dispatching = blocked and a regular job is starting instead. */
+export type FleetNextGcodeState = 'waiting' | 'dispatching' | 'blocked' | 'holding' | 'fallback_dispatching'
+
+export interface FleetWorkerNextGcode {
+    gcode_filename: string
+    job_id: number
+    job_name: string | null
+    job_status: string | null
+    next_gcode_only?: boolean | null
+    item_id: number
+    version: number
+    /** false = the printer waits while the next-gcode is blocked */
+    fallback?: boolean
+    set_by: string | null
+    note: string | null
+    set_at: string | null
+    pending_run_id: number | null
+    pending_kind: 'next' | 'fallback' | null
+    pending_reason: string | null
+    state: FleetNextGcodeState
+    blocked_reason: string | null
 }
 
 /** Response of PATCH /workers/{hostname} and entries of POST /workers/bulk `updated`. */
@@ -363,6 +395,8 @@ export interface JobCreatePayload {
     items: JobItemCreatePayload[]
     /** purchase order this job fulfills */
     po_id?: number | null
+    /** only runs via a printer's next-gcode */
+    next_gcode_only?: boolean
 }
 
 export interface JobUpdatePayload {
@@ -377,6 +411,7 @@ export interface JobUpdatePayload {
     due_date?: string
     ready_to_ship?: boolean
     shipped?: boolean
+    next_gcode_only?: boolean
 }
 
 export interface JobListFilters {

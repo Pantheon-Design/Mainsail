@@ -53,6 +53,15 @@
             <template #item.name="{ item }">
                 {{ item.name }}
                 <v-chip
+                    v-if="item.next_gcode_only"
+                    x-small
+                    color="deep-purple"
+                    text-color="white"
+                    class="ml-1"
+                    title="Next-gcode only: regular dispatch skips this job; it prints only where a printer's next-gcode points at it">
+                    <v-icon x-small left>{{ mdiPin }}</v-icon>next-gcode only
+                </v-chip>
+                <v-chip
                     v-if="item.po_id"
                     x-small
                     outlined
@@ -176,7 +185,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import Component from 'vue-class-component'
-import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPlay, mdiPlus } from '@mdi/js'
+import { mdiAlertCircle, mdiDotsVertical, mdiMagnify, mdiPin, mdiPlay, mdiPlus } from '@mdi/js'
 import JobFormDialog from '@/components/dialogs/JobFormDialog.vue'
 import JobDetailsDialog from '@/components/dialogs/JobDetailsDialog.vue'
 import FleetNasBanner from '@/components/panels/FleetNasBanner.vue'
@@ -187,6 +196,7 @@ export default class JobListPanel extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiDotsVertical = mdiDotsVertical
     mdiMagnify = mdiMagnify
+    mdiPin = mdiPin
     mdiPlay = mdiPlay
     mdiPlus = mdiPlus
 

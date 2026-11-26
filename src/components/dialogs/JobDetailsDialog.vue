@@ -21,6 +21,22 @@
                     <v-icon x-small left>{{ mdiFileDocumentOutline }}</v-icon>
                     PO {{ detail.job.po_number || '#' + detail.job.po_id }}
                 </v-chip>
+                <v-chip
+                    small
+                    :outlined="!detail.job.next_gcode_only"
+                    :color="detail.job.next_gcode_only ? 'deep-purple' : 'grey'"
+                    :text-color="detail.job.next_gcode_only ? 'white' : undefined"
+                    :disabled="togglingNgOnly"
+                    class="ml-2"
+                    :title="
+                        detail.job.next_gcode_only
+                            ? 'Next-gcode only: regular dispatch skips this job; it prints only where a printer\'s next-gcode points at it. Click to let regular dispatch pick it again.'
+                            : 'Regular dispatch can pick this job. Click to make it next-gcode only.'
+                    "
+                    @click="toggleNextGcodeOnly">
+                    <v-icon x-small left>{{ mdiPin }}</v-icon>
+                    {{ detail.job.next_gcode_only ? 'Next-gcode only' : 'Regular dispatch' }}
+                </v-chip>
                 <v-spacer />
                 <v-btn small text @click="$emit('edit', detail)"><v-icon small left>{{ mdiPencil }}</v-icon> Edit</v-btn>
                 <v-menu offset-y>
@@ -266,6 +282,7 @@ import {
     mdiFileDocumentOutline,
     mdiHandBackRight,
     mdiPencil,
+    mdiPin,
     mdiPlay,
 } from '@mdi/js'
 import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, jobPriorityColor } from '@/store/fleet/jobs/types'
@@ -285,12 +302,14 @@ export default class JobDetailsDialog extends Vue {
     mdiFile = mdiFile
     mdiHandBackRight = mdiHandBackRight
     mdiPencil = mdiPencil
+    mdiPin = mdiPin
     mdiPlay = mdiPlay
 
     @Prop({ type: Boolean, default: false }) value!: boolean
 
     error = ''
     resuming = false
+    togglingNgOnly = false
     endDialog = false
     ending = false
     linksDialog = false
@@ -471,6 +490,23 @@ export default class JobDetailsDialog extends Vue {
             await this.$store.dispatch('fleet/jobs/setJobStatus', { id: this.detail.job.id, status })
         } catch (e: any) {
             this.error = e?.message ?? String(e)
+        }
+    }
+
+    /** Flip fleet_job.next_gcode_only (PATCH /jobs/{id}). */
+    async toggleNextGcodeOnly() {
+        if (!this.detail) return
+        this.error = ''
+        this.togglingNgOnly = true
+        try {
+            await this.$store.dispatch('fleet/jobs/updateJob', {
+                id: this.detail.job.id,
+                next_gcode_only: !this.detail.job.next_gcode_only,
+            })
+        } catch (e: any) {
+            this.error = e?.message ?? String(e)
+        } finally {
+            this.togglingNgOnly = false
         }
     }
 

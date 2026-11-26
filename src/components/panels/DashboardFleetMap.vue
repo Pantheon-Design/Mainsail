@@ -260,7 +260,8 @@ import {
     printerModel,
 } from '@/components/panels/farmMapGeometry'
 import { SQUARE_PRINTER_MODELS, PRINTER_MODEL_HEIGHT_SCALE } from '@/store/gui/remoteprinters/types'
-import { attentionChipTitle } from '@/components/panels/fleetWorkerAttention'
+import { attentionChipTitle, nextGcodeLines, workerForHost } from '@/components/panels/fleetWorkerAttention'
+import { FleetWorker } from '@/store/fleet/jobs/types'
 import { getOvenStatus, OVEN_LEGEND, OVEN_STATUS_META } from '@/components/panels/farmOvenStatus'
 import { OvenFrame } from '@/store/farm/types'
 
@@ -281,6 +282,8 @@ interface MarkerVm {
     maintenance: boolean
     attention: boolean
     reason: string | null
+    /** next-gcode hover lines (nextGcodeLines), empty when none */
+    nextGcode: string[]
 }
 
 interface OvenVm {
@@ -327,6 +330,10 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
 
     get roster(): Record<string, any> {
         return this.$store.state.gui?.remoteprinters?.printers || {}
+    }
+
+    get workers(): FleetWorker[] {
+        return this.$store.getters['fleet/workers/getWorkers'] || []
     }
 
     get frames(): Record<string, any> {
@@ -388,6 +395,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
                     m.maintenance ? printerMaintenanceReason(m.printer) : '',
                     m.attention ? 1 : 0,
                     m.reason ?? '',
+                    m.nextGcode.join(';'),
                     m.printer?.toolhead?.filament_type ?? '',
                     m.printer?.socket?.webPort ?? '',
                 ].join(',')
@@ -434,6 +442,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
                     maintenance: printerUnderMaintenance(printer),
                     attention,
                     reason: attention ? this.reasonFor(hostname) : null,
+                    nextGcode: nextGcodeLines(workerForHost(this.workers, hostname)?.next_gcode),
                 }
             })
     }
@@ -555,6 +564,7 @@ export default class DashboardFleetMap extends Mixins(BaseMixin) {
         }
         if (p.worker) lines.push('Fleet worker')
         if (p.attention) lines.push(`Needs attention: ${p.reason || 'see the Workers list'}`)
+        lines.push(...p.nextGcode)
         return lines.join('\n')
     }
 
