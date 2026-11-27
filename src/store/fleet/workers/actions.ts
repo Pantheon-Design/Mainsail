@@ -2,7 +2,7 @@ import { ActionTree } from 'vuex'
 import axios from 'axios'
 import { RootState } from '@/store/types'
 import { toApiError } from '@/store/fleet/utils'
-import { FleetWorkersState, FleetWorkerRow, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
+import { FleetWorkersState, FleetWorkerRow, FleetSchedulerStatus, FleetNextGcodeEvent } from '@/store/fleet/jobs/types'
 
 export interface FleetAutoExtruderTempResult {
     hostname: string
@@ -182,6 +182,28 @@ export const actions: ActionTree<FleetWorkersState, RootState> = {
             return response.data
         } catch (error) {
             throw toApiError(error)
+        }
+    },
+
+    /**
+     * GET /workers/next-gcode/history — next-gcode events, newest first. `jobId` matches the
+     * next-gcode's job or the job that ran instead (superseded). Not cached in the store.
+     */
+    async loadNextGcodeHistory(
+        { rootGetters },
+        payload: { printer?: string | null; jobId?: number | null; event?: string | null; limit?: number } = {}
+    ): Promise<FleetNextGcodeEvent[]> {
+        const baseUrl = rootGetters['gui/fleetDaemonUrl']
+        const params: Record<string, string | number> = { limit: payload.limit ?? 200 }
+        if (payload.printer) params.printer = payload.printer
+        if (payload.jobId != null) params.job_id = payload.jobId
+        if (payload.event) params.event = payload.event
+        try {
+            const response = await axios.get(`${baseUrl}/workers/next-gcode/history`, { params })
+            return response.data ?? []
+        } catch (error) {
+            const err = toApiError(error)
+            throw new Error(`Load next-gcode history failed: ${err.message}`)
         }
     },
 

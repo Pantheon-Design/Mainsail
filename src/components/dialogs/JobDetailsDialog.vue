@@ -58,6 +58,32 @@
             <v-card-text>
                 <v-alert v-if="error" type="error" dense dismissible class="mb-3" @input="error = ''">{{ error }}</v-alert>
 
+                <!-- Printers whose next-gcode points at this job -->
+                <div v-if="pinnedWorkers.length || (detail.job.next_gcode_only && workersLoaded)" class="d-flex align-center flex-wrap mb-3">
+                    <v-icon small color="deep-purple" class="mr-1">{{ mdiPin }}</v-icon>
+                    <template v-if="pinnedWorkers.length">
+                        <span class="text-caption mr-2">Next-gcode on:</span>
+                        <v-chip
+                            v-for="w in pinnedWorkers"
+                            :key="'ng-' + w.printer_hostname"
+                            x-small
+                            :color="ngStateColor(w)"
+                            text-color="white"
+                            class="mr-1 mb-1"
+                            :title="ngTitle(w)">
+                            {{ shortHost(w.printer_hostname) }} · {{ ngStateLabel(w) }}
+                            <span v-if="w.next_gcode && w.next_gcode.hold_until" class="ml-1">
+                                until {{ ngClock(w.next_gcode.hold_until) }}
+                            </span>
+                        </v-chip>
+                    </template>
+                    <span v-else class="text-caption warning--text mr-2">
+                        Next-gcode only, but no printer's next-gcode points at this job: nothing will print it.
+                    </span>
+                    <a class="text-caption ng-history-link" @click="ngHistoryOpen = true">history</a>
+                </div>
+                <next-gcode-history-dialog v-model="ngHistoryOpen" :job-id="detail.job.id" />
+
                 <!-- Scheduler-initiated hold: nothing is dispatched until an operator resumes. -->
                 <v-alert v-if="detail.job.hold_reason" type="error" text class="mb-3">
                     <div class="font-weight-medium mb-1">
@@ -285,14 +311,16 @@ import {
     mdiPin,
     mdiPlay,
 } from '@mdi/js'
-import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, jobPriorityColor } from '@/store/fleet/jobs/types'
+import { FleetJob, FleetJobDetail, FleetJobItem, FleetJobRun, FleetWorker, jobPriorityColor } from '@/store/fleet/jobs/types'
 import { computeRunStats } from '@/store/fleet/jobs/runStats'
 import { formatHoursDh } from '@/store/fleet/forecast'
 import { FleetHistoryRecord } from '@/store/fleet/history/types'
 import FleetHistoryRecordDialog from '@/components/dialogs/FleetHistoryRecordDialog.vue'
 import GcodePartsEditDialog from '@/components/po/GcodePartsEditDialog.vue'
+import NextGcodeHistoryDialog from '@/components/dialogs/NextGcodeHistoryDialog.vue'
+import { NEXT_GCODE_STATE_META, nextGcodeClock, nextGcodeLines } from '@/components/panels/fleetWorkerAttention'
 
-@Component({ components: { FleetHistoryRecordDialog, GcodePartsEditDialog } })
+@Component({ components: { FleetHistoryRecordDialog, GcodePartsEditDialog, NextGcodeHistoryDialog } })
 export default class JobDetailsDialog extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiAlertOutline = mdiAlertOutline
@@ -310,6 +338,7 @@ export default class JobDetailsDialog extends Vue {
     error = ''
     resuming = false
     togglingNgOnly = false
+    ngHistoryOpen = false
     endDialog = false
     ending = false
     linksDialog = false
@@ -493,6 +522,39 @@ export default class JobDetailsDialog extends Vue {
         }
     }
 
+    /** Workers whose next-gcode points at this job (from the Workers list in the store). */
+    get pinnedWorkers(): FleetWorker[] {
+        const id = this.detail?.job.id
+        const workers: FleetWorker[] = this.$store.getters['fleet/workers/getWorkers'] || []
+        return workers.filter((w) => w.next_gcode && w.next_gcode.job_id === id)
+    }
+
+    /** Workers list present (avoids the "nothing will print it" warning before it loads). */
+    get workersLoaded(): boolean {
+        return (this.$store.getters['fleet/workers/getWorkers'] || []).length > 0
+    }
+
+    ngStateLabel(w: FleetWorker): string {
+        const st = w.next_gcode?.state ?? ''
+        return NEXT_GCODE_STATE_META[st]?.label ?? st
+    }
+
+    ngStateColor(w: FleetWorker): string {
+        return NEXT_GCODE_STATE_META[w.next_gcode?.state ?? '']?.color ?? 'grey'
+    }
+
+    ngTitle(w: FleetWorker): string {
+        return nextGcodeLines(w.next_gcode).join('\n')
+    }
+
+    ngClock(ts: string | null | undefined): string {
+        return nextGcodeClock(ts)
+    }
+
+    shortHost(h: string): string {
+        return (h || '').replace(/\.local$/i, '')
+    }
+
     /** Flip fleet_job.next_gcode_only (PATCH /jobs/{id}). */
     async toggleNextGcodeOnly() {
         if (!this.detail) return
@@ -523,6 +585,10 @@ export default class JobDetailsDialog extends Vue {
 </script>
 
 <style scoped>
+.ng-history-link {
+    cursor: pointer;
+    text-decoration: underline;
+}
 .run-table >>> tbody tr {
     cursor: pointer;
 }

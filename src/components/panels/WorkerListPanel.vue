@@ -27,6 +27,10 @@
                 <span>NAS gate bypassed ({{ scheduler.force_dispatch.mode === 'until_online' ? 'until the NAS is back' : 'one pass' }}): jobs start only on printers that already hold the file.</span>
             </v-tooltip>
             <v-btn x-small text :loading="ticking" @click="tick">Run scheduler now</v-btn>
+            <v-btn x-small text title="Next-gcode events of every printer" @click="openNgHistory(null)">
+                <v-icon x-small left color="deep-purple">{{ mdiPin }}</v-icon>
+                Next-gcode history{{ nextGcodeCount ? ` · ${nextGcodeCount} set` : '' }}
+            </v-btn>
             <v-chip small outlined class="ml-2 mr-2">
                 <v-icon x-small left color="orange">{{ mdiHammer }}</v-icon>
                 {{ enabledHostnames.length }} worker{{ enabledHostnames.length === 1 ? '' : 's' }}
@@ -75,6 +79,8 @@
         </v-card-subtitle>
 
         <v-alert v-if="error" type="error" dense dismissible class="mx-4" @input="error = ''">{{ error }}</v-alert>
+
+        <next-gcode-history-dialog v-model="ngHistoryOpen" :printer="ngHistoryPrinter" />
 
         <!-- Map view: the fleet map as a toggle surface + a simplified side list.
              The divider between them is draggable; the chosen list width is remembered.
@@ -163,6 +169,15 @@
                                 <v-icon v-if="needsAttention(w)" x-small color="error" class="ml-1" :title="attentionReasons[w.printer_hostname] || w.reason">{{ mdiExclamationThick }}</v-icon>
                                 <v-icon v-else-if="w.enabled" x-small color="orange" class="ml-1">{{ mdiHammer }}</v-icon>
                                 <div class="text-caption text--secondary">{{ w.printer_model || '' }} · {{ statusText(w) }}</div>
+                                <div
+                                    v-if="w.next_gcode"
+                                    class="text-caption ng-side-line"
+                                    :class="{ 'error--text': w.next_gcode.state === 'holding' }"
+                                    :title="ngTitle(w)">
+                                    <v-icon x-small color="deep-purple">{{ mdiPin }}</v-icon>
+                                    {{ baseName(w.next_gcode.gcode_filename) }} · {{ ngStateLabel(w) }}
+                                    <span v-if="w.next_gcode.hold_until">· until {{ clock(w.next_gcode.hold_until) }}</span>
+                                </div>
                             </td>
                             <td class="text-caption">
                                 {{ liveFilament(w) || '—' }}
@@ -220,6 +235,32 @@
             <template #item.reason="{ item }">
                 <span :class="item.eligible ? 'green--text' : ''">{{ item.reason || '—' }}</span>
             </template>
+            <template #item.next_gcode="{ item }">
+                <div v-if="item.next_gcode" class="text-caption ng-cell" :title="ngTitle(item)">
+                    <v-chip x-small :color="ngStateColor(item)" text-color="white" class="mr-1">
+                        <v-icon x-small left>{{ mdiPin }}</v-icon>
+                        {{ ngStateLabel(item) }}
+                    </v-chip>
+                    <span v-if="ngPolicy(item)" class="text--secondary">{{ ngPolicy(item) }}</span>
+                    <div class="text-truncate" style="max-width: 240px">{{ item.next_gcode.gcode_filename }}</div>
+                    <a class="job-link" @click.stop="openJob(item.next_gcode.job_id)">
+                        #{{ item.next_gcode.job_id }} {{ item.next_gcode.job_name || '' }}
+                    </a>
+                    <span v-if="item.next_gcode.next_gcode_only" class="text--secondary">· next-gcode only</span>
+                    <div :class="item.next_gcode.state === 'holding' ? 'error--text' : 'text--secondary'">
+                        {{ ngStateText(item) }}
+                    </div>
+                    <div v-if="ngSetText(item)" class="text--secondary">{{ ngSetText(item) }}</div>
+                    <a class="job-link text--secondary" @click.stop="openNgHistory(item.printer_hostname)">history</a>
+                </div>
+                <a
+                    v-else
+                    class="job-link text--secondary text-caption"
+                    title="Next-gcode events of this printer"
+                    @click.stop="openNgHistory(item.printer_hostname)">
+                    none · history
+                </a>
+            </template>
             <template #item.active_run="{ item }">
                 <div v-if="item.active_run" class="text-caption">
                     <v-chip x-small :color="item.active_run.source === 'manual' ? 'orange' : 'blue'" text-color="white" class="mr-1">
@@ -241,16 +282,32 @@
 import Vue from 'vue'
 import Component from 'vue-class-component'
 import { Watch } from 'vue-property-decorator'
-import { mdiAlertCircle, mdiExclamationThick, mdiFormatListBulleted, mdiHammer, mdiHandBackRight, mdiMapOutline, mdiRobot } from '@mdi/js'
+import {
+    mdiAlertCircle,
+    mdiExclamationThick,
+    mdiFormatListBulleted,
+    mdiHammer,
+    mdiHandBackRight,
+    mdiMapOutline,
+    mdiPin,
+    mdiRobot,
+} from '@mdi/js'
 import { FleetWorker, FleetSchedulerStatus } from '@/store/fleet/jobs/types'
 import { getPrinterStatus, PrinterStatus, STATUS_META, STATUS_ORDER } from '@/components/panels/farmPrinterStatus'
 import FarmMapSection from '@/components/panels/FarmMapSection.vue'
 import FleetNasBanner from '@/components/panels/FleetNasBanner.vue'
+import NextGcodeHistoryDialog from '@/components/dialogs/NextGcodeHistoryDialog.vue'
 import {
     attentionChipTitle,
     attentionWorkerHostnames,
     attentionWorkerReasons,
     enabledWorkerHostnames,
+    NEXT_GCODE_STATE_META,
+    nextGcodeClock,
+    nextGcodeLines,
+    nextGcodePolicy,
+    nextGcodeSetText,
+    nextGcodeStateText,
     workerNeedsAttention,
 } from '@/components/panels/fleetWorkerAttention'
 import { hostKey } from '@/plugins/hostKey'
@@ -261,7 +318,7 @@ const SIDE_WIDTH_KEY = 'fleetWorkersSideWidth'
 const SIDE_MIN_WIDTH = 260
 const MAP_MIN_WIDTH = 360
 
-@Component({ components: { FarmMapSection, FleetNasBanner } })
+@Component({ components: { FarmMapSection, FleetNasBanner, NextGcodeHistoryDialog } })
 export default class WorkerListPanel extends Vue {
     mdiAlertCircle = mdiAlertCircle
     mdiHandBackRight = mdiHandBackRight
@@ -270,6 +327,7 @@ export default class WorkerListPanel extends Vue {
     mdiExclamationThick = mdiExclamationThick
     mdiFormatListBulleted = mdiFormatListBulleted
     mdiMapOutline = mdiMapOutline
+    mdiPin = mdiPin
 
     view: 'list' | 'map' = 'map'
     /** Printer hovered in the side list; highlighted on the map. */
@@ -414,6 +472,8 @@ export default class WorkerListPanel extends Vue {
     ticking = false
     disableAllDialog = false
     bulkBusy = false
+    ngHistoryOpen = false
+    ngHistoryPrinter: string | null = null
 
     headers = [
         { text: 'Worker', value: 'enabled', width: 110, sortable: false },
@@ -422,6 +482,7 @@ export default class WorkerListPanel extends Vue {
         { text: 'Filament / nozzle', value: 'filament_type', width: 150 },
         { text: 'Primed', value: 'primed', width: 100 },
         { text: 'Scheduler', value: 'reason' },
+        { text: 'Next-gcode', value: 'next_gcode', sortable: false, width: 260 },
         { text: 'Active run', value: 'active_run', sortable: false },
     ]
 
@@ -620,6 +681,49 @@ export default class WorkerListPanel extends Vue {
         }
     }
 
+    get nextGcodeCount(): number {
+        return this.workers.filter((w) => w.next_gcode).length
+    }
+
+    openNgHistory(hostname: string | null) {
+        this.ngHistoryPrinter = hostname
+        this.ngHistoryOpen = true
+    }
+
+    ngStateLabel(w: FleetWorker): string {
+        const st = w.next_gcode?.state ?? ''
+        return NEXT_GCODE_STATE_META[st]?.label ?? st
+    }
+
+    ngStateColor(w: FleetWorker): string {
+        return NEXT_GCODE_STATE_META[w.next_gcode?.state ?? '']?.color ?? 'grey'
+    }
+
+    ngPolicy(w: FleetWorker): string {
+        return w.next_gcode ? nextGcodePolicy(w.next_gcode) : ''
+    }
+
+    ngStateText(w: FleetWorker): string {
+        return w.next_gcode ? nextGcodeStateText(w.next_gcode) : ''
+    }
+
+    ngSetText(w: FleetWorker): string {
+        return w.next_gcode ? nextGcodeSetText(w.next_gcode) : ''
+    }
+
+    /** Full hover text (same lines as the map tooltip). */
+    ngTitle(w: FleetWorker): string {
+        return nextGcodeLines(w.next_gcode).join('\n')
+    }
+
+    clock(ts: string | null | undefined): string {
+        return nextGcodeClock(ts)
+    }
+
+    baseName(path: string): string {
+        return (path || '').split('/').pop() || path
+    }
+
     openJob(id: number) {
         this.$router.push({ path: '/jobs', query: { openJob: String(id) } }).catch(() => {})
     }
@@ -716,6 +820,18 @@ export default class WorkerListPanel extends Vue {
 .job-link {
     cursor: pointer;
     text-decoration: underline;
+}
+.ng-cell {
+    white-space: normal;
+    max-width: 260px;
+    padding: 2px 0;
+}
+.ng-side-line {
+    color: #9575cd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
 }
 
 /* Total fleet status (mirrors Farm.vue header + FarmMapSection legend) */

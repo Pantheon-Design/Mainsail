@@ -245,6 +245,13 @@ export interface FleetWorkerNextGcode {
     version: number
     /** false = the printer waits while the next-gcode is blocked */
     fallback?: boolean
+    /** fallback=false only: max minutes the printer is held once the next-gcode is first
+     *  found blocked on a free printer; null = held indefinitely. Newer daemons only. */
+    hold_minutes?: number | null
+    /** When the hold timer started (first blocked attempt); null = not started. */
+    hold_started_at?: string | null
+    /** hold_started_at + hold_minutes; once past, a still-blocked next-gcode is cleared (hold_expired). */
+    hold_until?: string | null
     set_by: string | null
     note: string | null
     set_at: string | null
@@ -253,6 +260,42 @@ export interface FleetWorkerNextGcode {
     pending_reason: string | null
     state: FleetNextGcodeState
     blocked_reason: string | null
+}
+
+export type FleetNextGcodeEventType =
+    | 'set'
+    | 'replaced'
+    | 'cleared'
+    | 'started'
+    | 'dispatch_failed'
+    | 'superseded'
+    | 'hold_started'
+    | 'hold_expired'
+
+/** Row of GET /workers/next-gcode/history (fleet_next_gcode_event), newest first. */
+export interface FleetNextGcodeEvent {
+    id: number
+    created_at: string
+    printer_hostname: string
+    event: FleetNextGcodeEventType
+    actor: 'api' | 'scheduler'
+    version: number | null
+    gcode_filename: string | null
+    job_id: number | null
+    job_name: string | null
+    item_id: number | null
+    run_id: number | null
+    /** superseded: the regular job that ran instead */
+    fallback_job_id: number | null
+    fallback_job_name: string | null
+    fallback_item_id: number | null
+    fallback_gcode: string | null
+    reason: string | null
+    set_by: string | null
+    note: string | null
+    /** the next-gcode's fallback flag at the time of the event */
+    fallback: boolean | null
+    hold_minutes?: number | null
 }
 
 /** Response of PATCH /workers/{hostname} and entries of POST /workers/bulk `updated`. */

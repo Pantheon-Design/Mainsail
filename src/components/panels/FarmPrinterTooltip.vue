@@ -19,7 +19,9 @@
             <p
                 v-for="(line, i) in nextGcodeText"
                 :key="'ng' + i"
-                :class="i === 0 ? 'next-gcode-line' : nextGcodeHolding ? 'attention-reason' : 'next-gcode-state'">
+                :class="
+                    i === 0 ? 'next-gcode-line' : i === 1 && nextGcodeHolding ? 'attention-reason' : 'next-gcode-state'
+                ">
                 {{ line }}
             </p>
             <p>IsConnected: {{ printer.socket.isConnected }}</p>

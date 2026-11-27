@@ -53,29 +53,89 @@ export function workerForHost(workers: FleetWorker[], hostname: string | null | 
     return workers.find((w) => hostKey(w.printer_hostname) === h)
 }
 
-/** Hover lines for a printer's next-gcode: what is pinned, then its live state. */
+/** Short state label + chip colour for a next-gcode state. */
+export const NEXT_GCODE_STATE_META: Record<string, { label: string; color: string }> = {
+    waiting: { label: 'waiting', color: 'deep-purple' },
+    dispatching: { label: 'starting', color: 'blue' },
+    fallback_dispatching: { label: 'superseded', color: 'orange' },
+    blocked: { label: 'blocked', color: 'orange' },
+    holding: { label: 'holding', color: 'red' },
+}
+
+/** "14:05" today, else "Nov 27 14:05" (browser local time). */
+export function nextGcodeClock(ts: string | null | undefined): string {
+    if (!ts) return ''
+    const d = new Date(ts)
+    if (isNaN(d.getTime())) return ''
+    const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (d.toDateString() === new Date().toDateString()) return hm
+    return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${hm}`
+}
+
+/** "45 min" / "2 h" / "1 h 30 min" / "3 d". */
+export function formatHoldMinutes(m: number): string {
+    if (m % 1440 === 0) return `${m / 1440} d`
+    if (m < 60) return `${m} min`
+    return m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} h`
+}
+
+/** Fallback / hold policy of a next-gcode, e.g. "no fallback · hold 30 min". Empty with fallback on. */
+export function nextGcodePolicy(ng: FleetWorkerNextGcode): string {
+    if (ng.fallback !== false) return ''
+    return ng.hold_minutes
+        ? `no fallback · hold ${formatHoldMinutes(ng.hold_minutes)}`
+        : 'no fallback · hold indefinitely'
+}
+
+/** Hold-timer sentence for a no-fallback next-gcode ('' when not applicable). */
+export function nextGcodeHoldText(ng: FleetWorkerNextGcode): string {
+    if (ng.fallback !== false) return ''
+    if (!ng.hold_minutes) return 'held until it can run or is changed/cleared'
+    if (ng.hold_until) return `held until ${nextGcodeClock(ng.hold_until)}, then cleared and regular jobs resume`
+    return `hold timer (${formatHoldMinutes(ng.hold_minutes)}) starts the first time it is blocked on a free printer`
+}
+
+/** One-line live state of a next-gcode (no leading indent). */
+export function nextGcodeStateText(ng: FleetWorkerNextGcode): string {
+    const why = ng.blocked_reason || 'unknown'
+    const hold = nextGcodeHoldText(ng)
+    switch (ng.state) {
+        case 'waiting':
+            return 'waiting for this printer to be free' + (hold && ng.hold_until ? `; ${hold}` : '')
+        case 'dispatching':
+            return 'starting now' + (ng.pending_run_id ? ` (run #${ng.pending_run_id})` : '')
+        case 'fallback_dispatching':
+            return `blocked${
+                ng.pending_reason ? `: ${ng.pending_reason}` : ''
+            }; a regular job is starting instead (clears the next-gcode)`
+        case 'blocked':
+            return `blocked: ${why} (regular jobs may run instead)`
+        case 'holding':
+            return `blocked: ${why}; printer kept idle — ${hold}`
+    }
+    return ng.state || ''
+}
+
+/** "set 14:05 by azi: “note”" ('' when nothing is known). */
+export function nextGcodeSetText(ng: FleetWorkerNextGcode): string {
+    const parts: string[] = []
+    if (ng.set_at) parts.push(`set ${nextGcodeClock(ng.set_at)}`)
+    if (ng.set_by) parts.push(`by ${ng.set_by}`)
+    let s = parts.join(' ')
+    if (ng.note) s = s ? `${s}: “${ng.note}”` : `note: “${ng.note}”`
+    return s
+}
+
+/** Hover lines for a printer's next-gcode: [0] what is pinned, [1] its live state,
+ *  then who set it (when known). Indented lines are detail. */
 export function nextGcodeLines(ng: FleetWorkerNextGcode | null | undefined): string[] {
     if (!ng) return []
     const job = `job #${ng.job_id}${ng.job_name ? ` '${ng.job_name}'` : ''}`
-    const lines = [`Next-gcode: ${ng.gcode_filename} (${job})${ng.fallback === false ? ' · no fallback' : ''}`]
-    const why = ng.blocked_reason || 'unknown'
-    switch (ng.state) {
-        case 'waiting':
-            lines.push('  waiting for this printer to be free')
-            break
-        case 'dispatching':
-            lines.push('  starting now')
-            break
-        case 'fallback_dispatching':
-            lines.push('  blocked; a regular job is starting instead (clears the next-gcode)')
-            break
-        case 'blocked':
-            lines.push(`  blocked: ${why} (regular jobs may run instead)`)
-            break
-        case 'holding':
-            lines.push(`  blocked: ${why}; printer kept idle (no fallback)`)
-            break
-    }
+    const tags = [nextGcodePolicy(ng), ng.next_gcode_only ? 'next-gcode-only job' : ''].filter(Boolean)
+    const lines = [`Next-gcode: ${ng.gcode_filename} (${job})${tags.length ? ' · ' + tags.join(' · ') : ''}`]
+    lines.push(`  ${nextGcodeStateText(ng)}`)
+    const set = nextGcodeSetText(ng)
+    if (set) lines.push(`  ${set}`)
     return lines
 }
 
